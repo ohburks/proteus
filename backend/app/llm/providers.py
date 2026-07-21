@@ -6,22 +6,32 @@ call shape. `openai`/`anthropic` SDKs are optional/available but not
 required for these calls.
 """
 import json
+import time
 import urllib.error
 import urllib.request
 
 from app.llm.base import LLMClient, ProviderConfig
 
 _TIMEOUT_S = 120
+_MAX_RETRIES = 5
+_RETRY_BACKOFF_S = 5
 
 
 def _post_json(url: str, headers: dict[str, str], body: dict) -> dict:
     data = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json", **headers}, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=_TIMEOUT_S) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        raise RuntimeError(f"LLM request to {url} failed: {e.code} {e.read().decode('utf-8', 'replace')}") from e
+    for attempt in range(_MAX_RETRIES + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=_TIMEOUT_S) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            body_text = e.read().decode("utf-8", "replace")
+            if e.code == 429 and attempt < _MAX_RETRIES:
+                retry_after = e.headers.get("Retry-After") if e.headers else None
+                wait_s = float(retry_after) if retry_after else _RETRY_BACKOFF_S * (attempt + 1)
+                time.sleep(wait_s)
+                continue
+            raise RuntimeError(f"LLM request to {url} failed: {e.code} {body_text}") from e
 
 
 class _OpenAICompatibleClient:
