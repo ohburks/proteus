@@ -40,3 +40,43 @@ export const api = {
   put: <T,>(path: string, body?: unknown) => request<T>("PUT", path, body),
   del: <T,>(path: string) => request<T>("DELETE", path),
 };
+
+/**
+ * Consume a text/event-stream endpoint line by line. TESTING ONLY — backs the
+ * dev live-grading terminal; not a general-purpose SSE client.
+ */
+export async function streamLines(
+  path: string,
+  onLine: (line: string) => void,
+  onDone: (status: string) => void,
+): Promise<void> {
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(path, { headers });
+  if (!res.ok || !res.body) {
+    onDone("error");
+    return;
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const chunks = buffer.split("\n\n");
+    buffer = chunks.pop() ?? "";
+    for (const chunk of chunks) {
+      const eventMatch = chunk.match(/^event: (.*)$/m);
+      const dataMatch = chunk.match(/^data: (.*)$/m);
+      const data = dataMatch ? dataMatch[1] : "";
+      if (eventMatch?.[1] === "done") {
+        onDone(data);
+        return;
+      }
+      if (data) onLine(data);
+    }
+  }
+  onDone("complete");
+}

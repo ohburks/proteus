@@ -1,12 +1,15 @@
 """Grading trigger + output grade retrieval (design doc §7)."""
 import json
+import threading
 import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 
 from app.auth import CurrentUser, get_current_user
 from app.db import get_connection
+from app.grading import progress
 from app.grading.engine import run_dual_path_for_criterion
 from app.llm.key_resolution import resolve_provider_config
 from app.llm.providers import build_client
@@ -17,6 +20,34 @@ router = APIRouter(prefix="/api/assessments", tags=["assessments"])
 
 def _now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def _run_assessment(assessment_id: str, client, criteria_rows_dicts, assignment_dict, essay_text, instructor_id):
+    with get_connection() as conn:
+        try:
+            for c in criteria_rows_dicts:
+                criterion = {
+                    "criterionId": c["criterion_id"],
+                    "statement": c["statement"],
+                    "anchors": json.loads(c["anchors_json"]),
+                }
+                run_dual_path_for_criterion(
+                    conn, client,
+                    assessment_id=assessment_id, criterion=criterion,
+                    rubric_id=assignment_dict["rubric_id"], rubric_version=assignment_dict["rubric_version"],
+                    essay_text=essay_text, assignment_id=assignment_dict["id"],
+                    instructor_id=instructor_id, course_id=assignment_dict["course_id"],
+                    emit=lambda msg, aid=assessment_id: progress.emit(aid, msg),
+                )
+            conn.execute("UPDATE assessments SET status = 'complete' WHERE id = ?", (assessment_id,))
+            conn.commit()
+            progress.emit(assessment_id, "Assessment complete.")
+            progress.finish(assessment_id, "complete")
+        except Exception as e:
+            conn.execute("UPDATE assessments SET status = 'failed' WHERE id = ?", (assessment_id,))
+            conn.commit()
+            progress.emit(assessment_id, f"Assessment FAILED: {e}")
+            progress.finish(assessment_id, "failed")
 
 
 @router.post("")
@@ -60,28 +91,41 @@ def start_assessment(body: GradeRequest, user: CurrentUser = Depends(get_current
         )
         conn.commit()
 
-        try:
-            for c in criteria_rows:
-                criterion = {
-                    "criterionId": c["criterion_id"],
-                    "statement": c["statement"],
-                    "anchors": json.loads(c["anchors_json"]),
-                }
-                run_dual_path_for_criterion(
-                    conn, client,
-                    assessment_id=assessment_id, criterion=criterion,
-                    rubric_id=assignment["rubric_id"], rubric_version=assignment["rubric_version"],
-                    essay_text=essay["text"], assignment_id=assignment["id"],
-                    instructor_id=instructor_id, course_id=assignment["course_id"],
-                )
-            conn.execute("UPDATE assessments SET status = 'complete' WHERE id = ?", (assessment_id,))
-        except Exception:
-            conn.execute("UPDATE assessments SET status = 'failed' WHERE id = ?", (assessment_id,))
-            conn.commit()
-            raise
-        conn.commit()
+        # Snapshot everything the background thread needs — it opens its own
+        # sqlite connection rather than sharing this request's connection.
+        criteria_rows_dicts = [dict(c) for c in criteria_rows]
+        assignment_dict = dict(assignment)
+        essay_text = essay["text"]
 
-    return {"id": assessment_id, "status": "complete"}
+    progress.start(assessment_id)
+    progress.emit(assessment_id, f"Assessment started — provider={config.provider} model={config.model}, {len(criteria_rows_dicts)} criteria")
+    thread = threading.Thread(
+        target=_run_assessment,
+        args=(assessment_id, client, criteria_rows_dicts, assignment_dict, essay_text, instructor_id),
+        daemon=True,
+    )
+    thread.start()
+
+    return {"id": assessment_id, "status": "running"}
+
+
+@router.get("/{assessment_id}/stream")
+def stream_assessment_progress(assessment_id: str, user: CurrentUser = Depends(get_current_user)):
+    """Live grading terminal feed (SSE) — TESTING ONLY.
+
+    In-memory only (see app.grading.progress): dev/demo aid, not a durable
+    audit trail and not safe to rely on with multiple server workers.
+    """
+    instructor_id = user.scoped_instructor_id()
+    with get_connection() as conn:
+        assessment = conn.execute("SELECT * FROM assessments WHERE id = ?", (assessment_id,)).fetchone()
+        if assessment is None or assessment["instructor_id"] != instructor_id:
+            raise HTTPException(404, "Assessment not found")
+    return StreamingResponse(
+        progress.stream(assessment_id),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.get("")

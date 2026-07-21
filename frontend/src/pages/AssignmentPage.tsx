@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { api, ApiError } from "../lib/api";
+import { api, ApiError, streamLines } from "../lib/api";
 import type { Essay } from "../lib/types";
 
 export function AssignmentPage() {
@@ -13,6 +13,14 @@ export function AssignmentPage() {
   const [model, setModel] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [terminalLines, setTerminalLines] = useState<string[]>([]);
+  const [terminalAssessmentId, setTerminalAssessmentId] = useState<string | null>(null);
+  const [terminalStatus, setTerminalStatus] = useState<"running" | "complete" | "failed" | null>(null);
+  const terminalEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    terminalEndRef.current?.scrollIntoView({ block: "nearest" });
+  }, [terminalLines]);
 
   function refresh() {
     if (!assignmentId) return;
@@ -32,12 +40,20 @@ export function AssignmentPage() {
   async function grade(essayId: string) {
     setError(null);
     setBusy(essayId);
+    setTerminalLines([]);
+    setTerminalStatus("running");
     try {
       const byok = provider ? { provider, api_key: apiKey || null, model: model || null } : undefined;
       const assessment = await api.post<{ id: string }>("/api/assessments", { essay_id: essayId, byok });
-      navigate(`/assessments/${assessment.id}`);
+      setTerminalAssessmentId(assessment.id);
+      await streamLines(
+        `/api/assessments/${assessment.id}/stream`,
+        (line) => setTerminalLines((prev) => [...prev, line]),
+        (status) => setTerminalStatus(status === "complete" ? "complete" : "failed"),
+      );
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Grading failed");
+      setTerminalStatus("failed");
     } finally {
       setBusy(null);
     }
@@ -95,6 +111,47 @@ export function AssignmentPage() {
       </div>
 
       {error && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{error}</p>}
+
+      {terminalAssessmentId && (
+        <div className="mb-6 border border-amber-400 dark:border-amber-600 rounded-lg overflow-hidden">
+          <div className="flex items-center justify-between bg-amber-100 dark:bg-amber-900/40 px-3 py-1.5 border-b border-amber-400 dark:border-amber-600">
+            <span className="text-xs font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300">
+              ⚠ TESTING ONLY — live grading terminal
+            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-amber-800 dark:text-amber-300">
+                {terminalStatus === "running" && "running…"}
+                {terminalStatus === "complete" && "complete"}
+                {terminalStatus === "failed" && "failed"}
+              </span>
+              {terminalStatus !== "running" && (
+                <button
+                  onClick={() => navigate(`/assessments/${terminalAssessmentId}`)}
+                  className="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-medium"
+                >
+                  View results
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  setTerminalAssessmentId(null);
+                  setTerminalLines([]);
+                  setTerminalStatus(null);
+                }}
+                className="px-2 py-0.5 border border-amber-400 dark:border-amber-600 text-amber-800 dark:text-amber-300 rounded text-xs"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+          <div className="bg-black text-green-400 font-mono text-xs p-3 h-56 overflow-y-auto">
+            {terminalLines.map((line, i) => (
+              <div key={i} className="whitespace-pre-wrap">{line}</div>
+            ))}
+            <div ref={terminalEndRef} />
+          </div>
+        </div>
+      )}
 
       <ul className="space-y-2">
         {essays.map((e) => (
