@@ -1,0 +1,213 @@
+{
+  "rubricId": "mccr-w11-12-arg",
+  "version": "1.0",
+  "genre": "argumentative",
+  "notes": "Operational rubric for MCCR W.11-12.1 (argumentative writing) + L.11-12 conventions. Constructed per TGFWA spec §3: MSDE standards define WHAT to assess; performance-level descriptors are modeled on the MCAP/PARCC condensed scoring rubric (grades 6-11 ELA) adapted to per-sub-standard granularity on a 0-5 scale (Li et al. 2026). Each criterion states ONE observable behavior (atomicity constraint, arXiv 2603.14732). referenceability: 'weak' criteria route to the teacher-reserve queue.",
+  "assignmentGuidance": "",
+  "criteria": [
+    {
+      "criterionId": "W1a-1",
+      "standard": "W.11-12.1a",
+      "dimension": "Claims (W1a)",
+      "statement": "States a precise, knowledgeable central claim that takes a clear position on the issue.",
+      "scale": "0-5",
+      "referenceability": "strong",
+      "source": "MCCR W.11-12.1a; MCAP condensed rubric 'Written Expression' anchors; atomic decomposition per arXiv 2603.14732",
+      "anchors": {
+        "0": "No identifiable claim, or the text is off-topic.",
+        "1": "A topic is announced but no arguable position is taken (summary or restatement only).",
+        "2": "A position is implied or stated vaguely; the claim is too broad or ambiguous to guide an argument.",
+        "3": "An arguable claim is stated, but imprecisely (hedged, split, or missing key qualifiers the essay actually argues).",
+        "4": "A precise, arguable claim is stated and matches the argument the essay develops.",
+        "5": "A precise, knowledgeable claim is stated with well-chosen qualifiers or scope conditions that anticipate the complexity of the issue."
+      }
+    },
+    {
+      "criterionId": "W1a-2",
+      "standard": "W.11-12.1a",
+      "dimension": "Claims (W1a)",
+      "statement": "Distinguishes the claim from alternate or opposing claims.",
+      "scale": "0-5",
+      "referenceability": "strong",
+      "source": "MCCR W.11-12.1a ('distinguish the claim(s) from alternate or opposing claims')",
+      "anchors": {
+        "0": "No acknowledgment that other positions exist.",
+        "1": "A vague gesture at 'some people disagree' with no stated opposing position.",
+        "2": "An opposing claim is named but not differentiated from the writer's claim (positions blur together).",
+        "3": "An opposing claim is stated and the writer's position is explicitly set against it at least once.",
+        "4": "Opposing claim(s) are stated fairly and the writer's claim is clearly and consistently distinguished from them.",
+        "5": "Opposing claim(s) are stated in their strongest form and the boundary between positions is drawn precisely (what the writer concedes vs. contests)."
+      }
+    },
+    {
+      "criterionId": "W1b-1",
+      "standard": "W.11-12.1b",
+      "dimension": "Development (W1b)",
+      "statement": "Develops the claim with relevant, sufficient evidence for each supporting reason.",
+      "scale": "0-5",
+      "referenceability": "strong",
+      "source": "MCCR W.11-12.1b ('supplying the most relevant evidence for each'); MCAP 'Knowledge of Language and Ideas' anchors",
+      "anchors": {
+        "0": "No evidence offered; assertions only.",
+        "1": "Evidence is mentioned but is irrelevant to the reasons it is attached to.",
+        "2": "Some relevant evidence, but major reasons are left unsupported or evidence is generic (unattributed, unspecific).",
+        "3": "Most reasons are supported with relevant evidence; some evidence is thin, unspecific, or unevenly distributed.",
+        "4": "Each reason is supported with relevant, specific evidence (named sources, data, or concrete cases).",
+        "5": "Each reason is supported with the most relevant available evidence, and the writer explains why the evidence bears on the reason (warrants are articulated)."
+      }
+    },
+    {
+      "criterionId": "W1b-2",
+      "standard": "W.11-12.1b",
+      "dimension": "Development (W1b)",
+      "statement": "Develops the counterclaim fairly and thoroughly, pointing out its strengths and limitations.",
+      "scale": "0-5",
+      "referenceability": "strong",
+      "source": "MCCR W.11-12.1b ('develop claim(s) and counterclaims fairly and thoroughly')",
+      "anchors": {
+        "0": "No counterclaim is developed.",
+        "1": "A counterclaim is named but immediately dismissed without engagement.",
+        "2": "A counterclaim is described but treated as a strawman (weakest version, no strengths acknowledged).",
+        "3": "A counterclaim is developed with at least one acknowledged strength OR one argued limitation, but not both.",
+        "4": "A counterclaim is developed fairly: its strengths are acknowledged and its limitations are argued with evidence.",
+        "5": "The counterclaim is developed in its strongest form; the rebuttal concedes what is valid and shows precisely why the writer's claim still holds."
+      }
+    },
+    {
+      "criterionId": "W1b-3",
+      "standard": "W.11-12.1b",
+      "dimension": "Development (W1b)",
+      "statement": "Anticipates the audience's knowledge level, concerns, values, and possible biases.",
+      "scale": "0-5",
+      "referenceability": "weak",
+      "source": "MCCR W.11-12.1b ('in a manner that anticipates the audience's knowledge level, concerns, values, and possible biases'). Weak referenceability: audience-awareness is holistic and inference-heavy → teacher-reserve routing per spec §3.4.",
+      "anchors": {
+        "0": "No awareness of audience; terms unexplained or explanations misjudged throughout.",
+        "1": "Occasional definition or framing, but pitched inconsistently (over- and under-explains).",
+        "2": "Some audience accommodation, largely formulaic.",
+        "3": "Key terms and stakes are framed for a plausible audience most of the time.",
+        "4": "Explanations, framing, and concessions are consistently pitched to a defined audience's knowledge and values.",
+        "5": "The essay strategically addresses audience values and likely objections, adjusting register and framing to persuade a skeptical reader."
+      }
+    },
+    {
+      "criterionId": "W1c-1",
+      "standard": "W.11-12.1c",
+      "dimension": "Cohesion (W1c)",
+      "statement": "Uses words, phrases, and clauses to link claims, reasons, and evidence and clarify their relationships.",
+      "scale": "0-5",
+      "referenceability": "strong",
+      "source": "MCCR W.11-12.1c; MCAP 'Written Expression: coherence' anchors",
+      "anchors": {
+        "0": "No linking language; sentences and paragraphs are juxtaposed without signaled relationships.",
+        "1": "Only additive connectives (and, also, another reason) regardless of the actual logical relationship.",
+        "2": "Some appropriate transitions, but relationships between claim, reasons, and evidence are frequently unsignaled or mis-signaled.",
+        "3": "Transitions generally signal the right relationships; occasional mis-signals or repetitive devices.",
+        "4": "Varied syntax and linking language consistently clarify claim-reason-evidence relationships within and across paragraphs.",
+        "5": "Cohesive devices are precise and economical; concession, causation, and contrast are signaled exactly where the logic turns."
+      }
+    },
+    {
+      "criterionId": "W1c-2",
+      "standard": "W.11-12.1c",
+      "dimension": "Cohesion (W1c)",
+      "statement": "Sequences reasons and evidence in a logical order that builds the argument.",
+      "scale": "0-5",
+      "referenceability": "strong",
+      "source": "MCCR W.11-12.1c ('create cohesion... between claim(s) and reasons, between reasons and evidence'); MCAP organization anchors",
+      "anchors": {
+        "0": "No discernible order; ideas appear randomly.",
+        "1": "A list-like order with no progression (reasons interchangeable, no build).",
+        "2": "An order exists but with disruptive detours or misplaced material (e.g., counterclaim interrupting a reason).",
+        "3": "A clear order with minor lapses; the argument mostly builds.",
+        "4": "Reasons and evidence are deliberately sequenced (e.g., concession before rebuttal, weaker to stronger) and the argument builds.",
+        "5": "The sequence itself does argumentative work: placement of concessions, reasons, and evidence maximizes persuasive force."
+      }
+    },
+    {
+      "criterionId": "W1d-1",
+      "standard": "W.11-12.1d",
+      "dimension": "Style & Tone (W1d)",
+      "statement": "Maintains a formal style appropriate to academic argument (diction, register, no colloquialisms).",
+      "scale": "0-5",
+      "referenceability": "strong",
+      "source": "MCCR W.11-12.1d ('establish and maintain a formal style')",
+      "anchors": {
+        "0": "Consistently informal (slang, text-speak, direct address throughout).",
+        "1": "Predominantly informal with occasional formal stretches.",
+        "2": "Mixed register; repeated colloquialisms or contractions undercut the academic voice.",
+        "3": "Generally formal with a few lapses (isolated contractions, casual idioms).",
+        "4": "Formal style maintained throughout; diction is appropriate to academic argument.",
+        "5": "Formal style maintained with precise, discipline-appropriate diction; register choices are deliberate and effective."
+      }
+    },
+    {
+      "criterionId": "W1d-2",
+      "standard": "W.11-12.1d",
+      "dimension": "Style & Tone (W1d)",
+      "statement": "Maintains an objective tone: claims are advanced through evidence and reasoning rather than unsupported emotional appeals.",
+      "scale": "0-5",
+      "referenceability": "strong",
+      "source": "MCCR W.11-12.1d ('objective tone while attending to the norms and conventions of the discipline')",
+      "anchors": {
+        "0": "Argument rests on invective, sarcasm, or emotional appeals with no evidentiary support.",
+        "1": "Frequent loaded language and appeals to emotion substitute for reasoning.",
+        "2": "Some sections argue from evidence, but loaded characterizations of the opposing side recur.",
+        "3": "Mostly objective; occasional loaded phrasing or unsupported appeals.",
+        "4": "Objective tone throughout; emotional resonance, where present, is grounded in evidence.",
+        "5": "Rigorously objective; the writer characterizes opposing positions in terms their proponents would accept."
+      }
+    },
+    {
+      "criterionId": "W1e-1",
+      "standard": "W.11-12.1e",
+      "dimension": "Conclusion (W1e)",
+      "statement": "Provides a concluding statement or section that follows from and supports the argument presented.",
+      "scale": "0-5",
+      "referenceability": "strong",
+      "source": "MCCR W.11-12.1e",
+      "anchors": {
+        "0": "No conclusion; the essay stops.",
+        "1": "A conclusion exists but contradicts or ignores the argument made.",
+        "2": "A one-sentence restatement of the claim with no synthesis.",
+        "3": "The conclusion restates the claim and summarizes reasons, without extending or synthesizing.",
+        "4": "The conclusion follows from the argument, synthesizes the reasons, and addresses the significance of the position.",
+        "5": "The conclusion synthesizes the argument (including the counterclaim's disposition) and articulates implications or a call to action that the body has earned."
+      }
+    },
+    {
+      "criterionId": "L1-1",
+      "standard": "L.11-12.1/2",
+      "dimension": "Conventions (L)",
+      "statement": "Demonstrates command of grammar, usage, and mechanics; errors, if present, do not impede meaning.",
+      "scale": "0-5",
+      "referenceability": "strong",
+      "source": "MCCR L.11-12.1 (grammar/usage), L.11-12.2 (capitalization, punctuation, spelling); MCAP 'Knowledge of Language and Conventions' anchors",
+      "anchors": {
+        "0": "Errors are pervasive and frequently block comprehension.",
+        "1": "Frequent errors of multiple types; meaning often obscured.",
+        "2": "Recurring error patterns (e.g., comma splices, agreement) that sometimes impede reading.",
+        "3": "Occasional errors that rarely impede meaning.",
+        "4": "Few errors; command of sentence-level conventions is evident.",
+        "5": "Essentially error-free, with conventions used rhetorically (deliberate fragments, punctuation for emphasis) where appropriate."
+      }
+    },
+    {
+      "criterionId": "WR-1",
+      "standard": "W.11-12.1 (holistic)",
+      "dimension": "Reasoning Quality (teacher-reserve)",
+      "statement": "ADVISORY ONLY: overall strength and sophistication of the reasoning connecting evidence to claims.",
+      "scale": "0-5",
+      "referenceability": "weak",
+      "source": "Teacher-reserve set per spec §3.4: holistic reasoning strength resists single-failure-mode decomposition (arXiv 2603.14732). Anchors informed by SOLO taxonomy (Biggs & Collis 1982). LLM score is advisory with low-confidence flag; teacher is authoritative.",
+      "anchors": {
+        "0": "No reasoning; evidence (if any) is unconnected to claims.",
+        "1": "Prestructural: evidence is invoked but the connection to the claim is asserted, not reasoned.",
+        "2": "Unistructural: one line of reasoning, applied mechanically.",
+        "3": "Multistructural: several independent reasons, not integrated.",
+        "4": "Relational: reasons are integrated; the writer weighs evidence and addresses interactions between reasons and counterclaims.",
+        "5": "Extended abstract: the argument generalizes appropriately, acknowledges conditions under which it would fail, and reasons about principles beyond the given case."
+      }
+    }
+  ]
+}

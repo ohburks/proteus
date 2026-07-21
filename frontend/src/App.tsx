@@ -1,0 +1,76 @@
+import { Navigate, Route, Routes } from "react-router-dom";
+import { useAuth } from "./auth/AuthContext";
+import { NavBar } from "./components/NavBar";
+import { LoginPage } from "./pages/Login";
+import { DashboardPage } from "./pages/Dashboard";
+import { CoursePage } from "./pages/CoursePage";
+import { AssignmentPage } from "./pages/AssignmentPage";
+import { AssessmentPage } from "./pages/AssessmentPage";
+import { ReviewPage } from "./pages/ReviewPage";
+import { SettingsPage } from "./pages/Settings";
+
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  const { token } = useAuth();
+  if (!token) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
+export default function App() {
+  const { token } = useAuth();
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      {token && <NavBar />}
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/"
+          element={
+            <RequireAuth>
+              <DashboardPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/courses/:courseId"
+          element={
+            <RequireAuth>
+              <CoursePage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/assignments/:assignmentId"
+          element={
+            <RequireAuth>
+              <AssignmentPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/assessments/:assessmentId"
+          element={
+            <RequireAuth>
+              <AssessmentPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/assessments/:assessmentId/criteria/:criterionId"
+          element={
+            <RequireAuth>
+              <ReviewPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <RequireAuth>
+              <SettingsPage />
+            </RequireAuth>
+          }
+        />
+      </Routes>
+    </div>
+  );
+}

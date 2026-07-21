@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+/* §10: theme is implemented via two explicit theme definitions (light/dark)
+   set per screen directly (Tailwind's dark: variant on each element), not a
+   CSS-variable token layer. The `dark` class on <html> is toggled by
+   ThemeProvider based on the resolved system/light/dark preference. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
