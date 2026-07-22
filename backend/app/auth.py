@@ -69,23 +69,24 @@ def require_admin(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
     return user
 
 
+def _ensure_user(conn, username: str, password: str, role: str, instructor_id: str | None, now: str) -> None:
+    """Insert the account if its username doesn't exist yet; leave it alone if
+    it does. Per-username idempotency (not skip-if-any-user-exists) so newly
+    added default accounts still seed into an existing DB on `make seed`."""
+    if conn.execute("SELECT 1 FROM users WHERE username = ?", (username,)).fetchone():
+        return
+    conn.execute(
+        "INSERT INTO users (id, username, password_hash, role, instructor_id, created_at) VALUES (?,?,?,?,?,?)",
+        (str(uuid.uuid4()), username, hash_password(password), role, instructor_id, now),
+    )
+
+
 def seed_default_accounts() -> None:
     """Seeded default accounts for local testing (§11) — test logins for
     local development, not sensitive credentials."""
     with get_connection() as conn:
-        existing = conn.execute("SELECT 1 FROM users LIMIT 1").fetchone()
-        if existing:
-            return
         now = datetime.now(UTC).isoformat()
-        admin_id = str(uuid.uuid4())
-        instructor_user_id = str(uuid.uuid4())
-        instructor_id = str(uuid.uuid4())
-        conn.execute(
-            "INSERT INTO users (id, username, password_hash, role, instructor_id, created_at) VALUES (?,?,?,?,?,?)",
-            (admin_id, "admin", hash_password("admin123"), "admin", None, now),
-        )
-        conn.execute(
-            "INSERT INTO users (id, username, password_hash, role, instructor_id, created_at) VALUES (?,?,?,?,?,?)",
-            (instructor_user_id, "instructor", hash_password("instruct123"), "instructor", instructor_id, now),
-        )
+        _ensure_user(conn, "admin", "admin123", "admin", None, now)
+        _ensure_user(conn, "instructor", "instruct123", "instructor", str(uuid.uuid4()), now)
+        _ensure_user(conn, "instructor_2", "instruct123", "instructor", str(uuid.uuid4()), now)
         conn.commit()
