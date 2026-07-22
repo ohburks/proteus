@@ -125,7 +125,17 @@ def list_essays(assignment_id: str, user: CurrentUser = Depends(get_current_user
             raise HTTPException(404, "Assignment not found")
         _assert_course_owned(conn, assignment["course_id"], user.scoped_instructor_id())
         rows = conn.execute("SELECT * FROM essays WHERE assignment_id = ?", (assignment_id,)).fetchall()
-    return [dict(r) for r in rows]
+    # The list view only renders a short preview, so send a truncated `text`
+    # instead of every essay's full body (which can be many KB each). Grading
+    # re-reads the full text from the DB by id, so nothing downstream needs it.
+    _PREVIEW_LEN = 280
+    out = []
+    for r in rows:
+        d = dict(r)
+        text = d.get("text") or ""
+        d["text"] = text[:_PREVIEW_LEN] + "…" if len(text) > _PREVIEW_LEN else text
+        out.append(d)
+    return out
 
 
 @router.post("/essays")

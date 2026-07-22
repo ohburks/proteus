@@ -1,5 +1,6 @@
 """Grading trigger + output grade retrieval (design doc §7)."""
 import json
+import sqlite3
 import threading
 import uuid
 from datetime import UTC, datetime
@@ -8,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from app.auth import CurrentUser, get_current_user
-from app.db import get_connection
+from app.db import get_connection, write_with_retry
 from app.grading import progress
 from app.grading.engine import run_dual_path_for_criterion
 from app.llm.key_resolution import KeyResolutionError, resolve_provider_config
@@ -39,13 +40,25 @@ def _run_assessment(assessment_id: str, client, criteria_rows_dicts, assignment_
                     instructor_id=instructor_id, course_id=assignment_dict["course_id"],
                     emit=lambda msg, aid=assessment_id: progress.emit(aid, msg),
                 )
-            conn.execute("UPDATE assessments SET status = 'complete' WHERE id = ?", (assessment_id,))
-            conn.commit()
+            write_with_retry(
+                conn, lambda: conn.execute("UPDATE assessments SET status = 'complete' WHERE id = ?", (assessment_id,))
+            )
             progress.emit(assessment_id, "Assessment complete.")
             progress.finish(assessment_id, "complete")
         except Exception as e:
-            conn.execute("UPDATE assessments SET status = 'failed' WHERE id = ?", (assessment_id,))
-            conn.commit()
+            # Discard any half-written transaction from the failed criterion,
+            # then mark failed — with retry so the status update itself can't die
+            # on a transient lock (which would leave the row stuck 'running').
+            try:
+                conn.rollback()
+            except sqlite3.Error:
+                pass
+            try:
+                write_with_retry(
+                    conn, lambda: conn.execute("UPDATE assessments SET status = 'failed' WHERE id = ?", (assessment_id,))
+                )
+            except sqlite3.Error:
+                pass
             progress.emit(assessment_id, f"Assessment FAILED: {e}")
             progress.finish(assessment_id, "failed")
 

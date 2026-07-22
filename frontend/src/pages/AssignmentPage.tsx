@@ -58,10 +58,19 @@ export function AssignmentPage() {
 
   async function createEssay(e: React.FormEvent) {
     e.preventDefault();
-    if (!text.trim() || !assignmentId) return;
-    await api.post<Essay>("/api/essays", { assignment_id: assignmentId, text });
-    setText("");
-    refresh();
+    setError(null);
+    if (!assignmentId) return;
+    if (!text.trim()) {
+      setError("Essay text is required.");
+      return;
+    }
+    try {
+      await api.post<Essay>("/api/essays", { assignment_id: assignmentId, text });
+      setText("");
+      refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to add essay");
+    }
   }
 
   async function grade(essayId: string) {

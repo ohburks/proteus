@@ -1,4 +1,5 @@
 import sqlite3
+import time
 from collections.abc import Callable
 from contextlib import contextmanager
 from pathlib import Path
@@ -10,9 +11,16 @@ SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
 
 
 def get_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    # A grading run holds a write transaction while it works through a criterion
+    # (routers.assessments runs it in a background thread). WAL lets readers keep
+    # reading during that write instead of blocking, and busy_timeout makes a
+    # concurrent writer wait for the lock rather than failing instantly with
+    # "database is locked". Both are per-connection but WAL persists on the file.
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA busy_timeout = 30000")
     return conn
 
 
@@ -91,6 +99,35 @@ def init_db() -> None:
     with get_connection() as conn:
         conn.executescript(SCHEMA_PATH.read_text())
         _run_migrations(conn)
+
+
+def write_with_retry(
+    conn: sqlite3.Connection, write_fn: Callable[[], object], *, retries: int = 5, base_delay: float = 0.25
+) -> None:
+    """Run write_fn() (which issues writes on `conn`) and commit it, retrying on
+    a transient "database is locked". Rolls back before each retry so no partial
+    rows persist, then backs off exponentially.
+
+    Grading runs in background threads that share this one SQLite database, and
+    SQLite allows a single writer at a time. WAL + busy_timeout already make a
+    brief conflict wait rather than fail; this is the belt-and-suspenders on top,
+    so heavy contention (or a slow holder) degrades into a short wait instead of
+    a failed assessment, and the failure-status update in routers.assessments
+    can't itself die on a lock."""
+    for attempt in range(retries):
+        try:
+            write_fn()
+            conn.commit()
+            return
+        except sqlite3.OperationalError as e:
+            if "locked" in str(e).lower() and attempt < retries - 1:
+                try:
+                    conn.rollback()
+                except sqlite3.Error:
+                    pass
+                time.sleep(base_delay * (2 ** attempt))
+                continue
+            raise
 
 
 @contextmanager

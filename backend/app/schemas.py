@@ -1,4 +1,10 @@
-from pydantic import BaseModel, Field
+from typing import Annotated
+
+from pydantic import BaseModel, Field, StringConstraints
+
+# A non-empty string after trimming surrounding whitespace — rejects "" and
+# "   " with a 422 rather than persisting a blank course/assignment/essay.
+NonBlankStr = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
 class LoginRequest(BaseModel):
@@ -14,7 +20,7 @@ class LoginResponse(BaseModel):
 
 
 class CourseCreate(BaseModel):
-    name: str
+    name: NonBlankStr
 
 
 class CourseOut(BaseModel):
@@ -25,7 +31,7 @@ class CourseOut(BaseModel):
 
 class AssignmentCreate(BaseModel):
     course_id: str
-    name: str
+    name: NonBlankStr
     rubric_id: str
     rubric_version: str
     prompt_text: str | None = None
@@ -44,7 +50,7 @@ class AssignmentOut(BaseModel):
 
 class StudentCreate(BaseModel):
     course_id: str | None = None
-    display_name: str
+    display_name: NonBlankStr
     external_ref: str | None = None
 
 
@@ -60,7 +66,7 @@ class StudentOut(BaseModel):
 class EssayCreate(BaseModel):
     assignment_id: str
     student_id: str | None = None
-    text: str
+    text: NonBlankStr
 
 
 class EssayOut(BaseModel):

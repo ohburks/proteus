@@ -11,7 +11,7 @@ is a run-level setting, not a per-path setting.
 """
 import os
 
-from app.llm.base import ProviderConfig
+from app.llm.base import SUPPORTED_PROVIDERS, ProviderConfig
 
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
 
@@ -28,6 +28,13 @@ def resolve_provider_config(
 ) -> ProviderConfig:
     # 1. Request-level BYOK
     if byok_provider:
+        if byok_provider not in SUPPORTED_PROVIDERS:
+            # Guard before _default_model[provider], which would otherwise raise
+            # a bare KeyError and surface as a 500. Callers catch
+            # KeyResolutionError and return a clean 400.
+            raise KeyResolutionError(
+                f"Unsupported provider {byok_provider!r}. Supported: {', '.join(SUPPORTED_PROVIDERS)}"
+            )
         if byok_provider == "ollama":
             return ProviderConfig(
                 provider="ollama",

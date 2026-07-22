@@ -33,6 +33,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("drg_role", res.role);
     if (res.instructor_id) localStorage.setItem("drg_instructor_id", res.instructor_id);
     localStorage.setItem("drg_theme", res.theme_preference);
+    // Let ThemeProvider adopt the account's saved theme without a page reload.
+    window.dispatchEvent(new Event("drg-theme-changed"));
   }
 
   function logout() {
@@ -42,6 +44,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setInstructorId(null);
     localStorage.removeItem("drg_role");
     localStorage.removeItem("drg_instructor_id");
+    // Clear the theme too, so the next account doesn't inherit this user's.
+    localStorage.removeItem("drg_theme");
   }
 
   return (

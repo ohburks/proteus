@@ -29,6 +29,7 @@ import sqlite3
 import uuid
 from datetime import UTC, datetime
 
+from app.db import write_with_retry
 from app.grading.aggregate import aggregate_passes
 from app.grading.divergence import compute_divergence
 from app.grading.engine_types import AggregateResult, Evidence, PassResult
@@ -233,8 +234,6 @@ def run_dual_path_for_criterion(
     result_e = grade_criterion_exemplar(
         client, criterion, rubric_id, rubric_version, essay_text, both_paths_ctx, n_passes, emit=emit
     )
-    _persist_passes(conn, assessment_id, criterion["criterionId"], "exemplar", result_e.passes)
-    _persist_aggregate(conn, assessment_id, criterion["criterionId"], "exemplar", result_e, spread_threshold)
     if emit:
         score_str = result_e.score if result_e.score is not None else "no-evidence"
         emit(
@@ -247,8 +246,6 @@ def run_dual_path_for_criterion(
     result_p = grade_criterion_personalized(
         conn, client, criterion, rubric_id, essay_text, both_paths_ctx, scope, n_passes, emit=emit
     )
-    _persist_passes(conn, assessment_id, criterion["criterionId"], "personalized", result_p.passes)
-    _persist_aggregate(conn, assessment_id, criterion["criterionId"], "personalized", result_p, spread_threshold)
     if emit:
         score_str = result_p.score if result_p.score is not None else "no-evidence"
         emit(
@@ -258,16 +255,32 @@ def run_dual_path_for_criterion(
 
     threshold = lookup_divergence_threshold(conn, instructor_id, rubric_id, criterion["criterionId"])
     divergence = compute_divergence(result_e, result_p, threshold)
-    conn.execute(
-        """INSERT INTO divergence_records
-           (assessment_id, criterion_id, score_diff, anchor_mismatch, no_evidence_asymmetry, exceeds_threshold, created_at)
-           VALUES (?,?,?,?,?,?,?)""",
-        (
-            assessment_id, criterion["criterionId"], divergence.score_diff,
-            int(divergence.anchor_mismatch), int(divergence.no_evidence_asymmetry),
-            int(divergence.exceeds_threshold), _now(),
-        ),
-    )
+
+    # Persist this criterion's rows (both paths + divergence) as one unit,
+    # committed per criterion rather than once for the whole assessment: the
+    # SQLite write lock is held only briefly, so a concurrent grading run or web
+    # request isn't blocked for the entire multi-minute run. write_with_retry
+    # survives a transient "database is locked" (rolling the partial rows back
+    # first), so contention degrades into a short wait instead of a failed
+    # assessment; completed criteria stay checkpointed if a later one fails.
+    def _persist_criterion() -> None:
+        _persist_passes(conn, assessment_id, criterion["criterionId"], "exemplar", result_e.passes)
+        _persist_aggregate(conn, assessment_id, criterion["criterionId"], "exemplar", result_e, spread_threshold)
+        _persist_passes(conn, assessment_id, criterion["criterionId"], "personalized", result_p.passes)
+        _persist_aggregate(conn, assessment_id, criterion["criterionId"], "personalized", result_p, spread_threshold)
+        conn.execute(
+            """INSERT INTO divergence_records
+               (assessment_id, criterion_id, score_diff, anchor_mismatch, no_evidence_asymmetry, exceeds_threshold, created_at)
+               VALUES (?,?,?,?,?,?,?)""",
+            (
+                assessment_id, criterion["criterionId"], divergence.score_diff,
+                int(divergence.anchor_mismatch), int(divergence.no_evidence_asymmetry),
+                int(divergence.exceeds_threshold), _now(),
+            ),
+        )
+
+    write_with_retry(conn, _persist_criterion)
+
     if emit:
         if divergence.exceeds_threshold:
             emit(f"Criterion {criterion['criterionId']}: divergence EXCEEDS threshold (diff={divergence.score_diff})")

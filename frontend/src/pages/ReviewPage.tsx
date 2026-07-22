@@ -90,7 +90,10 @@ export function ReviewPage() {
       .get<ReviewContract>(`/api/assessments/${assessmentId}/criteria/${criterionId}/review`)
       .then((d) => {
         setData(d);
-        if (typeof d.personalized?.score === "number") setNewScore(d.personalized.score);
+        // The personalized score is a multi-pass median and can be fractional
+        // (e.g. 3.5); the override field is an integer 0-5, so round before
+        // seeding it — sending 3.5 would be rejected by the backend (422).
+        if (typeof d.personalized?.score === "number") setNewScore(Math.round(d.personalized.score));
       });
   }
 

@@ -24,13 +24,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   );
   const [resolved, setResolved] = useState<"light" | "dark">(resolve(preference));
 
+  // Keep `resolved` in sync with the chosen preference.
   useEffect(() => {
-    const root = document.documentElement;
-    const next = resolve(preference);
-    setResolved(next);
-    root.classList.toggle("dark", next === "dark");
+    setResolved(resolve(preference));
   }, [preference]);
 
+  // Follow OS changes while on "system". Updating `resolved` here is what makes
+  // the app re-theme live — the class toggle below is keyed on `resolved`, not
+  // `preference`, so it reacts even though `preference` hasn't changed.
   useEffect(() => {
     if (preference !== "system") return;
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -38,6 +39,23 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, [preference]);
+
+  // Apply the resolved theme to <html> whenever it changes (from a preference
+  // change OR a live OS change).
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", resolved === "dark");
+  }, [resolved]);
+
+  // Login stores the server's saved theme in localStorage and dispatches this
+  // event; adopt it so the preference reflects the account without a reload.
+  useEffect(() => {
+    const handler = () => {
+      const stored = localStorage.getItem("drg_theme") as ThemePreference | null;
+      if (stored) setPref(stored);
+    };
+    window.addEventListener("drg-theme-changed", handler);
+    return () => window.removeEventListener("drg-theme-changed", handler);
+  }, []);
 
   function setPreference(p: ThemePreference) {
     setPref(p);

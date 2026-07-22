@@ -74,7 +74,45 @@ def _post_json(url: str, headers: dict[str, str], body: dict, emit: EmitFn | Non
                     emit(f"Rate limited (429) calling {url} — retrying in {wait_s:.0f}s (attempt {attempt + 1}/{_MAX_RETRIES})")
                 time.sleep(wait_s)
                 continue
+            # Transient server-side errors (502/503/504 and other 5xx) are worth
+            # retrying too — otherwise a single provider blip aborts the whole
+            # assessment. 4xx (bad key, bad request) are the caller's fault, so
+            # fail immediately.
+            if 500 <= e.code < 600 and attempt < _MAX_RETRIES:
+                wait_s = _RETRY_BACKOFF_S * (attempt + 1)
+                if emit:
+                    emit(f"Provider error {e.code} calling {url} — retrying in {wait_s:.0f}s (attempt {attempt + 1}/{_MAX_RETRIES})")
+                time.sleep(wait_s)
+                continue
             raise RuntimeError(f"LLM request to {url} failed: {e.code} {body_text}") from e
+        except (urllib.error.URLError, TimeoutError) as e:
+            # Network-level failure (DNS, connection reset, timeout) — also
+            # transient; retry with backoff before giving up.
+            if attempt < _MAX_RETRIES:
+                wait_s = _RETRY_BACKOFF_S * (attempt + 1)
+                if emit:
+                    emit(f"Network error calling {url} ({e}) — retrying in {wait_s:.0f}s (attempt {attempt + 1}/{_MAX_RETRIES})")
+                time.sleep(wait_s)
+                continue
+            raise RuntimeError(f"LLM request to {url} failed after {_MAX_RETRIES} retries: {e}") from e
+    # Loop exhausted without returning or raising (all attempts hit `continue`).
+    raise RuntimeError(f"LLM request to {url} failed after {_MAX_RETRIES} retries")
+
+
+def _extract_message(result: dict, extract) -> str:
+    """Pull the completion text out of a provider response, turning an
+    error-shaped or malformed body into a clear message instead of a cryptic
+    KeyError/IndexError. `extract` maps the parsed dict to the text."""
+    err = result.get("error") if isinstance(result, dict) else None
+    if err:
+        detail = err.get("message") if isinstance(err, dict) else str(err)
+        raise RuntimeError(f"Provider returned an error: {detail}")
+    try:
+        return extract(result)
+    except (KeyError, IndexError, TypeError) as e:
+        raise RuntimeError(
+            f"Provider returned an unexpected response shape (no completion content): {str(result)[:300]}"
+        ) from e
 
 
 class _OpenAICompatibleClient:
@@ -100,7 +138,7 @@ class _OpenAICompatibleClient:
             "temperature": 0,
         }
         result = _post_json(f"{self.base_url}/chat/completions", headers, body, emit=emit)
-        return result["choices"][0]["message"]["content"]
+        return _extract_message(result, lambda r: r["choices"][0]["message"]["content"])
 
 
 class _AnthropicClient:
@@ -117,7 +155,9 @@ class _AnthropicClient:
             "messages": [{"role": "user", "content": user_prompt}],
         }
         result = _post_json("https://api.anthropic.com/v1/messages", headers, body, emit=emit)
-        return "".join(block["text"] for block in result["content"] if block["type"] == "text")
+        return _extract_message(
+            result, lambda r: "".join(b["text"] for b in r["content"] if b["type"] == "text")
+        )
 
 
 class _GeminiClient:
@@ -140,7 +180,7 @@ class _GeminiClient:
             "generationConfig": {"responseMimeType": "application/json", "temperature": 0},
         }
         result = _post_json(url, {"x-goog-api-key": self.api_key}, body, emit=emit)
-        return result["candidates"][0]["content"]["parts"][0]["text"]
+        return _extract_message(result, lambda r: r["candidates"][0]["content"]["parts"][0]["text"])
 
 
 _VALIDATE_TIMEOUT_S = 8

@@ -33,7 +33,14 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     let message = text;
     try {
       const parsed = JSON.parse(text);
-      if (typeof parsed?.detail === "string") message = parsed.detail;
+      if (typeof parsed?.detail === "string") {
+        message = parsed.detail;
+      } else if (Array.isArray(parsed?.detail)) {
+        // Pydantic 422 validation errors: [{loc, msg, ...}, ...] — join the
+        // human-readable msgs rather than dumping the raw JSON.
+        const msgs = parsed.detail.map((d: { msg?: string }) => d?.msg).filter(Boolean);
+        if (msgs.length) message = msgs.join("; ");
+      }
     } catch {
       // not JSON — keep the raw text
     }

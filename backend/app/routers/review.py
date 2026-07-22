@@ -167,8 +167,10 @@ def adopt_exemplar(assessment_id: str, criterion_id: str, user: CurrentUser = De
         evidence = json.loads(exemplar["evidence_json"])
         # exemplar["score"] is the multi-pass median (score_aggregates.score,
         # REAL) — round to the nearest whole point for the override/precedent
-        # columns, which store a single discrete 0-5 score.
-        adopted_score = round(exemplar["score"])
+        # columns, which store a single discrete 0-5 score. Round half UP so
+        # a 2.5 median -> 3, matching the frontend's Math.round of the same
+        # value (Python's round() is banker's rounding: 2.5 -> 2, inconsistent).
+        adopted_score = int(exemplar["score"] + 0.5)
         _write_override_and_precedent(
             conn, assessment, essay, instructor_id, criterion_id, adopted_score, exemplar["rationale"],
             user.user_id, evidence,

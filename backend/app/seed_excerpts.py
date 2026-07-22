@@ -29,13 +29,6 @@ def seed_exemplar_excerpts() -> None:
             rubric_version = data["rubric_version"]
             is_preseeded = data["is_preseeded"]
 
-            existing = conn.execute(
-                "SELECT 1 FROM exemplar_excerpts_src WHERE rubric_id = ? AND rubric_version = ? LIMIT 1",
-                (rubric_id, rubric_version),
-            ).fetchone()
-            if existing:
-                continue
-
             for essay in data["source_essays"]:
                 already = conn.execute(
                     "SELECT 1 FROM exemplar_source_essays WHERE source_essay_id = ?",
@@ -49,6 +42,16 @@ def seed_exemplar_excerpts() -> None:
                 )
 
             for ex in data["excerpts"]:
+                # Per-excerpt idempotency (not skip-if-any-rows-exist): lets a
+                # committed corpus update add NEW excerpts to a DB that was
+                # already seeded, instead of the whole file being skipped.
+                already = conn.execute(
+                    "SELECT 1 FROM exemplar_excerpts_src "
+                    "WHERE rubric_id=? AND rubric_version=? AND criterion_id=? AND excerpt_text=? LIMIT 1",
+                    (rubric_id, rubric_version, ex["criterion_id"], ex["excerpt_text"]),
+                ).fetchone()
+                if already:
+                    continue
                 try:
                     insert_exemplar_excerpt(
                         conn,
@@ -91,16 +94,26 @@ def seed_personalized_excerpts() -> None:
             real_instructor_id = user_row["instructor_id"]
             added_by = user_row["id"]
 
-            existing = conn.execute(
-                "SELECT 1 FROM personalized_excerpts_src WHERE instructor_id = ? AND rubric_id = ? LIMIT 1",
-                (real_instructor_id, rubric_id),
-            ).fetchone()
-            if existing:
-                continue
-
             source_essay_text = {e["source_essay_id"]: e["text"] for e in data["source_essays"]}
 
             for ex in data["excerpts"]:
+                # Per-excerpt idempotency: add newly committed excerpts to an
+                # already-seeded instructor corpus rather than skipping the file.
+                already = conn.execute(
+                    "SELECT 1 FROM personalized_excerpts_src "
+                    "WHERE instructor_id=? AND rubric_id=? AND criterion_id=? AND excerpt_text=? LIMIT 1",
+                    (real_instructor_id, rubric_id, ex["criterion_id"], ex["excerpt_text"]),
+                ).fetchone()
+                if already:
+                    continue
+                # A source essay named by an excerpt but absent from source_essays
+                # would otherwise KeyError and abort the whole seed run.
+                essay_text = source_essay_text.get(ex["source_essay_id"])
+                if essay_text is None:
+                    print(f"seed_personalized_excerpts: skipping {path.name} excerpt "
+                          f"(criterion={ex['criterion_id']!r}) — no source essay "
+                          f"{ex['source_essay_id']!r} in source_essays")
+                    continue
                 try:
                     insert_personalized_excerpt(
                         conn,
@@ -115,23 +128,25 @@ def seed_personalized_excerpts() -> None:
                         rationale=ex["rationale"],
                         source=ex["source"],
                         added_by=added_by,
-                        source_essay_text=source_essay_text[ex["source_essay_id"]],
+                        source_essay_text=essay_text,
                     )
                 except EvidenceVerificationError as e:
                     print(f"seed_personalized_excerpts: skipping {path.name} excerpt "
                           f"(id={ex['excerpt_id']!r}, criterion={ex['criterion_id']!r}): {e}")
 
+            # Seed the profile only if the instructor has none yet. Re-seeding
+            # must not overwrite a profile the instructor later edited in
+            # Settings (this loop now runs on every `make seed`, not just once).
             profile = data.get("instructor_profile")
-            if profile:
+            profile_exists = conn.execute(
+                "SELECT 1 FROM instructor_profile WHERE instructor_id = ?", (real_instructor_id,)
+            ).fetchone()
+            if profile and not profile_exists:
                 now = datetime.now(UTC).isoformat()
                 conn.execute(
                     """INSERT INTO instructor_profile
                        (instructor_id, grading_philosophy, deprioritized_criteria_json, rationale_tone, updated_at)
-                       VALUES (?,?,?,?,?)
-                       ON CONFLICT (instructor_id) DO UPDATE SET
-                         grading_philosophy=excluded.grading_philosophy,
-                         deprioritized_criteria_json=excluded.deprioritized_criteria_json,
-                         rationale_tone=excluded.rationale_tone, updated_at=excluded.updated_at""",
+                       VALUES (?,?,?,?,?)""",
                     (
                         real_instructor_id,
                         profile.get("grading_philosophy"),

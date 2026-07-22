@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api } from "../lib/api";
+import { api, ApiError } from "../lib/api";
 import type { Assignment, Student } from "../lib/types";
 
 interface RubricSummary {
@@ -19,6 +19,7 @@ export function CoursePage() {
   const [rubricKey, setRubricKey] = useState("");
   const [promptText, setPromptText] = useState("");
   const [studentName, setStudentName] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   function refresh() {
     if (!courseId) return;
@@ -37,26 +38,46 @@ export function CoursePage() {
 
   async function createAssignment(e: React.FormEvent) {
     e.preventDefault();
-    if (!assignmentName.trim() || !rubricKey) return;
+    setError(null);
+    if (!assignmentName.trim()) {
+      setError("Assignment name is required.");
+      return;
+    }
+    if (!rubricKey) {
+      setError("Select a rubric.");
+      return;
+    }
     const [rubric_id, rubric_version] = rubricKey.split("::");
-    await api.post("/api/assignments", {
-      course_id: courseId,
-      name: assignmentName,
-      rubric_id,
-      rubric_version,
-      prompt_text: promptText || null,
-    });
-    setAssignmentName("");
-    setPromptText("");
-    refresh();
+    try {
+      await api.post("/api/assignments", {
+        course_id: courseId,
+        name: assignmentName,
+        rubric_id,
+        rubric_version,
+        prompt_text: promptText || null,
+      });
+      setAssignmentName("");
+      setPromptText("");
+      refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to create assignment");
+    }
   }
 
   async function createStudent(e: React.FormEvent) {
     e.preventDefault();
-    if (!studentName.trim()) return;
-    await api.post("/api/students", { course_id: courseId, display_name: studentName });
-    setStudentName("");
-    refresh();
+    setError(null);
+    if (!studentName.trim()) {
+      setError("Student name is required.");
+      return;
+    }
+    try {
+      await api.post("/api/students", { course_id: courseId, display_name: studentName });
+      setStudentName("");
+      refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to add student");
+    }
   }
 
   return (
@@ -91,6 +112,8 @@ export function CoursePage() {
           Add assignment
         </button>
       </form>
+
+      {error && <p className="text-sm text-red-600 dark:text-red-400 mb-4">{error}</p>}
 
       <ul className="divide-y divide-zinc-200 dark:divide-white/5 bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl overflow-hidden mb-8">
         {assignments.map((a) => (
