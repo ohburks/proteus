@@ -143,16 +143,82 @@ class _GeminiClient:
         return result["candidates"][0]["content"]["parts"][0]["text"]
 
 
-def build_client(config: ProviderConfig) -> LLMClient:
-    if config.provider == "openai":
-        return _OpenAICompatibleClient("https://api.openai.com/v1", config.model, config.api_key)
-    if config.provider == "groq":
-        return _OpenAICompatibleClient("https://api.groq.com/openai/v1", config.model, config.api_key)
-    if config.provider == "mistral":
-        return _OpenAICompatibleClient("https://api.mistral.ai/v1", config.model, config.api_key)
+_VALIDATE_TIMEOUT_S = 8
+
+# Providers sharing the OpenAI-compatible REST shape, keyed to the same base
+# URLs used in build_client below.
+_OPENAI_COMPATIBLE_BASES = {
+    "openai": "https://api.openai.com/v1",
+    "groq": "https://api.groq.com/openai/v1",
+    "mistral": "https://api.mistral.ai/v1",
+    "github": "https://models.inference.ai.azure.com",
+}
+
+
+def check_api_key(config: ProviderConfig) -> tuple[bool, str]:
+    """Cheaply verify the config's credentials against the provider — usually an
+    authenticated GET of its models list, so no tokens are consumed. Returns
+    (valid, detail). Never raises; never puts the key in a URL or in the
+    returned detail.
+
+    Exception: GitHub Models' /models catalog is PUBLIC (returns 200 without
+    auth), so a GET there would call any key valid. For that provider only, we
+    fall back to a minimal 1-token chat completion that actually authenticates.
+    """
+    # Real provider keys are ASCII. Anything else (em-dashes/smart quotes from
+    # copy-paste, stray unicode) can't legally travel in an HTTP header —
+    # urllib raises UnicodeEncodeError before even sending — so report it as
+    # invalid up front, with a hint, instead of crashing.
+    if config.api_key and not config.api_key.isascii():
+        return False, "API key contains non-ASCII characters (smart quotes/dashes from copy-paste?)"
+
+    data: bytes | None = None  # non-None -> POST
     if config.provider == "github":
+        url = f"{_OPENAI_COMPATIBLE_BASES['github']}/chat/completions"
+        headers = {"Authorization": f"Bearer {config.api_key}", "Content-Type": "application/json"}
+        data = json.dumps(
+            {"model": config.model, "messages": [{"role": "user", "content": "ping"}], "max_tokens": 1}
+        ).encode("utf-8")
+    elif config.provider in _OPENAI_COMPATIBLE_BASES:
+        url = f"{_OPENAI_COMPATIBLE_BASES[config.provider]}/models"
+        headers = {"Authorization": f"Bearer {config.api_key}"}
+    elif config.provider == "ollama":
+        url = f"{(config.base_url or '').rstrip('/')}/v1/models"
+        headers = {}
+    elif config.provider == "anthropic":
+        url = "https://api.anthropic.com/v1/models"
+        headers = {"x-api-key": config.api_key or "", "anthropic-version": "2023-06-01"}
+    elif config.provider == "gemini":
+        url = "https://generativelanguage.googleapis.com/v1beta/models"
+        headers = {"x-goog-api-key": config.api_key or ""}
+    else:
+        return False, f"Unsupported provider: {config.provider!r}"
+
+    req = urllib.request.Request(url, data=data, headers=headers, method="POST" if data else "GET")
+    try:
+        with urllib.request.urlopen(req, timeout=_VALIDATE_TIMEOUT_S):
+            return True, "ok"
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            return False, "The provider rejected this API key"
+        if e.code == 429:
+            # Rate limited — but authentication succeeded before the quota
+            # check, so the key itself is good.
+            return True, "ok (rate limited)"
+        return False, f"Provider returned HTTP {e.code}"
+    except (urllib.error.URLError, TimeoutError):
+        return False, "Could not reach the provider"
+    except (UnicodeEncodeError, ValueError):
+        # Key/URL contained something not expressible in an HTTP request
+        # (e.g. control characters) that slipped past the ASCII pre-check.
+        return False, "API key or URL contains invalid characters"
+
+
+def build_client(config: ProviderConfig) -> LLMClient:
+    if config.provider in _OPENAI_COMPATIBLE_BASES:
         return _OpenAICompatibleClient(
-            "https://models.inference.ai.azure.com", config.model, config.api_key, throttle_github=True
+            _OPENAI_COMPATIBLE_BASES[config.provider], config.model, config.api_key,
+            throttle_github=(config.provider == "github"),
         )
     if config.provider == "ollama":
         return _OpenAICompatibleClient(f"{config.base_url}/v1", config.model, None)

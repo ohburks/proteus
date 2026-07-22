@@ -13,6 +13,8 @@ export function AssignmentPage() {
   const [model, setModel] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [keyStatus, setKeyStatus] = useState<"checking" | "valid" | "invalid" | null>(null);
+  const keyCheckSeq = useRef(0);
   const [terminalLines, setTerminalLines] = useState<string[]>([]);
   const [terminalAssessmentId, setTerminalAssessmentId] = useState<string | null>(null);
   const [terminalStatus, setTerminalStatus] = useState<"running" | "complete" | "failed" | null>(null);
@@ -28,6 +30,31 @@ export function AssignmentPage() {
   }
 
   useEffect(refresh, [assignmentId]);
+
+  // Debounced live check of the BYOK key: waits for typing to settle, then
+  // asks the backend to make a token-free authenticated call. The sequence
+  // counter drops stale responses so a slow check can't overwrite a newer one.
+  useEffect(() => {
+    if (!provider || (!apiKey && provider !== "ollama")) {
+      setKeyStatus(null);
+      return;
+    }
+    const seq = ++keyCheckSeq.current;
+    setKeyStatus("checking");
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.post<{ valid: boolean }>("/api/assessments/validate-byok", {
+          provider,
+          api_key: apiKey || null,
+          model: model || null,
+        });
+        if (keyCheckSeq.current === seq) setKeyStatus(res.valid ? "valid" : "invalid");
+      } catch {
+        if (keyCheckSeq.current === seq) setKeyStatus("invalid");
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [provider, apiKey, model]);
 
   async function createEssay(e: React.FormEvent) {
     e.preventDefault();
@@ -75,7 +102,9 @@ export function AssignmentPage() {
         </button>
       </form>
 
-      <div className="mb-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4">
+      {/* pb-7: room for the absolutely-positioned key-status label, which
+          renders into this bottom padding (constant height — no shift). */}
+      <div className="mb-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 pb-7">
         <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
           LLM provider (BYOK) — leave blank to use the server-configured default
         </h2>
@@ -94,13 +123,27 @@ export function AssignmentPage() {
             <option value="github">github</option>
             <option value="ollama">ollama</option>
           </select>
-          <input
-            className="flex-1 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
-            placeholder="API key (not needed for ollama)"
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-          />
+          {/* Wrapper is the anchor for the status label: absolutely
+              positioned below the key box so showing it renders into the
+              card's bottom padding instead of growing the card. */}
+          <div className="relative flex-1">
+            <input
+              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
+              placeholder="API key (not needed for ollama)"
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+            />
+            {keyStatus === "checking" && (
+              <p className="absolute left-0 top-full mt-0.5 text-xs text-gray-500 dark:text-gray-400">Checking API key…</p>
+            )}
+            {keyStatus === "valid" && (
+              <p className="absolute left-0 top-full mt-0.5 text-xs text-emerald-600 dark:text-emerald-400">✓ API Key Valid</p>
+            )}
+            {keyStatus === "invalid" && (
+              <p className="absolute left-0 top-full mt-0.5 text-xs text-red-600 dark:text-red-400">✗ API Key Invalid</p>
+            )}
+          </div>
           <input
             className="flex-1 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
             placeholder="model (optional)"

@@ -11,9 +11,9 @@ from app.auth import CurrentUser, get_current_user
 from app.db import get_connection
 from app.grading import progress
 from app.grading.engine import run_dual_path_for_criterion
-from app.llm.key_resolution import resolve_provider_config
-from app.llm.providers import build_client
-from app.schemas import GradeRequest
+from app.llm.key_resolution import KeyResolutionError, resolve_provider_config
+from app.llm.providers import build_client, check_api_key
+from app.schemas import BYOKConfig, GradeRequest
 
 router = APIRouter(prefix="/api/assessments", tags=["assessments"])
 
@@ -50,16 +50,39 @@ def _run_assessment(assessment_id: str, client, criteria_rows_dicts, assignment_
             progress.finish(assessment_id, "failed")
 
 
+@router.post("/validate-byok")
+def validate_byok(body: BYOKConfig, user: CurrentUser = Depends(get_current_user)):
+    """Live check of a BYOK provider/key pair for the grading form's key
+    indicator. Resolves the config the same way grading would (so a missing
+    key or unknown provider reports invalid, and blank provider validates the
+    server default), then makes a token-free authenticated call."""
+    try:
+        config = resolve_provider_config(
+            byok_provider=body.provider, byok_key=body.api_key,
+            byok_model=body.model, byok_base_url=body.base_url,
+        )
+    except KeyResolutionError as e:
+        return {"valid": False, "detail": str(e)}
+    valid, detail = check_api_key(config)
+    return {"valid": valid, "detail": detail}
+
+
 @router.post("")
 def start_assessment(body: GradeRequest, user: CurrentUser = Depends(get_current_user)):
     instructor_id = user.scoped_instructor_id()
     byok = body.byok
-    config = resolve_provider_config(
-        byok_provider=byok.provider if byok else None,
-        byok_key=byok.api_key if byok else None,
-        byok_model=byok.model if byok else None,
-        byok_base_url=byok.base_url if byok else None,
-    )
+    # A missing/misconfigured provider (no BYOK given and no server default set)
+    # is a client-actionable error, not a server fault — return 400 with the
+    # resolver's own message instead of letting it surface as a 500.
+    try:
+        config = resolve_provider_config(
+            byok_provider=byok.provider if byok else None,
+            byok_key=byok.api_key if byok else None,
+            byok_model=byok.model if byok else None,
+            byok_base_url=byok.base_url if byok else None,
+        )
+    except KeyResolutionError as e:
+        raise HTTPException(400, str(e)) from e
     client = build_client(config)
 
     with get_connection() as conn:
