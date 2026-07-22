@@ -1,0 +1,1201 @@
+{
+  "rubric_id": "mccr-w11-12-arg",
+  "rubric_version": "1.0",
+  "is_preseeded": true,
+  "notes": "Merged exemplar seed corpus. Combines real multi-paragraph source essays with pulled-in-context excerpts (construction: real_essay_excerpt) and standalone single-sentence excerpts built to exemplify one anchor level cleanly (construction: standalone_single_sentence). Self-approved by Claude, no independent human review \u2014 generated for POC purposes.",
+  "source_essays": [
+    {
+      "source_essay_id": "ex-arg-social-media-age",
+      "text": "Every argument about protecting young people online eventually runs into the same wall: platforms claim they cannot know who their users are. That claim is convenient, and it is false. Social media companies should be legally required to verify the age of their users, because the technology to do so already exists, the harms of inaction are documented, and the industry's preferred alternative, self-reported birthdays, protects no one.\n\nCritics of mandatory verification argue that any system rigorous enough to work would also destroy user privacy, forcing people to hand government identification to the very corporations we least trust. This is the strongest version of the opposing case, and it deserves a real answer rather than a dismissal. Privacy-preserving verification, however, is not a fantasy: several European services already confirm that a user is over a threshold age without storing the underlying document, using third-party checks that return only a yes or no. The objection identifies a real risk, but it argues against a bad implementation, not against the requirement itself.\n\nThe evidence that the current system fails is not in dispute. Internal research disclosed by a whistleblower in 2021 showed that a major platform knew its product worsened anxiety and body-image issues among teenage girls, and kept designing for engagement anyway. A verification requirement would not erase those design choices, but it would remove the legal fiction that underage users are simply unforeseeable.\n\nSome readers will object that parents, not corporations, bear responsibility for what children do online. That is partly true, and no statute can substitute for an attentive adult. But responsibility is not a fixed quantity that must belong entirely to one party; a company that profits from a minor's attention is not absolved because a parent was also present.\n\nIf we accept that the harms are real and the technology is available, the conclusion follows. Requiring age verification does not solve every problem of adolescence online, but it ends the pretense that the problem cannot be seen. The burden should rest where the profit does."
+    },
+    {
+      "source_essay_id": "ex-arg-four-day-week",
+      "text": "A lot of students and teachers are tired, and a four-day school week could help. Schools should switch to four days because it saves money and gives everyone a break. This is a good idea that more districts should try.\n\nThe main reason is money. When schools are closed on Fridays, they do not have to pay for buses, electricity, and cafeteria food that day. A district in Missouri saved money after switching, and some teachers said they liked it better. Saving money is important because schools never have enough of it.\n\nSome people say that a four-day week is bad for students who rely on school lunches, and that parents have to find childcare on the extra day off. These are real problems. But most families can figure something out, and the benefits are worth it.\n\nAnother reason is that students would be less stressed. A three-day weekend gives more time to rest and do homework. Also, teachers could use the day to plan lessons, which helps everyone.\n\nIn conclusion, a four-day school week saves money and reduces stress, so schools should switch. It is a change whose time has come."
+    },
+    {
+      "source_essay_id": "ex-arg-phones-in-school",
+      "text": "Cell phones are a big topic in schools these days. Everyone has one and they use them all the time. Some people think they are good and some people think they are bad.\n\nPhones can be useful because you can look things up. My friend uses his phone to check the time and to text his mom. Teachers use phones too sometimes. Also phones are expensive so people do not want to lose them.\n\nBut phones can be a distraction, in class people are always looking at their phones instead of paying attention this is annoying and it happens a lot.\n\nSo in conclusion phones are a big topic and people have different opinions. That is why this is important to think about."
+    },
+    {
+      "source_essay_id": "mini-W1a-1-l0",
+      "text": "Schools are a big part of teenagers' lives. There are many things students do every day, like homework and sports. This essay will talk about some of those things."
+    },
+    {
+      "source_essay_id": "mini-W1a-1-l1",
+      "text": "This essay is about whether high schools should start later in the morning. Many people have opinions about this topic."
+    },
+    {
+      "source_essay_id": "mini-W1a-1-l2",
+      "text": "Maybe schools should think about changing their schedules, since mornings can be hard for some students."
+    },
+    {
+      "source_essay_id": "mini-W1a-1-l3",
+      "text": "High schools should probably start later, although there are some downsides too."
+    },
+    {
+      "source_essay_id": "mini-W1a-1-l4",
+      "text": "Maryland high schools should start no earlier than 8:30 a.m. to align with adolescent sleep needs."
+    },
+    {
+      "source_essay_id": "mini-W1a-1-l5",
+      "text": "Because adolescent circadian rhythms shift sleep onset later, Maryland high schools should start at 8:30 or later, even if it means reorganizing bus routes."
+    },
+    {
+      "source_essay_id": "mini-W1a-2-l0",
+      "text": "Schools should start later. This is a good idea for students."
+    },
+    {
+      "source_essay_id": "mini-W1a-2-l1",
+      "text": "Some people might disagree with this, but schools should still start later."
+    },
+    {
+      "source_essay_id": "mini-W1a-2-l2",
+      "text": "Some parents worry about bus schedules if start times change, and schools should start later too."
+    },
+    {
+      "source_essay_id": "mini-W1a-2-l3",
+      "text": "Critics argue that later start times would disrupt bus schedules, but schools should still start at 8:30 because student health matters more."
+    },
+    {
+      "source_essay_id": "mini-W1a-2-l4",
+      "text": "Opponents note that later starts complicate after-school sports and bus routes; the writer maintains that these logistical costs are outweighed by documented gains in adolescent alertness and safety."
+    },
+    {
+      "source_essay_id": "mini-W1a-2-l5",
+      "text": "Transportation officials rightly note that shifting start times by even 30 minutes can cost districts millions in re-routed buses \u2014 a cost this essay does not dispute. What it contests is the assumption that logistics should outweigh adolescent sleep science."
+    },
+    {
+      "source_essay_id": "mini-W1b-1-l0",
+      "text": "Later start times are better for students. Everyone agrees."
+    },
+    {
+      "source_essay_id": "mini-W1b-1-l1",
+      "text": "Students need more sleep, and studies show that teenagers like using their phones a lot."
+    },
+    {
+      "source_essay_id": "mini-W1b-1-l2",
+      "text": "Studies show teens need more sleep. Later start times would also probably help grades, though that part is just common sense."
+    },
+    {
+      "source_essay_id": "mini-W1b-1-l3",
+      "text": "A CDC report links early start times to chronic sleep deprivation in teens. Grades likely improve too, since tired students focus less well."
+    },
+    {
+      "source_essay_id": "mini-W1b-1-l4",
+      "text": "A 2019 CDC report found that only 15% of high schools nationwide start at 8:30 or later, and districts that made the switch saw attendance rise by 3-5%, per the Minneapolis Public Schools 2016 study."
+    },
+    {
+      "source_essay_id": "mini-W1b-1-l5",
+      "text": "The Minneapolis Public Schools 2016 study found a 3-5% attendance increase after shifting to 8:30 starts \u2014 meaningful because attendance is the strongest predictor of graduation rates in the district's own longitudinal data, making this evidence directly load-bearing for the argument, not just correlational noise."
+    },
+    {
+      "source_essay_id": "mini-W1b-2-l0",
+      "text": "Later start times are the right choice for every school."
+    },
+    {
+      "source_essay_id": "mini-W1b-2-l1",
+      "text": "Some say buses are a problem, but that's not a real issue."
+    },
+    {
+      "source_essay_id": "mini-W1b-2-l2",
+      "text": "Critics claim busing costs matter more than teenagers' health, which obviously isn't true."
+    },
+    {
+      "source_essay_id": "mini-W1b-2-l3",
+      "text": "Bus rerouting is a real cost, though it's manageable with planning."
+    },
+    {
+      "source_essay_id": "mini-W1b-2-l4",
+      "text": "Rerouting buses is a genuine, budgeted cost \u2014 Minneapolis spent $600,000 on new routes \u2014 but that one-time expense is smaller than the district's annual absenteeism-related funding losses."
+    },
+    {
+      "source_essay_id": "mini-W1b-2-l5",
+      "text": "The strongest version of the busing objection is that rural districts, unlike Minneapolis, may lack the route density to reorganize affordably \u2014 a genuine constraint this essay concedes for rural contexts, while arguing it doesn't apply to suburban Maryland districts with overlapping bus zones."
+    },
+    {
+      "source_essay_id": "mini-W1b-3-l0",
+      "text": "REM sleep latency and circadian phase delay are well documented in the chronobiology literature."
+    },
+    {
+      "source_essay_id": "mini-W1b-3-l1",
+      "text": "Circadian rhythm (the body's sleep clock) shifts in teens, though the phase delay itself needs no further explanation."
+    },
+    {
+      "source_essay_id": "mini-W1b-3-l2",
+      "text": "In simple terms, teenagers' body clocks shift later, which is important to know."
+    },
+    {
+      "source_essay_id": "mini-W1b-3-l3",
+      "text": "Parents may not realize that a teenager's body clock naturally shifts later in adolescence, making an early alarm feel like being woken at 4 a.m. would to an adult."
+    },
+    {
+      "source_essay_id": "mini-W1b-3-l4",
+      "text": "For a school board weighing budgets against student wellbeing, the relevant comparison isn't sleep science in the abstract \u2014 it's that a 3-5% attendance gain, as seen in Minneapolis, translates directly into per-pupil funding the district already tracks."
+    },
+    {
+      "source_essay_id": "mini-W1b-3-l5",
+      "text": "To a board most persuaded by dollars, not developmental psychology, the case is simple: the $600,000 rerouting cost this year is a rounding error against the $2M in state funding tied to the attendance gains later starts have produced elsewhere."
+    },
+    {
+      "source_essay_id": "mini-W1c-1-l0",
+      "text": "Teens need sleep. Schools start early. Grades suffer."
+    },
+    {
+      "source_essay_id": "mini-W1c-1-l1",
+      "text": "Teens need sleep. Also schools start early. Also grades suffer."
+    },
+    {
+      "source_essay_id": "mini-W1c-1-l2",
+      "text": "Teens need sleep, and schools start early, so therefore mornings are hard."
+    },
+    {
+      "source_essay_id": "mini-W1c-1-l3",
+      "text": "Because teens need more sleep, early start times are a problem; however, this also affects grades."
+    },
+    {
+      "source_essay_id": "mini-W1c-1-l4",
+      "text": "Because adolescent sleep needs shift later, early start times cut directly into REM sleep; as a result, attention and grades suffer in first-period classes specifically."
+    },
+    {
+      "source_essay_id": "mini-W1c-1-l5",
+      "text": "Though busing costs are real, they are a one-time expense; sleep debt, by contrast, compounds daily \u2014 which is exactly why the tradeoff favors later starts despite the upfront cost."
+    },
+    {
+      "source_essay_id": "mini-W1c-2-l0",
+      "text": "Grades suffer. Buses cost money. Teens need sleep. Schools should change."
+    },
+    {
+      "source_essay_id": "mini-W1c-2-l1",
+      "text": "First, sleep matters. Second, grades matter. Third, buses matter."
+    },
+    {
+      "source_essay_id": "mini-W1c-2-l2",
+      "text": "Sleep matters for teens. Buses are expensive to reroute. Coming back to sleep, it also affects grades."
+    },
+    {
+      "source_essay_id": "mini-W1c-2-l3",
+      "text": "Teen sleep needs come first, then the grade impact, then briefly the bus cost before returning to the main point."
+    },
+    {
+      "source_essay_id": "mini-W1c-2-l4",
+      "text": "The essay establishes the sleep-science case first, layers on the attendance data next, and only then addresses the busing cost \u2014 conceding it last so the reader weighs it against the case already made."
+    },
+    {
+      "source_essay_id": "mini-W1c-2-l5",
+      "text": "By placing the busing concession immediately after the funding data \u2014 not before \u2014 the essay ensures the reader weighs a one-time cost against an annual, compounding funding gain, maximizing the persuasive force of the concession's placement."
+    },
+    {
+      "source_essay_id": "mini-W1d-1-l0",
+      "text": "OK so like, schools starting early is honestly kind of dumb, ngl."
+    },
+    {
+      "source_essay_id": "mini-W1d-1-l1",
+      "text": "Starting school early is pretty rough on kids, but research does suggest sleep loss affects academic performance."
+    },
+    {
+      "source_essay_id": "mini-W1d-1-l2",
+      "text": "Look, nobody's thrilled about early mornings, and yeah, the data backs that up, but c'mon, something's gotta give."
+    },
+    {
+      "source_essay_id": "mini-W1d-1-l3",
+      "text": "The evidence for later start times is substantial, though honestly, it's kind of surprising districts haven't acted on it sooner."
+    },
+    {
+      "source_essay_id": "mini-W1d-1-l4",
+      "text": "The evidence for later start times is substantial and has prompted several districts to reconsider longstanding schedules."
+    },
+    {
+      "source_essay_id": "mini-W1d-1-l5",
+      "text": "The accumulating evidence for delayed start times has begun to unsettle the administrative inertia that has long governed school scheduling policy."
+    },
+    {
+      "source_essay_id": "mini-W1d-2-l0",
+      "text": "Only an idiot would think 7am classes make any sense."
+    },
+    {
+      "source_essay_id": "mini-W1d-2-l1",
+      "text": "Early start times are a lazy, outdated relic that hurts every single student."
+    },
+    {
+      "source_essay_id": "mini-W1d-2-l2",
+      "text": "Studies show sleep loss hurts grades, but school boards who ignore this are frankly negligent."
+    },
+    {
+      "source_essay_id": "mini-W1d-2-l3",
+      "text": "The data on sleep and attendance is compelling, even if some board members seem reluctant to engage with it."
+    },
+    {
+      "source_essay_id": "mini-W1d-2-l4",
+      "text": "The attendance data is compelling enough that continued inaction carries a real, measurable cost to students."
+    },
+    {
+      "source_essay_id": "mini-W1d-2-l5",
+      "text": "School boards prioritizing transportation budgets are not acting unreasonably \u2014 transportation is a real, constrained cost center \u2014 but the attendance data suggests the tradeoff has shifted enough to warrant revisiting that priority."
+    },
+    {
+      "source_essay_id": "mini-W1e-1-l0",
+      "text": "...and that's why buses would need new routes."
+    },
+    {
+      "source_essay_id": "mini-W1e-1-l1",
+      "text": "In conclusion, school start times probably don't matter that much either way."
+    },
+    {
+      "source_essay_id": "mini-W1e-1-l2",
+      "text": "In conclusion, schools should start later."
+    },
+    {
+      "source_essay_id": "mini-W1e-1-l3",
+      "text": "In conclusion, schools should start later because of sleep science and attendance data, despite busing costs."
+    },
+    {
+      "source_essay_id": "mini-W1e-1-l4",
+      "text": "Later start times cost a district money in the short term, but the sleep-science and attendance evidence together suggest the long-term gain in student wellbeing and academic outcomes justifies that cost."
+    },
+    {
+      "source_essay_id": "mini-W1e-1-l5",
+      "text": "Once the busing cost is weighed against its true counterpart \u2014 not inconvenience, but a recurring, compounding loss in attendance and achievement \u2014 the case for 8:30 starts stops being a scheduling question and becomes a question of whether Maryland is willing to fund adolescent health the way it already funds transportation."
+    },
+    {
+      "source_essay_id": "mini-L1-1-l0",
+      "text": "school shoud start later because is better for students dont you think so also there sleep."
+    },
+    {
+      "source_essay_id": "mini-L1-1-l1",
+      "text": "Schools should start later, there sleep needs is important and effects they're grades to."
+    },
+    {
+      "source_essay_id": "mini-L1-1-l2",
+      "text": "Schools should start later, this effects students sleep, and there grades, which is a problem that need fixing."
+    },
+    {
+      "source_essay_id": "mini-L1-1-l3",
+      "text": "Schools should start later, since this effects students' sleep and grades in a real way."
+    },
+    {
+      "source_essay_id": "mini-L1-1-l4",
+      "text": "Schools should start later, since this affects students' sleep and grades in measurable ways."
+    },
+    {
+      "source_essay_id": "mini-L1-1-l5",
+      "text": "Schools should start later \u2014 not as a courtesy, but as a corrective."
+    },
+    {
+      "source_essay_id": "mini-WR-1-l0",
+      "text": "Sleep is good. Schools should start later. The end."
+    },
+    {
+      "source_essay_id": "mini-WR-1-l1",
+      "text": "Sleep is important, so obviously schools should start later."
+    },
+    {
+      "source_essay_id": "mini-WR-1-l2",
+      "text": "Teens need more sleep, and later start times give teens more sleep, so schools should start later."
+    },
+    {
+      "source_essay_id": "mini-WR-1-l3",
+      "text": "Later starts help sleep. They also help attendance. They also cost money for buses. All of these matter."
+    },
+    {
+      "source_essay_id": "mini-WR-1-l4",
+      "text": "The sleep and attendance gains are causally linked \u2014 better rested students attend and perform better \u2014 and this combined benefit is what has to be weighed against the one-time busing cost, not either factor alone."
+    },
+    {
+      "source_essay_id": "mini-WR-1-l5",
+      "text": "This logic holds wherever a district's transportation costs are one-time and its attendance/achievement losses are recurring \u2014 but it would not hold in a district too small to reroute buses affordably, where the calculus could genuinely favor keeping early starts."
+    }
+  ],
+  "excerpts": [
+    {
+      "criterion_id": "W1a-1",
+      "source_essay_id": "ex-arg-social-media-age",
+      "excerpt_text": "Social media companies should be legally required to verify the age of their users, because the technology to do so already exists, the harms of inaction are documented, and the industry's preferred alternative, self-reported birthdays, protects no one.",
+      "score": 5,
+      "anchor_matched": 5,
+      "rationale": "States a precise, arguable central claim and forecasts the three reasons the essay develops (available technology, documented harm, the failure of self-reporting). The qualifying clause sharpens the position rather than restating the topic, matching the level-5 anchor for a precise, knowledgeable claim with well-chosen scope.",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "W1a-2",
+      "source_essay_id": "ex-arg-social-media-age",
+      "excerpt_text": "The objection identifies a real risk, but it argues against a bad implementation, not against the requirement itself.",
+      "score": 5,
+      "anchor_matched": 5,
+      "rationale": "Draws the boundary between positions precisely: it names what the opposing view gets right (a real risk) and isolates exactly where it fails (targeting a bad implementation rather than the requirement). This concede-versus-contest distinction is the level-5 anchor.",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "W1b-1",
+      "source_essay_id": "ex-arg-social-media-age",
+      "excerpt_text": "Internal research disclosed by a whistleblower in 2021 showed that a major platform knew its product worsened anxiety and body-image issues among teenage girls, and kept designing for engagement anyway.",
+      "score": 4,
+      "anchor_matched": 4,
+      "rationale": "Supports the reason that the current system fails with specific, relevant evidence (a dated disclosure, a named category of harm, a concrete corporate behavior). It stops short of level 5 because the warrant connecting the evidence to the claim is implied rather than spelled out.",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "W1b-2",
+      "source_essay_id": "ex-arg-social-media-age",
+      "excerpt_text": "Critics of mandatory verification argue that any system rigorous enough to work would also destroy user privacy, forcing people to hand government identification to the very corporations we least trust. This is the strongest version of the opposing case, and it deserves a real answer rather than a dismissal. Privacy-preserving verification, however, is not a fantasy: several European services already confirm that a user is over a threshold age without storing the underlying document, using third-party checks that return only a yes or no.",
+      "score": 5,
+      "anchor_matched": 5,
+      "rationale": "Develops the counterclaim in its strongest form and explicitly frames it as deserving a real answer, then rebuts it with evidence (privacy-preserving verification already in use) that concedes the valid risk while showing why the claim still holds. This is the level-5 fair-and-thorough counterclaim development.",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "W1b-3",
+      "source_essay_id": "ex-arg-social-media-age",
+      "excerpt_text": "Some readers will object that parents, not corporations, bear responsibility for what children do online.",
+      "score": 4,
+      "anchor_matched": 4,
+      "rationale": "Anticipates a value the target audience is likely to hold (that responsibility for children rests with parents) and names it fairly before answering it, pitching the argument to a skeptical reader. Consistent audience accommodation of this kind matches the level-4 anchor. (Weak referenceability: advisory.)",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "W1c-1",
+      "source_essay_id": "ex-arg-social-media-age",
+      "excerpt_text": "If we accept that the harms are real and the technology is available, the conclusion follows.",
+      "score": 4,
+      "anchor_matched": 4,
+      "rationale": "Linking language does real logical work here: the conditional 'if ... the conclusion follows' signals the inferential relationship between the essay's established premises and its claim, clarifying how the pieces connect rather than merely adding to them (level 4).",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "W1d-1",
+      "source_essay_id": "ex-arg-social-media-age",
+      "excerpt_text": "The evidence that the current system fails is not in dispute.",
+      "score": 5,
+      "anchor_matched": 5,
+      "rationale": "Formal, discipline-appropriate diction with a deliberate, economical register ('not in dispute'). The academic voice is maintained without lapse, matching the level-5 anchor for precise, deliberate register choices.",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "W1d-2",
+      "source_essay_id": "ex-arg-social-media-age",
+      "excerpt_text": "That is partly true, and no statute can substitute for an attentive adult.",
+      "score": 4,
+      "anchor_matched": 4,
+      "rationale": "Advances the point through a reasoned concession rather than an emotional appeal, granting the opposing view its partial validity in terms its proponents would accept. The objective, evidence-oriented tone matches level 4.",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "W1e-1",
+      "source_essay_id": "ex-arg-social-media-age",
+      "excerpt_text": "Requiring age verification does not solve every problem of adolescence online, but it ends the pretense that the problem cannot be seen. The burden should rest where the profit does.",
+      "score": 5,
+      "anchor_matched": 5,
+      "rationale": "Synthesizes the argument, acknowledges the limits of the claim, and lands an implication the body has earned (that the burden should follow the profit) rather than merely restating the thesis. This is the level-5 concluding move.",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "L1-1",
+      "source_essay_id": "ex-arg-social-media-age",
+      "excerpt_text": "Every argument about protecting young people online eventually runs into the same wall: platforms claim they cannot know who their users are.",
+      "score": 5,
+      "anchor_matched": 5,
+      "rationale": "Essentially error-free, with a correctly punctuated colon introducing an elaboration and controlled subordinate structure. Conventions are handled with command and used for emphasis, matching level 5.",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "WR-1",
+      "source_essay_id": "ex-arg-social-media-age",
+      "excerpt_text": "But responsibility is not a fixed quantity that must belong entirely to one party; a company that profits from a minor's attention is not absolved because a parent was also present.",
+      "score": 5,
+      "anchor_matched": 5,
+      "rationale": "ADVISORY: reasons about a general principle (how responsibility distributes across parties) beyond the immediate case and applies it back to the claim. This extended-abstract move matches level 5; teacher remains authoritative on this teacher-reserve criterion.",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "W1a-1",
+      "source_essay_id": "ex-arg-four-day-week",
+      "excerpt_text": "Schools should switch to four days because it saves money and gives everyone a break.",
+      "score": 3,
+      "anchor_matched": 3,
+      "rationale": "An arguable claim is stated, but imprecisely: 'gives everyone a break' is vague and the position carries no qualifiers or scope conditions. Matches the level-3 anchor for an arguable but imprecise claim.",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "W1b-1",
+      "source_essay_id": "ex-arg-four-day-week",
+      "excerpt_text": "A district in Missouri saved money after switching, and some teachers said they liked it better.",
+      "score": 2,
+      "anchor_matched": 2,
+      "rationale": "Gestures at evidence but it is generic and unattributed (no figure, an unnamed district, 'some teachers'), leaving the money reason thinly supported. Matches the level-2 anchor for generic, unspecific evidence.",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "W1b-2",
+      "source_essay_id": "ex-arg-four-day-week",
+      "excerpt_text": "Some people say that a four-day week is bad for students who rely on school lunches, and that parents have to find childcare on the extra day off. These are real problems. But most families can figure something out, and the benefits are worth it.",
+      "score": 3,
+      "anchor_matched": 3,
+      "rationale": "Names the counterclaim and concedes that it is real (one acknowledged strength), but the rebuttal dismisses it without evidence ('most families can figure something out'), so the limitation is asserted rather than argued. Matches the level-3 anchor.",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "W1c-1",
+      "source_essay_id": "ex-arg-four-day-week",
+      "excerpt_text": "Also, teachers could use the day to plan lessons, which helps everyone.",
+      "score": 2,
+      "anchor_matched": 2,
+      "rationale": "Relies on an additive connective ('Also') to tack on a loosely related point instead of signaling how it supports the claim. The relationship between reason and claim is left unsignaled, matching the level-2 anchor.",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "W1d-1",
+      "source_essay_id": "ex-arg-four-day-week",
+      "excerpt_text": "A lot of students and teachers are tired, and a four-day school week could help.",
+      "score": 2,
+      "anchor_matched": 2,
+      "rationale": "Opens in a colloquial register ('A lot of', a casual could-help hedge) unsuited to academic argument. The recurring informality undercuts the academic voice, matching the level-2 anchor.",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "W1e-1",
+      "source_essay_id": "ex-arg-four-day-week",
+      "excerpt_text": "In conclusion, a four-day school week saves money and reduces stress, so schools should switch. It is a change whose time has come.",
+      "score": 3,
+      "anchor_matched": 3,
+      "rationale": "Restates the claim and summarizes the two reasons but adds no synthesis or significance beyond a cliche ('whose time has come'). Matches the level-3 anchor for restatement without extension.",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "W1a-1",
+      "source_essay_id": "ex-arg-phones-in-school",
+      "excerpt_text": "Some people think they are good and some people think they are bad.",
+      "score": 1,
+      "anchor_matched": 1,
+      "rationale": "Announces the topic but takes no arguable position of its own, only reporting that opinions differ. Matches the level-1 anchor for a topic announced with no position taken.",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "W1b-1",
+      "source_essay_id": "ex-arg-phones-in-school",
+      "excerpt_text": "My friend uses his phone to check the time and to text his mom.",
+      "score": 1,
+      "anchor_matched": 1,
+      "rationale": "Offers a personal anecdote that is irrelevant to any reason about school phone policy. Evidence is mentioned but does not bear on the reason it is attached to, matching the level-1 anchor.",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "W1b-3",
+      "source_essay_id": "ex-arg-phones-in-school",
+      "excerpt_text": "Everyone has one and they use them all the time.",
+      "score": 1,
+      "anchor_matched": 1,
+      "rationale": "No awareness of a specific audience, its knowledge level, or its concerns; the framing is a vague generality. Matches the level-1 anchor for absent audience awareness. (Weak referenceability: advisory.)",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "W1c-1",
+      "source_essay_id": "ex-arg-phones-in-school",
+      "excerpt_text": "Also phones are expensive so people do not want to lose them.",
+      "score": 1,
+      "anchor_matched": 1,
+      "rationale": "An additive 'Also' bolts on an unrelated point with no signaled relationship to the surrounding claim. Only additive linking is used regardless of the actual logic, matching the level-1 anchor.",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "WR-1",
+      "source_essay_id": "ex-arg-phones-in-school",
+      "excerpt_text": "Phones can be useful because you can look things up.",
+      "score": 1,
+      "anchor_matched": 1,
+      "rationale": "ADVISORY: prestructural reasoning: a benefit is asserted and the 'because' connection is stated but never developed into an argument that bears on a claim. Matches the level-1 anchor; teacher remains authoritative on this teacher-reserve criterion.",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "W1e-1",
+      "source_essay_id": "ex-arg-phones-in-school",
+      "excerpt_text": "So in conclusion phones are a big topic and people have different opinions. That is why this is important to think about.",
+      "score": 1,
+      "anchor_matched": 1,
+      "rationale": "The conclusion restates the topic and the absence of a position; it follows from no argument because none was made. Matches the level-1 anchor for a conclusion that ignores the argument.",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "L1-1",
+      "source_essay_id": "ex-arg-phones-in-school",
+      "excerpt_text": "But phones can be a distraction, in class people are always looking at their phones instead of paying attention this is annoying and it happens a lot.",
+      "score": 2,
+      "anchor_matched": 2,
+      "rationale": "Recurring run-on and comma-splice errors fuse independent clauses without adequate punctuation, and the sentence sometimes impedes reading. Matches the level-2 anchor for recurring error patterns.",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "W1c-2",
+      "source_essay_id": "ex-arg-social-media-age",
+      "excerpt_text": "A verification requirement would not erase those design choices, but it would remove the legal fiction that underage users are simply unforeseeable.",
+      "score": 4,
+      "anchor_matched": 4,
+      "rationale": "Placed immediately after the whistleblower evidence, this sentence draws out that evidence's implication before the essay moves on \u2014 a deliberate build from evidence to significance, matching the level-4 anchor for sequencing that builds the argument.",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "W1c-2",
+      "source_essay_id": "ex-arg-four-day-week",
+      "excerpt_text": "Another reason is that students would be less stressed.",
+      "score": 1,
+      "anchor_matched": 1,
+      "rationale": "Introduced with 'another reason,' this point is interchangeable with the money reason before it \u2014 no progression or build, just a list. Matches the level-1 anchor.",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "W1c-2",
+      "source_essay_id": "ex-arg-phones-in-school",
+      "excerpt_text": "Teachers use phones too sometimes.",
+      "score": 0,
+      "anchor_matched": 0,
+      "rationale": "A disconnected aside dropped into the middle of an unrelated point, with no logical placement relative to what precedes or follows it. Matches the level-0 anchor for no discernible order.",
+      "construction": "real_essay_excerpt"
+    },
+    {
+      "criterion_id": "W1a-1",
+      "source_essay_id": "mini-W1a-1-l0",
+      "excerpt_text": "Schools are a big part of teenagers' lives. There are many things students do every day, like homework and sports. This essay will talk about some of those things.",
+      "score": 0,
+      "anchor_matched": 0,
+      "rationale": "No position on start times at all \u2014 off-topic filler, no claim.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1a-1",
+      "source_essay_id": "mini-W1a-1-l1",
+      "excerpt_text": "This essay is about whether high schools should start later in the morning. Many people have opinions about this topic.",
+      "score": 1,
+      "anchor_matched": 1,
+      "rationale": "States the topic but takes no position \u2014 restates the prompt, no argument.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1a-1",
+      "source_essay_id": "mini-W1a-1-l2",
+      "excerpt_text": "Maybe schools should think about changing their schedules, since mornings can be hard for some students.",
+      "score": 2,
+      "anchor_matched": 2,
+      "rationale": "Gestures at a position without committing \u2014 too hedged and broad to guide an argument.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1a-1",
+      "source_essay_id": "mini-W1a-1-l3",
+      "excerpt_text": "High schools should probably start later, although there are some downsides too.",
+      "score": 3,
+      "anchor_matched": 3,
+      "rationale": "A real position, but hedged and missing the qualifiers the essay actually relies on.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1a-1",
+      "source_essay_id": "mini-W1a-1-l4",
+      "excerpt_text": "Maryland high schools should start no earlier than 8:30 a.m. to align with adolescent sleep needs.",
+      "score": 4,
+      "anchor_matched": 4,
+      "rationale": "Precise and arguable; matches the sleep-science argument the essay develops.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1a-1",
+      "source_essay_id": "mini-W1a-1-l5",
+      "excerpt_text": "Because adolescent circadian rhythms shift sleep onset later, Maryland high schools should start at 8:30 or later, even if it means reorganizing bus routes.",
+      "score": 5,
+      "anchor_matched": 5,
+      "rationale": "Precise and knowledgeable, with a deliberate scope condition anticipating a real complexity.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1a-2",
+      "source_essay_id": "mini-W1a-2-l0",
+      "excerpt_text": "Schools should start later. This is a good idea for students.",
+      "score": 0,
+      "anchor_matched": 0,
+      "rationale": "No mention of any other position at all.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1a-2",
+      "source_essay_id": "mini-W1a-2-l1",
+      "excerpt_text": "Some people might disagree with this, but schools should still start later.",
+      "score": 1,
+      "anchor_matched": 1,
+      "rationale": "Vague gesture, no actual opposing position named.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1a-2",
+      "source_essay_id": "mini-W1a-2-l2",
+      "excerpt_text": "Some parents worry about bus schedules if start times change, and schools should start later too.",
+      "score": 2,
+      "anchor_matched": 2,
+      "rationale": "Opposing concern named but not set clearly against the writer's own position.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1a-2",
+      "source_essay_id": "mini-W1a-2-l3",
+      "excerpt_text": "Critics argue that later start times would disrupt bus schedules, but schools should still start at 8:30 because student health matters more.",
+      "score": 3,
+      "anchor_matched": 3,
+      "rationale": "Opposing claim stated and explicitly contrasted, at least once.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1a-2",
+      "source_essay_id": "mini-W1a-2-l4",
+      "excerpt_text": "Opponents note that later starts complicate after-school sports and bus routes; the writer maintains that these logistical costs are outweighed by documented gains in adolescent alertness and safety.",
+      "score": 4,
+      "anchor_matched": 4,
+      "rationale": "Fair statement of opposition, consistently distinguished from the writer's claim.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1a-2",
+      "source_essay_id": "mini-W1a-2-l5",
+      "excerpt_text": "Transportation officials rightly note that shifting start times by even 30 minutes can cost districts millions in re-routed buses \u2014 a cost this essay does not dispute. What it contests is the assumption that logistics should outweigh adolescent sleep science.",
+      "score": 5,
+      "anchor_matched": 5,
+      "rationale": "Strongest form of the opposing claim, precise concession vs. contest boundary.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1b-1",
+      "source_essay_id": "mini-W1b-1-l0",
+      "excerpt_text": "Later start times are better for students. Everyone agrees.",
+      "score": 0,
+      "anchor_matched": 0,
+      "rationale": "No evidence at all, bare assertion.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1b-1",
+      "source_essay_id": "mini-W1b-1-l1",
+      "excerpt_text": "Students need more sleep, and studies show that teenagers like using their phones a lot.",
+      "score": 1,
+      "anchor_matched": 1,
+      "rationale": "Cited fact is unrelated to the reason (sleep) it's attached to.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1b-1",
+      "source_essay_id": "mini-W1b-1-l2",
+      "excerpt_text": "Studies show teens need more sleep. Later start times would also probably help grades, though that part is just common sense.",
+      "score": 2,
+      "anchor_matched": 2,
+      "rationale": "One relevant but generic/unattributed piece of evidence; a major reason left unsupported.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1b-1",
+      "source_essay_id": "mini-W1b-1-l3",
+      "excerpt_text": "A CDC report links early start times to chronic sleep deprivation in teens. Grades likely improve too, since tired students focus less well.",
+      "score": 3,
+      "anchor_matched": 3,
+      "rationale": "One reason well-sourced, the second reason still thin and unsupported.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1b-1",
+      "source_essay_id": "mini-W1b-1-l4",
+      "excerpt_text": "A 2019 CDC report found that only 15% of high schools nationwide start at 8:30 or later, and districts that made the switch saw attendance rise by 3-5%, per the Minneapolis Public Schools 2016 study.",
+      "score": 4,
+      "anchor_matched": 4,
+      "rationale": "Specific data and named sources for each reason cited.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1b-1",
+      "source_essay_id": "mini-W1b-1-l5",
+      "excerpt_text": "The Minneapolis Public Schools 2016 study found a 3-5% attendance increase after shifting to 8:30 starts \u2014 meaningful because attendance is the strongest predictor of graduation rates in the district's own longitudinal data, making this evidence directly load-bearing for the argument, not just correlational noise.",
+      "score": 5,
+      "anchor_matched": 5,
+      "rationale": "Most relevant evidence available, with the warrant explicitly articulated.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1b-2",
+      "source_essay_id": "mini-W1b-2-l0",
+      "excerpt_text": "Later start times are the right choice for every school.",
+      "score": 0,
+      "anchor_matched": 0,
+      "rationale": "No counterclaim developed at all.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1b-2",
+      "source_essay_id": "mini-W1b-2-l1",
+      "excerpt_text": "Some say buses are a problem, but that's not a real issue.",
+      "score": 1,
+      "anchor_matched": 1,
+      "rationale": "Counterclaim named then immediately dismissed without engagement.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1b-2",
+      "source_essay_id": "mini-W1b-2-l2",
+      "excerpt_text": "Critics claim busing costs matter more than teenagers' health, which obviously isn't true.",
+      "score": 2,
+      "anchor_matched": 2,
+      "rationale": "Weakest version of the counterclaim, no strengths acknowledged.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1b-2",
+      "source_essay_id": "mini-W1b-2-l3",
+      "excerpt_text": "Bus rerouting is a real cost, though it's manageable with planning.",
+      "score": 3,
+      "anchor_matched": 3,
+      "rationale": "Acknowledges a strength but doesn't argue a limitation with evidence.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1b-2",
+      "source_essay_id": "mini-W1b-2-l4",
+      "excerpt_text": "Rerouting buses is a genuine, budgeted cost \u2014 Minneapolis spent $600,000 on new routes \u2014 but that one-time expense is smaller than the district's annual absenteeism-related funding losses.",
+      "score": 4,
+      "anchor_matched": 4,
+      "rationale": "Fair acknowledgment plus an evidenced limitation.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1b-2",
+      "source_essay_id": "mini-W1b-2-l5",
+      "excerpt_text": "The strongest version of the busing objection is that rural districts, unlike Minneapolis, may lack the route density to reorganize affordably \u2014 a genuine constraint this essay concedes for rural contexts, while arguing it doesn't apply to suburban Maryland districts with overlapping bus zones.",
+      "score": 5,
+      "anchor_matched": 5,
+      "rationale": "Strongest form of the counterclaim, conceded precisely where valid.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1b-3",
+      "source_essay_id": "mini-W1b-3-l0",
+      "excerpt_text": "REM sleep latency and circadian phase delay are well documented in the chronobiology literature.",
+      "score": 0,
+      "anchor_matched": 0,
+      "rationale": "Unexplained jargon, no accommodation for a school-board audience.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1b-3",
+      "source_essay_id": "mini-W1b-3-l1",
+      "excerpt_text": "Circadian rhythm (the body's sleep clock) shifts in teens, though the phase delay itself needs no further explanation.",
+      "score": 1,
+      "anchor_matched": 1,
+      "rationale": "Over-explains once, then assumes the audience already knows technical terms.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1b-3",
+      "source_essay_id": "mini-W1b-3-l2",
+      "excerpt_text": "In simple terms, teenagers' body clocks shift later, which is important to know.",
+      "score": 2,
+      "anchor_matched": 2,
+      "rationale": "Formulaic simplification without real audience awareness.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1b-3",
+      "source_essay_id": "mini-W1b-3-l3",
+      "excerpt_text": "Parents may not realize that a teenager's body clock naturally shifts later in adolescence, making an early alarm feel like being woken at 4 a.m. would to an adult.",
+      "score": 3,
+      "anchor_matched": 3,
+      "rationale": "Consistently framed for a parent/school-board audience.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1b-3",
+      "source_essay_id": "mini-W1b-3-l4",
+      "excerpt_text": "For a school board weighing budgets against student wellbeing, the relevant comparison isn't sleep science in the abstract \u2014 it's that a 3-5% attendance gain, as seen in Minneapolis, translates directly into per-pupil funding the district already tracks.",
+      "score": 4,
+      "anchor_matched": 4,
+      "rationale": "Consistently pitched to the board's actual concerns (budget).",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1b-3",
+      "source_essay_id": "mini-W1b-3-l5",
+      "excerpt_text": "To a board most persuaded by dollars, not developmental psychology, the case is simple: the $600,000 rerouting cost this year is a rounding error against the $2M in state funding tied to the attendance gains later starts have produced elsewhere.",
+      "score": 5,
+      "anchor_matched": 5,
+      "rationale": "Strategically reframes the argument in the audience's own values to persuade a skeptical reader.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1c-1",
+      "source_essay_id": "mini-W1c-1-l0",
+      "excerpt_text": "Teens need sleep. Schools start early. Grades suffer.",
+      "score": 0,
+      "anchor_matched": 0,
+      "rationale": "Juxtaposed clauses, no signaled relationships.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1c-1",
+      "source_essay_id": "mini-W1c-1-l1",
+      "excerpt_text": "Teens need sleep. Also schools start early. Also grades suffer.",
+      "score": 1,
+      "anchor_matched": 1,
+      "rationale": "Only additive connectives, ignoring the actual causal relationship.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1c-1",
+      "source_essay_id": "mini-W1c-1-l2",
+      "excerpt_text": "Teens need sleep, and schools start early, so therefore mornings are hard.",
+      "score": 2,
+      "anchor_matched": 2,
+      "rationale": "Transitions present but the logical relationship is muddled.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1c-1",
+      "source_essay_id": "mini-W1c-1-l3",
+      "excerpt_text": "Because teens need more sleep, early start times are a problem; however, this also affects grades.",
+      "score": 3,
+      "anchor_matched": 3,
+      "rationale": "Mostly correct signaling; 'however' here is a mis-signal.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1c-1",
+      "source_essay_id": "mini-W1c-1-l4",
+      "excerpt_text": "Because adolescent sleep needs shift later, early start times cut directly into REM sleep; as a result, attention and grades suffer in first-period classes specifically.",
+      "score": 4,
+      "anchor_matched": 4,
+      "rationale": "Varied, precise causal chain signaled throughout.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1c-1",
+      "source_essay_id": "mini-W1c-1-l5",
+      "excerpt_text": "Though busing costs are real, they are a one-time expense; sleep debt, by contrast, compounds daily \u2014 which is exactly why the tradeoff favors later starts despite the upfront cost.",
+      "score": 5,
+      "anchor_matched": 5,
+      "rationale": "Concession, causation, and contrast each land exactly where the logic turns.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1c-2",
+      "source_essay_id": "mini-W1c-2-l0",
+      "excerpt_text": "Grades suffer. Buses cost money. Teens need sleep. Schools should change.",
+      "score": 0,
+      "anchor_matched": 0,
+      "rationale": "Random order, no build.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1c-2",
+      "source_essay_id": "mini-W1c-2-l1",
+      "excerpt_text": "First, sleep matters. Second, grades matter. Third, buses matter.",
+      "score": 1,
+      "anchor_matched": 1,
+      "rationale": "Interchangeable list, no build toward a conclusion.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1c-2",
+      "source_essay_id": "mini-W1c-2-l2",
+      "excerpt_text": "Sleep matters for teens. Buses are expensive to reroute. Coming back to sleep, it also affects grades.",
+      "score": 2,
+      "anchor_matched": 2,
+      "rationale": "Disruptive detour interrupts the sleep-to-grades reasoning.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1c-2",
+      "source_essay_id": "mini-W1c-2-l3",
+      "excerpt_text": "Teen sleep needs come first, then the grade impact, then briefly the bus cost before returning to the main point.",
+      "score": 3,
+      "anchor_matched": 3,
+      "rationale": "Mostly builds, with a minor lapse in the bus aside.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1c-2",
+      "source_essay_id": "mini-W1c-2-l4",
+      "excerpt_text": "The essay establishes the sleep-science case first, layers on the attendance data next, and only then addresses the busing cost \u2014 conceding it last so the reader weighs it against the case already made.",
+      "score": 4,
+      "anchor_matched": 4,
+      "rationale": "Deliberate sequencing that builds the case before addressing the objection.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1c-2",
+      "source_essay_id": "mini-W1c-2-l5",
+      "excerpt_text": "By placing the busing concession immediately after the funding data \u2014 not before \u2014 the essay ensures the reader weighs a one-time cost against an annual, compounding funding gain, maximizing the persuasive force of the concession's placement.",
+      "score": 5,
+      "anchor_matched": 5,
+      "rationale": "Placement itself is doing argumentative work, not just conveying information in order.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1d-1",
+      "source_essay_id": "mini-W1d-1-l0",
+      "excerpt_text": "OK so like, schools starting early is honestly kind of dumb, ngl.",
+      "score": 0,
+      "anchor_matched": 0,
+      "rationale": "Slang and text-speak throughout.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1d-1",
+      "source_essay_id": "mini-W1d-1-l1",
+      "excerpt_text": "Starting school early is pretty rough on kids, but research does suggest sleep loss affects academic performance.",
+      "score": 1,
+      "anchor_matched": 1,
+      "rationale": "Mostly casual with one formal sentence.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1d-1",
+      "source_essay_id": "mini-W1d-1-l2",
+      "excerpt_text": "Look, nobody's thrilled about early mornings, and yeah, the data backs that up, but c'mon, something's gotta give.",
+      "score": 2,
+      "anchor_matched": 2,
+      "rationale": "Repeated colloquialisms undercut the academic voice throughout.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1d-1",
+      "source_essay_id": "mini-W1d-1-l3",
+      "excerpt_text": "The evidence for later start times is substantial, though honestly, it's kind of surprising districts haven't acted on it sooner.",
+      "score": 3,
+      "anchor_matched": 3,
+      "rationale": "Mostly formal, one casual lapse.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1d-1",
+      "source_essay_id": "mini-W1d-1-l4",
+      "excerpt_text": "The evidence for later start times is substantial and has prompted several districts to reconsider longstanding schedules.",
+      "score": 4,
+      "anchor_matched": 4,
+      "rationale": "Consistent academic diction throughout.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1d-1",
+      "source_essay_id": "mini-W1d-1-l5",
+      "excerpt_text": "The accumulating evidence for delayed start times has begun to unsettle the administrative inertia that has long governed school scheduling policy.",
+      "score": 5,
+      "anchor_matched": 5,
+      "rationale": "Precise, discipline-appropriate diction with deliberate, effective register choices.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1d-2",
+      "source_essay_id": "mini-W1d-2-l0",
+      "excerpt_text": "Only an idiot would think 7am classes make any sense.",
+      "score": 0,
+      "anchor_matched": 0,
+      "rationale": "Pure invective, no evidence.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1d-2",
+      "source_essay_id": "mini-W1d-2-l1",
+      "excerpt_text": "Early start times are a lazy, outdated relic that hurts every single student.",
+      "score": 1,
+      "anchor_matched": 1,
+      "rationale": "Loaded language throughout, reasoning absent.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1d-2",
+      "source_essay_id": "mini-W1d-2-l2",
+      "excerpt_text": "Studies show sleep loss hurts grades, but school boards who ignore this are frankly negligent.",
+      "score": 2,
+      "anchor_matched": 2,
+      "rationale": "Evidence present, but a loaded characterization of the opposing side recurs.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1d-2",
+      "source_essay_id": "mini-W1d-2-l3",
+      "excerpt_text": "The data on sleep and attendance is compelling, even if some board members seem reluctant to engage with it.",
+      "score": 3,
+      "anchor_matched": 3,
+      "rationale": "Mostly objective, one mildly loaded aside.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1d-2",
+      "source_essay_id": "mini-W1d-2-l4",
+      "excerpt_text": "The attendance data is compelling enough that continued inaction carries a real, measurable cost to students.",
+      "score": 4,
+      "anchor_matched": 4,
+      "rationale": "Objective throughout; any emotional weight is grounded in the cited data.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1d-2",
+      "source_essay_id": "mini-W1d-2-l5",
+      "excerpt_text": "School boards prioritizing transportation budgets are not acting unreasonably \u2014 transportation is a real, constrained cost center \u2014 but the attendance data suggests the tradeoff has shifted enough to warrant revisiting that priority.",
+      "score": 5,
+      "anchor_matched": 5,
+      "rationale": "Characterizes the opposing view in terms its own proponents would accept, while still making the case.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1e-1",
+      "source_essay_id": "mini-W1e-1-l0",
+      "excerpt_text": "...and that's why buses would need new routes.",
+      "score": 0,
+      "anchor_matched": 0,
+      "rationale": "No conclusion at all, essay just stops.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1e-1",
+      "source_essay_id": "mini-W1e-1-l1",
+      "excerpt_text": "In conclusion, school start times probably don't matter that much either way.",
+      "score": 1,
+      "anchor_matched": 1,
+      "rationale": "Directly undercuts the argument the essay just made.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1e-1",
+      "source_essay_id": "mini-W1e-1-l2",
+      "excerpt_text": "In conclusion, schools should start later.",
+      "score": 2,
+      "anchor_matched": 2,
+      "rationale": "Bare restatement, no synthesis of reasons.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1e-1",
+      "source_essay_id": "mini-W1e-1-l3",
+      "excerpt_text": "In conclusion, schools should start later because of sleep science and attendance data, despite busing costs.",
+      "score": 3,
+      "anchor_matched": 3,
+      "rationale": "Summarizes reasons but doesn't extend or synthesize further.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1e-1",
+      "source_essay_id": "mini-W1e-1-l4",
+      "excerpt_text": "Later start times cost a district money in the short term, but the sleep-science and attendance evidence together suggest the long-term gain in student wellbeing and academic outcomes justifies that cost.",
+      "score": 4,
+      "anchor_matched": 4,
+      "rationale": "Synthesizes the reasons and addresses the significance of the position.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "W1e-1",
+      "source_essay_id": "mini-W1e-1-l5",
+      "excerpt_text": "Once the busing cost is weighed against its true counterpart \u2014 not inconvenience, but a recurring, compounding loss in attendance and achievement \u2014 the case for 8:30 starts stops being a scheduling question and becomes a question of whether Maryland is willing to fund adolescent health the way it already funds transportation.",
+      "score": 5,
+      "anchor_matched": 5,
+      "rationale": "Synthesizes the argument, resolves the counterclaim's disposition, and articulates a broader implication.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "L1-1",
+      "source_essay_id": "mini-L1-1-l0",
+      "excerpt_text": "school shoud start later because is better for students dont you think so also there sleep.",
+      "score": 0,
+      "anchor_matched": 0,
+      "rationale": "Pervasive errors that block comprehension.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "L1-1",
+      "source_essay_id": "mini-L1-1-l1",
+      "excerpt_text": "Schools should start later, there sleep needs is important and effects they're grades to.",
+      "score": 1,
+      "anchor_matched": 1,
+      "rationale": "Frequent usage errors that often obscure meaning.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "L1-1",
+      "source_essay_id": "mini-L1-1-l2",
+      "excerpt_text": "Schools should start later, this effects students sleep, and there grades, which is a problem that need fixing.",
+      "score": 2,
+      "anchor_matched": 2,
+      "rationale": "Recurring agreement/homophone errors that sometimes impede reading.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "L1-1",
+      "source_essay_id": "mini-L1-1-l3",
+      "excerpt_text": "Schools should start later, since this effects students' sleep and grades in a real way.",
+      "score": 3,
+      "anchor_matched": 3,
+      "rationale": "One recurring error type but meaning is never obscured.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "L1-1",
+      "source_essay_id": "mini-L1-1-l4",
+      "excerpt_text": "Schools should start later, since this affects students' sleep and grades in measurable ways.",
+      "score": 4,
+      "anchor_matched": 4,
+      "rationale": "Essentially clean, evident command of sentence-level conventions.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "L1-1",
+      "source_essay_id": "mini-L1-1-l5",
+      "excerpt_text": "Schools should start later \u2014 not as a courtesy, but as a corrective.",
+      "score": 5,
+      "anchor_matched": 5,
+      "rationale": "Error-free, with punctuation used deliberately for rhetorical emphasis.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "WR-1",
+      "source_essay_id": "mini-WR-1-l0",
+      "excerpt_text": "Sleep is good. Schools should start later. The end.",
+      "score": 0,
+      "anchor_matched": 0,
+      "rationale": "No reasoning connects the evidence to the claim at all.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "WR-1",
+      "source_essay_id": "mini-WR-1-l1",
+      "excerpt_text": "Sleep is important, so obviously schools should start later.",
+      "score": 1,
+      "anchor_matched": 1,
+      "rationale": "The connection between sleep and start-time policy is asserted, not reasoned through.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "WR-1",
+      "source_essay_id": "mini-WR-1-l2",
+      "excerpt_text": "Teens need more sleep, and later start times give teens more sleep, so schools should start later.",
+      "score": 2,
+      "anchor_matched": 2,
+      "rationale": "A single mechanical line of reasoning, no integration with other factors.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "WR-1",
+      "source_essay_id": "mini-WR-1-l3",
+      "excerpt_text": "Later starts help sleep. They also help attendance. They also cost money for buses. All of these matter.",
+      "score": 3,
+      "anchor_matched": 3,
+      "rationale": "Several reasons listed side by side without integrating them into a single argument.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "WR-1",
+      "source_essay_id": "mini-WR-1-l4",
+      "excerpt_text": "The sleep and attendance gains are causally linked \u2014 better rested students attend and perform better \u2014 and this combined benefit is what has to be weighed against the one-time busing cost, not either factor alone.",
+      "score": 4,
+      "anchor_matched": 4,
+      "rationale": "Reasons are integrated and weighed against each other and the counterclaim.",
+      "construction": "standalone_single_sentence"
+    },
+    {
+      "criterion_id": "WR-1",
+      "source_essay_id": "mini-WR-1-l5",
+      "excerpt_text": "This logic holds wherever a district's transportation costs are one-time and its attendance/achievement losses are recurring \u2014 but it would not hold in a district too small to reroute buses affordably, where the calculus could genuinely favor keeping early starts.",
+      "score": 5,
+      "anchor_matched": 5,
+      "rationale": "Generalizes the argument's logic and explicitly acknowledges the conditions under which it would fail.",
+      "construction": "standalone_single_sentence"
+    }
+  ]
+}

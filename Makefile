@@ -60,6 +60,18 @@ dev:
 		echo "Rebuild it: rm -rf $(VENV) && make setup" >&2; \
 		exit 1; \
 	fi
+	@if (exec 3<>/dev/tcp/127.0.0.1/8731) 2>/dev/null; then \
+		exec 3<&-; exec 3>&-; \
+		echo "Port 8731 is already in use — another 'make dev' (this checkout or a different one) may already be running." >&2; \
+		echo "Find it with: lsof -i :8731  (or) ss -ltnp | grep 8731" >&2; \
+		exit 1; \
+	fi
+	@if (exec 3<>/dev/tcp/127.0.0.1/5183) 2>/dev/null; then \
+		exec 3<&-; exec 3>&-; \
+		echo "Port 5183 is already in use — another 'make dev' may already be running." >&2; \
+		echo "Find it with: lsof -i :5183  (or) ss -ltnp | grep 5183" >&2; \
+		exit 1; \
+	fi
 	@echo "Starting backend on http://localhost:8731 and frontend on http://localhost:5183"
 	@echo "Open http://localhost:5183 in your browser. Press Ctrl+C to stop both."
 	@set -m; \

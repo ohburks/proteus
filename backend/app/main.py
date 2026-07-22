@@ -7,6 +7,7 @@ from app.auth import seed_default_accounts
 from app.db import init_db
 from app.routers import assessments, auth, excerpts, review, roster, rubrics, settings
 from app.seed import seed_rubrics
+from app.seed_excerpts import seed_exemplar_excerpts, seed_personalized_excerpts
 
 app = FastAPI(title="Proteus (Dual RAG Grading)")
 
@@ -24,6 +25,11 @@ def startup() -> None:
     init_db()
     seed_rubrics()
     seed_default_accounts()
+    # Excerpt seeding must run after accounts: the personalized seed's
+    # instructor_id field is a username placeholder resolved against the
+    # just-created default instructor user (app.seed_excerpts).
+    seed_exemplar_excerpts()
+    seed_personalized_excerpts()
 
 
 SPA_DIST = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"

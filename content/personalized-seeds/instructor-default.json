@@ -1,0 +1,122 @@
+{
+  "instructor_id": "instructor",
+  "course_id": null,
+  "assignment_id": null,
+  "rubric_id": "mccr-w11-12-arg",
+  "notes": "Personalized RAG seed corpus for a single instructor's standing grading style (instructor-default tier: course_id/assignment_id null). Unlike the Exemplar corpus, anchor_matched here is NOT set equal to score by construction -- anchor_matched reflects what the rubric's literal anchor text would assign, while score reflects what this instructor actually gave it. The gap between the two IS the point. Self-approved by Claude, no independent human review -- POC purposes.",
+  "instructor_profile": {
+    "grading_philosophy": "Grammar, spelling, and punctuation errors are not penalized -- I grade argument quality, not surface polish. Formal academic register is not required either. A strong conclusion is non-negotiable, though: essays without one, or that only restate the claim without real synthesis, lose more than the rubric anchor alone would take off.",
+    "deprioritized_criteria": [
+      "L1-1",
+      "W1d-1"
+    ]
+  },
+  "source_essays": [
+    {
+      "source_essay_id": "pers-arg-cellphone-ban",
+      "text": "i think schools should not ban cell phones completly because kids need them for saftey reasons. if theres an emergency a phone lets a student contact there parents right away, and that matters more than a little bit of distraction in class. teachers already have ways to make sure phones dont get used during tests, so a full ban isnt nessesary. some people say phones are to distracting but a partial policy like phones away during class time could work just as good as a full ban. Overall i think schools should think about this more before banning phones completly."
+    },
+    {
+      "source_essay_id": "pers-arg-recess-time",
+      "text": "Recess time for elementary students has been shortened significantly over the past decade, and this trend should be reversed. Physical activity during the school day supports concentration in later classes, and unstructured play helps younger students develop social skills that classroom instruction does not. Some administrators argue that instructional time is too valuable to spend outside, but a twenty-minute recess period is a small fraction of the school day, and the research on attention spans suggests it pays for itself in classroom focus afterward. Recess is important for many reasons."
+    },
+    {
+      "source_essay_id": "pers-arg-strong-conclusion-standalone",
+      "text": "Once the busing cost is weighed against its true counterpart -- a recurring, compounding loss in attendance and achievement -- the case for later starts stops being a scheduling question and becomes a question of what the district is willing to fund."
+    },
+    {
+      "source_essay_id": "pers-arg-no-conclusion-standalone",
+      "text": "...and that's why buses would need new routes."
+    }
+  ],
+  "excerpts": [
+    {
+      "excerpt_id": "pers-0001",
+      "criterion_id": "L1-1",
+      "source_essay_id": "pers-arg-cellphone-ban",
+      "excerpt_text": "i think schools should not ban cell phones completly because kids need them for saftey reasons.",
+      "anchor_matched": 1,
+      "score": 5,
+      "rationale": "Literal rubric fit: frequent spelling/capitalization errors would put this near the level-1 anchor. Instructor score: full marks regardless -- grammar and spelling are not weighted here.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "pers-0002",
+      "criterion_id": "L1-1",
+      "source_essay_id": "pers-arg-recess-time",
+      "excerpt_text": "Physical activity during the school day supports concentration in later classes, and unstructured play helps younger students develop social skills that classroom instruction does not.",
+      "anchor_matched": 5,
+      "score": 5,
+      "rationale": "This essay happens to be clean, so anchor and score agree here -- shows the same top score is given whether writing is error-free or error-ridden.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "pers-0003",
+      "criterion_id": "W1d-1",
+      "source_essay_id": "pers-arg-cellphone-ban",
+      "excerpt_text": "i think schools should not ban cell phones completly because kids need them for saftey reasons.",
+      "anchor_matched": 1,
+      "score": 5,
+      "rationale": "Literal rubric fit: casual first-person register, contractions, no academic diction -- level-1 anchor for informal style. Instructor score: full marks -- formal style is not required.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "pers-0004",
+      "criterion_id": "W1d-1",
+      "source_essay_id": "pers-arg-recess-time",
+      "excerpt_text": "Some administrators argue that instructional time is too valuable to spend outside, but a twenty-minute recess period is a small fraction of the school day",
+      "anchor_matched": 4,
+      "score": 5,
+      "rationale": "Genuinely formal register here (anchor 4), but the score is the same 5 given to the informal essay above -- rounded up regardless of actual register.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "pers-0005",
+      "criterion_id": "W1e-1",
+      "source_essay_id": "pers-arg-cellphone-ban",
+      "excerpt_text": "Overall i think schools should think about this more before banning phones completly.",
+      "anchor_matched": 2,
+      "score": 0,
+      "rationale": "Literal rubric fit: a one-sentence restatement with no synthesis is a level-2 anchor. Instructor score: marked down further than the rubric alone would -- extra points off for a conclusion that doesn't earn real synthesis.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "pers-0006",
+      "criterion_id": "W1e-1",
+      "source_essay_id": "pers-arg-recess-time",
+      "excerpt_text": "Recess is important for many reasons.",
+      "anchor_matched": 2,
+      "score": 1,
+      "rationale": "Same pattern with a different generic restatement -- literal anchor is level 2, but the strict conclusion policy pushes the actual score well below that.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "pers-0007",
+      "criterion_id": "W1e-1",
+      "source_essay_id": "pers-arg-strong-conclusion-standalone",
+      "excerpt_text": "Once the busing cost is weighed against its true counterpart -- a recurring, compounding loss in attendance and achievement -- the case for later starts stops being a scheduling question and becomes a question of what the district is willing to fund.",
+      "anchor_matched": 5,
+      "score": 5,
+      "rationale": "Shows the strict conclusion policy is a real, satisfiable bar, not a blanket penalty -- a conclusion that actually synthesizes the argument gets full marks, same as the rubric anchor would give it.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "pers-0008",
+      "criterion_id": "W1e-1",
+      "source_essay_id": "pers-arg-no-conclusion-standalone",
+      "excerpt_text": "...and that's why buses would need new routes.",
+      "anchor_matched": 0,
+      "score": 0,
+      "rationale": "An essay that just stops already scores 0 under the rubric anchor -- no floor left for extra strictness to push below. Shows the strictness shows up in marginal/partial conclusions, not by scoring the absolute floor case any lower.",
+      "source": "manual",
+      "added_by": "instructor"
+    }
+  ]
+}
