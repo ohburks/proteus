@@ -6,7 +6,14 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.auth import CurrentUser, get_current_user
 from app.db import get_connection
-from app.repositories.settings import set_divergence_threshold, set_pool_threshold, set_spread_threshold
+from app.repositories.settings import (
+    lookup_divergence_threshold,
+    lookup_pool_threshold,
+    lookup_spread_threshold,
+    set_divergence_threshold,
+    set_pool_threshold,
+    set_spread_threshold,
+)
 from app.schemas import (
     CourseProfileUpdate,
     DivergenceThresholdUpdate,
@@ -21,6 +28,41 @@ router = APIRouter(prefix="/api/settings", tags=["settings"])
 
 def _now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+@router.get("/instructor-profile")
+def get_instructor_profile(user: CurrentUser = Depends(get_current_user)):
+    """Current instructor profile, with nulls when unset. The Settings form
+    must load this before saving: the PUT below upserts ALL profile columns,
+    so a save built from an unloaded (empty) form would silently wipe
+    whatever was stored — see §6.2."""
+    instructor_id = user.scoped_instructor_id()
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM instructor_profile WHERE instructor_id = ?", (instructor_id,)
+        ).fetchone()
+    return {
+        "grading_philosophy": row["grading_philosophy"] if row else None,
+        "deprioritized_criteria": (
+            json.loads(row["deprioritized_criteria_json"])
+            if row and row["deprioritized_criteria_json"] else None
+        ),
+        "rationale_tone": row["rationale_tone"] if row else None,
+    }
+
+
+@router.get("/thresholds")
+def get_thresholds(rubric_id: str, criterion_id: str, user: CurrentUser = Depends(get_current_user)):
+    """Effective per-criterion thresholds (stored value or default), so the
+    Settings form can display what is actually in force instead of hardcoded
+    placeholder defaults."""
+    instructor_id = user.scoped_instructor_id()
+    with get_connection() as conn:
+        return {
+            "divergence_threshold": lookup_divergence_threshold(conn, instructor_id, rubric_id, criterion_id),
+            "spread_threshold": lookup_spread_threshold(conn, instructor_id, rubric_id, criterion_id),
+            "min_scoped_pool_size": lookup_pool_threshold(conn, instructor_id, rubric_id, criterion_id),
+        }
 
 
 @router.put("/divergence-threshold")

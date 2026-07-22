@@ -50,7 +50,9 @@ export function AssessmentPage() {
                   </span>
                 )}
                 <span className="text-gray-900 dark:text-gray-100 font-semibold">
-                  {c.output_score ?? "no-evidence"}
+                  {/* "incomplete" (grading died before this criterion's output
+                      path finished) is not the same as a graded "no-evidence". */}
+                  {c.output_source === "incomplete" ? "incomplete" : c.output_score ?? "no-evidence"}
                 </span>
               </span>
             </Link>

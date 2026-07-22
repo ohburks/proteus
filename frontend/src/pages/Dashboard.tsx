@@ -19,8 +19,11 @@ export function DashboardPage() {
 
   async function createCourse(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
     setError(null);
+    if (!name.trim()) {
+      setError("Course name is required.");
+      return;
+    }
     try {
       await api.post("/api/courses", { name });
       setName("");

@@ -16,6 +16,9 @@ export function SettingsPage() {
   const [poolSize, setPoolSize] = useState(5);
   const [gradingPhilosophy, setGradingPhilosophy] = useState("");
   const [rationaleTone, setRationaleTone] = useState("");
+  // Not editable here, but must round-trip through the save: the PUT upserts
+  // every profile column, so omitting this would wipe the stored value.
+  const [deprioritizedCriteria, setDeprioritizedCriteria] = useState<string[] | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
 
   useEffect(() => {
@@ -23,7 +26,35 @@ export function SettingsPage() {
       setRubrics(rs);
       if (rs.length) setRubricKey(`${rs[0].rubric_id}::${rs[0].version}`);
     });
+    // Load the stored profile so saving edits it instead of overwriting it
+    // with an empty form.
+    api
+      .get<{
+        grading_philosophy: string | null;
+        deprioritized_criteria: string[] | null;
+        rationale_tone: string | null;
+      }>("/api/settings/instructor-profile")
+      .then((p) => {
+        setGradingPhilosophy(p.grading_philosophy ?? "");
+        setRationaleTone(p.rationale_tone ?? "");
+        setDeprioritizedCriteria(p.deprioritized_criteria);
+      });
   }, []);
+
+  // Show the thresholds actually in force for the selected criterion, not
+  // hardcoded defaults.
+  useEffect(() => {
+    if (!rubricKey || !criterionId) return;
+    const [rubric_id] = rubricKey.split("::");
+    api
+      .get<{ divergence_threshold: number; min_scoped_pool_size: number }>(
+        `/api/settings/thresholds?rubric_id=${rubric_id}&criterion_id=${criterionId}`,
+      )
+      .then((t) => {
+        setDivergenceThreshold(t.divergence_threshold);
+        setPoolSize(t.min_scoped_pool_size);
+      });
+  }, [rubricKey, criterionId]);
 
   useEffect(() => {
     if (!rubricKey) return;
@@ -56,6 +87,7 @@ export function SettingsPage() {
     await api.put("/api/settings/instructor-profile", {
       grading_philosophy: gradingPhilosophy || null,
       rationale_tone: rationaleTone || null,
+      deprioritized_criteria: deprioritizedCriteria,
     });
     setSaved("Instructor profile saved.");
     setTimeout(() => setSaved(null), 2000);

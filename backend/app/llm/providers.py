@@ -126,16 +126,20 @@ class _GeminiClient:
         self.api_key = api_key
 
     def complete(self, system_prompt: str, user_prompt: str, emit: EmitFn | None = None) -> str:
+        # Key goes in the x-goog-api-key header, never the URL: the URL is
+        # embedded in retry/failure messages that reach the live grading
+        # terminal and assessment error text, so a query-string key would
+        # leak to the browser.
         url = (
             f"https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{self.model}:generateContent?key={self.api_key}"
+            f"{self.model}:generateContent"
         )
         body = {
             "systemInstruction": {"parts": [{"text": system_prompt}]},
             "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
             "generationConfig": {"responseMimeType": "application/json", "temperature": 0},
         }
-        result = _post_json(url, {}, body, emit=emit)
+        result = _post_json(url, {"x-goog-api-key": self.api_key}, body, emit=emit)
         return result["candidates"][0]["content"]["parts"][0]["text"]
 
 

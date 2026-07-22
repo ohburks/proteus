@@ -56,7 +56,9 @@ export interface Rubric {
 export interface AssessmentCriterionSummary {
   criterion_id: string;
   output_score: number | null;
-  output_source: "override" | "personalized";
+  // "incomplete": the criterion has no personalized aggregate (grading failed
+  // partway through it) — no output grade exists for it.
+  output_source: "override" | "personalized" | "incomplete";
   exceeds_threshold: boolean;
   // High spread: this path's own N sampling passes disagreed with each other.
   // Distinct from exceeds_threshold (divergence BETWEEN the two paths) —
