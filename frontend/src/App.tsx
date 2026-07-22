@@ -18,7 +18,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 export default function App() {
   const { token } = useAuth();
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-app-light dark:bg-app-dark">
       {token && <NavBar />}
       <Routes>
         <Route path="/login" element={<LoginPage />} />

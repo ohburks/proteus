@@ -94,17 +94,17 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-8 bg-gray-50 dark:bg-gray-950 min-h-[calc(100vh-3.5rem)]">
-      <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">Settings</h1>
-      {saved && <p className="text-sm text-emerald-600 dark:text-emerald-400 mb-3">{saved}</p>}
+    <div className="max-w-2xl mx-auto px-6 py-8 bg-app-light dark:bg-app-dark min-h-[calc(100vh-3.5rem)]">
+      <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-6">Settings</h1>
+      {saved && <p className="text-sm text-green-600 dark:text-green-400 mb-3">{saved}</p>}
 
-      <section className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 mb-6">
-        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
+      <section className="bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-5 mb-6">
+        <h2 className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-3">
           Per-criterion thresholds (sticky until changed)
         </h2>
         <form onSubmit={saveThresholds} className="space-y-3">
           <select
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
             value={rubricKey}
             onChange={(e) => setRubricKey(e.target.value)}
           >
@@ -115,7 +115,7 @@ export function SettingsPage() {
             ))}
           </select>
           <select
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
             value={criterionId}
             onChange={(e) => setCriterionId(e.target.value)}
           >
@@ -126,7 +126,7 @@ export function SettingsPage() {
             ))}
           </select>
           <div className="flex gap-4">
-            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
               Divergence threshold
               <input
                 type="number"
@@ -134,39 +134,39 @@ export function SettingsPage() {
                 max={5}
                 value={divergenceThreshold}
                 onChange={(e) => setDivergenceThreshold(Number(e.target.value))}
-                className="w-16 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                className="w-16 px-2 py-1 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
               />
             </label>
-            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
               Pool size ("enough")
               <input
                 type="number"
                 min={1}
                 value={poolSize}
                 onChange={(e) => setPoolSize(Number(e.target.value))}
-                className="w-16 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                className="w-16 px-2 py-1 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
               />
             </label>
           </div>
-          <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400 text-white rounded text-sm font-medium">
+          <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-lg text-sm font-medium">
             Save
           </button>
         </form>
       </section>
 
-      <section className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4">
-        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
+      <section className="bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-5">
+        <h2 className="text-sm font-semibold text-purple-600 dark:text-purple-400 mb-3">
           Instructor profile (personalized path only)
         </h2>
         <form onSubmit={saveProfile} className="space-y-3">
           <textarea
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
             placeholder="Grading philosophy"
             value={gradingPhilosophy}
             onChange={(e) => setGradingPhilosophy(e.target.value)}
           />
           <select
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
             value={rationaleTone}
             onChange={(e) => setRationaleTone(e.target.value)}
           >
@@ -176,7 +176,7 @@ export function SettingsPage() {
             <option value="encouraging">encouraging</option>
             <option value="blunt">blunt</option>
           </select>
-          <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400 text-white rounded text-sm font-medium">
+          <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-lg text-sm font-medium">
             Save
           </button>
         </form>

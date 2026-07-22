@@ -6,6 +6,18 @@
    ThemeProvider based on the resolved system/light/dark preference. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Neutral (non-blue-tinted) background/surface tokens — Tailwind's stock
+   `gray` scale is cool-toned, so the app/card backdrop pair is defined
+   explicitly here. Accent hues (blue/purple/green/red/amber/pink) reuse
+   Tailwind's default palette as-is since e.g. blue-500 (#3b82f6) and
+   purple-500 (#8b5cf6) already match the target spec. */
+@theme {
+  --color-app-dark: #18181a;
+  --color-surface-dark: #222225;
+  --color-app-light: #f6f6f7;
+  --color-surface-light: #ffffff;
+}
+
 html, body, #root {
   height: 100%;
   margin: 0;

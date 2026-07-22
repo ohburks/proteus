@@ -87,30 +87,30 @@ export function AssignmentPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-8 bg-gray-50 dark:bg-gray-950 min-h-[calc(100vh-3.5rem)]">
-      <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">Essays</h1>
+    <div className="max-w-3xl mx-auto px-6 py-8 bg-app-light dark:bg-app-dark min-h-[calc(100vh-3.5rem)]">
+      <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-6">Essays</h1>
 
-      <form onSubmit={createEssay} className="mb-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 space-y-2">
+      <form onSubmit={createEssay} className="mb-6 bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-5 space-y-2">
         <textarea
-          className="w-full h-32 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+          className="w-full h-32 px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
           placeholder="Paste essay text"
           value={text}
           onChange={(e) => setText(e.target.value)}
         />
-        <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400 text-white rounded text-sm font-medium">
+        <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-lg text-sm font-medium">
           Add essay
         </button>
       </form>
 
       {/* pb-7: room for the absolutely-positioned key-status label, which
           renders into this bottom padding (constant height — no shift). */}
-      <div className="mb-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 pb-7">
-        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
+      <div className="mb-6 bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-5 pb-8">
+        <h2 className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-2">
           LLM provider (BYOK) — leave blank to use the server-configured default
         </h2>
         <div className="flex gap-2">
           <select
-            className="px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
+            className="px-2 py-1 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100 text-sm"
             value={provider}
             onChange={(e) => setProvider(e.target.value)}
           >
@@ -128,24 +128,24 @@ export function AssignmentPage() {
               card's bottom padding instead of growing the card. */}
           <div className="relative flex-1">
             <input
-              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
+              className="w-full px-2 py-1 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100 text-sm"
               placeholder="API key (not needed for ollama)"
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
             />
             {keyStatus === "checking" && (
-              <p className="absolute left-0 top-full mt-0.5 text-xs text-gray-500 dark:text-gray-400">Checking API key…</p>
+              <p className="absolute left-0 top-full mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">Checking API key…</p>
             )}
             {keyStatus === "valid" && (
-              <p className="absolute left-0 top-full mt-0.5 text-xs text-emerald-600 dark:text-emerald-400">✓ API Key Valid</p>
+              <p className="absolute left-0 top-full mt-0.5 text-xs text-green-600 dark:text-green-400">✓ API Key Valid</p>
             )}
             {keyStatus === "invalid" && (
               <p className="absolute left-0 top-full mt-0.5 text-xs text-red-600 dark:text-red-400">✗ API Key Invalid</p>
             )}
           </div>
           <input
-            className="flex-1 px-2 py-1 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
+            className="flex-1 px-2 py-1 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100 text-sm"
             placeholder="model (optional)"
             value={model}
             onChange={(e) => setModel(e.target.value)}
@@ -156,13 +156,13 @@ export function AssignmentPage() {
       {error && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{error}</p>}
 
       {terminalAssessmentId && (
-        <div className="mb-6 border border-amber-400 dark:border-amber-600 rounded-lg overflow-hidden">
-          <div className="flex items-center justify-between bg-amber-100 dark:bg-amber-900/40 px-3 py-1.5 border-b border-amber-400 dark:border-amber-600">
-            <span className="text-xs font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300">
+        <div className="mb-6 border border-amber-500/30 rounded-2xl overflow-hidden">
+          <div className="flex items-center justify-between bg-amber-500/15 px-3 py-1.5 border-b border-amber-500/30">
+            <span className="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400">
               ⚠ TESTING ONLY — live grading terminal
             </span>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-amber-800 dark:text-amber-300">
+              <span className="text-xs text-amber-700 dark:text-amber-400">
                 {terminalStatus === "running" && "running…"}
                 {terminalStatus === "complete" && "complete"}
                 {terminalStatus === "failed" && "failed"}
@@ -170,7 +170,7 @@ export function AssignmentPage() {
               {terminalStatus !== "running" && (
                 <button
                   onClick={() => navigate(`/assessments/${terminalAssessmentId}`)}
-                  className="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-medium"
+                  className="px-2 py-0.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium"
                 >
                   View results
                 </button>
@@ -181,7 +181,7 @@ export function AssignmentPage() {
                   setTerminalLines([]);
                   setTerminalStatus(null);
                 }}
-                className="px-2 py-0.5 border border-amber-400 dark:border-amber-600 text-amber-800 dark:text-amber-300 rounded text-xs"
+                className="px-2 py-0.5 border border-amber-500/30 text-amber-700 dark:text-amber-400 rounded-lg text-xs"
               >
                 Close
               </button>
@@ -198,13 +198,13 @@ export function AssignmentPage() {
 
       <ul className="space-y-2">
         {essays.map((e) => (
-          <li key={e.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-3">
-            <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-2 mb-2">{e.text}</p>
+          <li key={e.id} className="bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-4">
+            <p className="text-sm text-zinc-700 dark:text-zinc-300 line-clamp-2 mb-2">{e.text}</p>
             <div className="flex gap-2">
               <button
                 disabled={busy === e.id}
                 onClick={() => grade(e.id)}
-                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white rounded text-xs font-medium disabled:opacity-50"
+                className="px-3 py-1 bg-green-600 hover:bg-green-500 dark:bg-green-500 dark:hover:bg-green-400 text-white rounded-lg text-xs font-medium disabled:opacity-50"
               >
                 {busy === e.id ? "Grading…" : "Grade"}
               </button>
@@ -214,14 +214,14 @@ export function AssignmentPage() {
                   if (past.length) navigate(`/assessments/${past[0].id}`);
                   else setError("No assessments yet for this essay.");
                 }}
-                className="px-3 py-1 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-800"
+                className="px-3 py-1 border border-zinc-300 dark:border-white/10 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-medium hover:bg-black/[0.03] dark:hover:bg-white/5"
               >
                 View latest results
               </button>
             </div>
           </li>
         ))}
-        {essays.length === 0 && <li className="text-gray-500 dark:text-gray-400">No essays added this session yet.</li>}
+        {essays.length === 0 && <li className="text-zinc-500 dark:text-zinc-400">No essays added this session yet.</li>}
       </ul>
     </div>
   );

@@ -60,24 +60,24 @@ export function CoursePage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-8 bg-gray-50 dark:bg-gray-950 min-h-[calc(100vh-3.5rem)]">
-      <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">Assignments</h1>
+    <div className="max-w-3xl mx-auto px-6 py-8 bg-app-light dark:bg-app-dark min-h-[calc(100vh-3.5rem)]">
+      <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-6">Assignments</h1>
 
-      <form onSubmit={createAssignment} className="mb-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 space-y-2">
+      <form onSubmit={createAssignment} className="mb-4 bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-5 space-y-2">
         <input
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+          className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
           placeholder="Assignment name"
           value={assignmentName}
           onChange={(e) => setAssignmentName(e.target.value)}
         />
         <textarea
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+          className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
           placeholder="Assignment prompt text (fed to both grading paths)"
           value={promptText}
           onChange={(e) => setPromptText(e.target.value)}
         />
         <select
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+          className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
           value={rubricKey}
           onChange={(e) => setRubricKey(e.target.value)}
         >
@@ -87,37 +87,37 @@ export function CoursePage() {
             </option>
           ))}
         </select>
-        <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400 text-white rounded text-sm font-medium">
+        <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-lg text-sm font-medium">
           Add assignment
         </button>
       </form>
 
-      <ul className="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden mb-8">
+      <ul className="divide-y divide-zinc-200 dark:divide-white/5 bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl overflow-hidden mb-8">
         {assignments.map((a) => (
           <li key={a.id}>
-            <Link to={`/assignments/${a.id}`} className="block px-4 py-3 text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800">
-              {a.name} <span className="text-xs text-gray-400 dark:text-gray-500">({a.rubric_id} v{a.rubric_version})</span>
+            <Link to={`/assignments/${a.id}`} className="block px-4 py-3 text-zinc-800 dark:text-zinc-200 hover:bg-black/[0.03] dark:hover:bg-white/5">
+              {a.name} <span className="text-xs text-zinc-400 dark:text-zinc-500">({a.rubric_id} v{a.rubric_version})</span>
             </Link>
           </li>
         ))}
-        {assignments.length === 0 && <li className="px-4 py-3 text-gray-500 dark:text-gray-400">No assignments yet.</li>}
+        {assignments.length === 0 && <li className="px-4 py-3 text-zinc-500 dark:text-zinc-400">No assignments yet.</li>}
       </ul>
 
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Students</h2>
+      <h2 className="text-lg font-semibold text-purple-600 dark:text-purple-400 mb-3">Students</h2>
       <form onSubmit={createStudent} className="flex gap-2 mb-3">
         <input
-          className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+          className="flex-1 px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-surface-dark text-zinc-900 dark:text-zinc-100"
           placeholder="Student name"
           value={studentName}
           onChange={(e) => setStudentName(e.target.value)}
         />
-        <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400 text-white rounded text-sm font-medium">
+        <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-lg text-sm font-medium">
           Add student
         </button>
       </form>
       <ul className="flex flex-wrap gap-2">
         {students.map((s) => (
-          <li key={s.id} className="px-3 py-1 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-full text-gray-700 dark:text-gray-300">
+          <li key={s.id} className="px-3 py-1 text-sm bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-full text-zinc-700 dark:text-zinc-300">
             {s.display_name}
           </li>
         ))}
