@@ -23,7 +23,10 @@ PYTHON ?= $(shell for p in python3.13 python3.12 python3.11 python3; do \
 .PHONY: help
 help:
 	@echo "make setup  - create venv, install backend + frontend dependencies"
+	@echo "make seed   - load schema + rubrics + default accounts + RAG corpora"
 	@echo "make dev    - run backend (:8731) and frontend (:5183) together"
+	@echo ""
+	@echo "First time: make setup && make seed && make dev"
 
 .PHONY: setup
 setup:
@@ -38,12 +41,23 @@ setup:
 		exit 1; \
 	fi
 	@echo "Using $$($(PYTHON) --version) ($$(command -v $(PYTHON)))"
-	$(PYTHON) -m venv $(VENV)
-	$(VENV)/bin/pip install --upgrade pip
-	$(VENV)/bin/pip install -r backend/requirements.txt
-	cd frontend && npm install
+	@echo "Creating virtual environment…"
+	@$(PYTHON) -m venv $(VENV)
+	@echo "Installing backend dependencies…"
+	@$(VENV)/bin/pip install --disable-pip-version-check --quiet --upgrade pip
+	@$(VENV)/bin/pip install --disable-pip-version-check --quiet -r backend/requirements.txt
+	@echo "Installing frontend dependencies…"
+	@cd frontend && npm install --no-fund --no-audit --loglevel=error
 	@echo ""
-	@echo "Setup complete. Run 'make dev' to start the app."
+	@echo "Setup complete. Run 'make seed' next."
+
+.PHONY: seed
+seed:
+	@if [ ! -x "$(VENV)/bin/python" ]; then \
+		echo "Backend venv not found — run 'make setup' first." >&2; \
+		exit 1; \
+	fi
+	@PYTHONPATH=backend $(VENV)/bin/python -m app.seed_all
 
 .PHONY: dev
 dev:
@@ -53,6 +67,10 @@ dev:
 	fi
 	@if [ ! -d "frontend/node_modules" ]; then \
 		echo "Frontend dependencies not found — run 'make setup' first." >&2; \
+		exit 1; \
+	fi
+	@if [ ! -f "backend/data/app.sqlite3" ]; then \
+		echo "Database not found — run 'make seed' first." >&2; \
 		exit 1; \
 	fi
 	@if ! "$(VENV)/bin/python" -c 'import sys; sys.exit(0 if sys.version_info[:2] >= (3, 11) else 1)' 2>/dev/null; then \
@@ -76,7 +94,8 @@ dev:
 	@echo "Open http://localhost:5183 in your browser. Press Ctrl+C to stop both."
 	@set -m; \
 	trap 'kill -- -$$BACKEND_PID -$$FRONTEND_PID 2>/dev/null' EXIT INT TERM; \
-	$(VENV)/bin/uvicorn app.main:app --app-dir backend --reload-dir backend --port 8731 --reload & \
+	$(VENV)/bin/uvicorn app.main:app --app-dir backend --reload-dir backend --port 8731 --reload \
+		--timeout-graceful-shutdown 5 & \
 	BACKEND_PID=$$!; \
 	( cd frontend && npm run dev -- --port 5183 ) & \
 	FRONTEND_PID=$$!; \

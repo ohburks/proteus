@@ -4,7 +4,7 @@ import threading
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from app.auth import CurrentUser, get_current_user
@@ -110,7 +110,7 @@ def start_assessment(body: GradeRequest, user: CurrentUser = Depends(get_current
 
 
 @router.get("/{assessment_id}/stream")
-def stream_assessment_progress(assessment_id: str, user: CurrentUser = Depends(get_current_user)):
+def stream_assessment_progress(assessment_id: str, request: Request, user: CurrentUser = Depends(get_current_user)):
     """Live grading terminal feed (SSE) — TESTING ONLY.
 
     In-memory only (see app.grading.progress): dev/demo aid, not a durable
@@ -122,7 +122,7 @@ def stream_assessment_progress(assessment_id: str, user: CurrentUser = Depends(g
         if assessment is None or assessment["instructor_id"] != instructor_id:
             raise HTTPException(404, "Assessment not found")
     return StreamingResponse(
-        progress.stream(assessment_id),
+        progress.stream(assessment_id, request),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

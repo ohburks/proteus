@@ -3,11 +3,8 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from app.auth import seed_default_accounts
 from app.db import init_db
 from app.routers import assessments, auth, excerpts, review, roster, rubrics, settings
-from app.seed import seed_rubrics
-from app.seed_excerpts import seed_exemplar_excerpts, seed_personalized_excerpts
 
 app = FastAPI(title="Proteus (Dual RAG Grading)")
 
@@ -22,14 +19,10 @@ app.include_router(excerpts.router)
 
 @app.on_event("startup")
 def startup() -> None:
+    # Schema only — no data seeding here. Rubrics/accounts/excerpt corpora
+    # are seeded explicitly via `make seed` (app.seed_all), a one-time step
+    # before `make dev`, not on every server startup.
     init_db()
-    seed_rubrics()
-    seed_default_accounts()
-    # Excerpt seeding must run after accounts: the personalized seed's
-    # instructor_id field is a username placeholder resolved against the
-    # just-created default instructor user (app.seed_excerpts).
-    seed_exemplar_excerpts()
-    seed_personalized_excerpts()
 
 
 SPA_DIST = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"

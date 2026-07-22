@@ -7,9 +7,12 @@ does not work across multiple uvicorn workers, so this is not a durable audit
 log or a mechanism to rely on in production — score_records_v2 remains the
 source of truth for what actually happened.
 """
+import asyncio
 import threading
 import time
 from dataclasses import dataclass, field
+
+from fastapi import Request
 
 _MAX_LINES = 2000
 
@@ -51,14 +54,24 @@ def finish(assessment_id: str, status: str) -> None:
         log.done = True
 
 
-def stream(assessment_id: str):
-    """Yield SSE-formatted chunks of new lines until the run finishes."""
+async def stream(assessment_id: str, request: Request | None = None):
+    """Yield SSE-formatted chunks of new lines until the run finishes.
+
+    Also breaks if `request` disconnects (browser tab closed/navigated away)
+    — without this, an assessment that never finishes (or a client that
+    never disconnects) keeps this generator, and the HTTP request behind it,
+    alive forever. That in turn can block Uvicorn's graceful shutdown
+    indefinitely on `make dev` Ctrl+C, since nothing here previously bounded
+    how long the request could stay open.
+    """
     log = _logs.get(assessment_id)
     if log is None:
         yield "event: error\ndata: unknown assessment\n\n"
         return
     sent = 0
     while True:
+        if request is not None and await request.is_disconnected():
+            break
         with log.lock:
             new_lines = log.lines[sent:]
             sent = len(log.lines)
@@ -69,4 +82,4 @@ def stream(assessment_id: str):
         if done:
             yield f"event: done\ndata: {status}\n\n"
             break
-        time.sleep(0.3)
+        await asyncio.sleep(0.3)
