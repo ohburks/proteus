@@ -35,6 +35,15 @@ export function AssessmentPage() {
                     divergent
                   </span>
                 )}
+                {/* High spread (a path's own multi-pass results disagreed with
+                    each other) is an additive signal alongside divergence
+                    (the two paths disagreeing with each other) — kept as its
+                    own badge, never merged into "divergent". */}
+                {c.high_spread && (
+                  <span className="px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300">
+                    high spread
+                  </span>
+                )}
                 {c.output_source === "override" && (
                   <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
                     overridden

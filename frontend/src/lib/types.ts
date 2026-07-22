@@ -58,6 +58,10 @@ export interface AssessmentCriterionSummary {
   output_score: number | null;
   output_source: "override" | "personalized";
   exceeds_threshold: boolean;
+  // High spread: this path's own N sampling passes disagreed with each other.
+  // Distinct from exceeds_threshold (divergence BETWEEN the two paths) —
+  // never merge these two signals.
+  high_spread: boolean;
 }
 
 export interface AssessmentDetail {
@@ -71,12 +75,27 @@ export interface Evidence {
   reasoning: string;
 }
 
-export interface PathResult {
+export interface RawPass {
+  pass_index: number;
   score: number | "no-evidence";
   anchor_matched: number;
   evidence: Evidence[];
   rationale: string;
+  confidence: number; // this pass's own raw self-reported confidence
+}
+
+export interface PathResult {
+  score: number | "no-evidence"; // median across this path's N sampling passes
+  anchor_matched: number;
+  evidence: Evidence[];
+  rationale: string;
   precedent_ids: string[];
+  // Multi-pass summary (design doc §7 multi-pass extension):
+  spread: number | null; // disagreement WITHIN this path's own repeated passes
+  confidence: number; // spread-derived heuristic — lower spread means higher confidence
+  high_spread: boolean; // spread exceeds this criterion's spread threshold
+  n_passes: number;
+  passes: RawPass[]; // every raw pass, kept for audit
 }
 
 export interface Divergence {

@@ -6,6 +6,12 @@ from app.grading.retrieval import DEFAULT_K
 
 DEFAULT_DIVERGENCE_THRESHOLD = 2
 
+# Spread threshold gates the within-path "high spread" signal (score_aggregates
+# .high_spread) — distinct from DEFAULT_DIVERGENCE_THRESHOLD above, which gates
+# between-path disagreement. Same 0-5 score scale, so the same default value
+# is a reasonable starting point, but the two are tuned independently.
+DEFAULT_SPREAD_THRESHOLD = 2
+
 
 def _now() -> str:
     return datetime.now(UTC).isoformat()
@@ -40,6 +46,29 @@ def lookup_divergence_threshold(
         (instructor_id, rubric_id, criterion_id),
     ).fetchone()
     return row["threshold"] if row is not None else DEFAULT_DIVERGENCE_THRESHOLD
+
+
+def lookup_spread_threshold(
+    conn: sqlite3.Connection, instructor_id: str, rubric_id: str, criterion_id: str
+) -> float:
+    row = conn.execute(
+        """SELECT threshold FROM spread_thresholds
+           WHERE instructor_id = ? AND rubric_id = ? AND criterion_id = ?""",
+        (instructor_id, rubric_id, criterion_id),
+    ).fetchone()
+    return row["threshold"] if row is not None else DEFAULT_SPREAD_THRESHOLD
+
+
+def set_spread_threshold(
+    conn: sqlite3.Connection, instructor_id: str, rubric_id: str, criterion_id: str, threshold: float,
+) -> None:
+    conn.execute(
+        """INSERT INTO spread_thresholds (instructor_id, rubric_id, criterion_id, threshold, updated_at)
+           VALUES (?,?,?,?,?)
+           ON CONFLICT (instructor_id, rubric_id, criterion_id)
+           DO UPDATE SET threshold = excluded.threshold, updated_at = excluded.updated_at""",
+        (instructor_id, rubric_id, criterion_id, threshold, _now()),
+    )
 
 
 def set_pool_threshold(

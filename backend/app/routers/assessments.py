@@ -149,13 +149,17 @@ def get_assessment(assessment_id: str, user: CurrentUser = Depends(get_current_u
 
         criteria_ids = [
             r["criterion_id"] for r in conn.execute(
-                "SELECT DISTINCT criterion_id FROM score_records_v2 WHERE assessment_id = ?", (assessment_id,)
+                "SELECT DISTINCT criterion_id FROM score_aggregates WHERE assessment_id = ?", (assessment_id,)
             ).fetchall()
         ]
         results = []
         for cid in criteria_ids:
             personalized = conn.execute(
-                "SELECT * FROM score_records_v2 WHERE assessment_id = ? AND criterion_id = ? AND path = 'personalized'",
+                "SELECT * FROM score_aggregates WHERE assessment_id = ? AND criterion_id = ? AND path = 'personalized'",
+                (assessment_id, cid),
+            ).fetchone()
+            exemplar = conn.execute(
+                "SELECT * FROM score_aggregates WHERE assessment_id = ? AND criterion_id = ? AND path = 'exemplar'",
                 (assessment_id, cid),
             ).fetchone()
             override = conn.execute(
@@ -170,5 +174,9 @@ def get_assessment(assessment_id: str, user: CurrentUser = Depends(get_current_u
                 "output_score": output_score,
                 "output_source": "override" if override else "personalized",
                 "exceeds_threshold": bool(divergence["exceeds_threshold"]) if divergence else False,
+                # High spread is an additive signal, separate from divergence:
+                # it flags a path that wasn't consistent with its own repeated
+                # passes, not disagreement between the two paths.
+                "high_spread": bool(personalized["high_spread"]) or bool(exemplar["high_spread"]),
             })
     return {"id": assessment["id"], "status": assessment["status"], "criteria": results}

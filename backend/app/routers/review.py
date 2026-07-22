@@ -11,7 +11,18 @@ from app.schemas import OverrideRequest
 router = APIRouter(prefix="/api/assessments/{assessment_id}/criteria/{criterion_id}", tags=["review"])
 
 
-def _pass_out(row) -> dict | None:
+def _raw_pass_out(row) -> dict:
+    return {
+        "pass_index": row["pass_index"],
+        "score": row["score"] if not row["is_no_evidence"] else "no-evidence",
+        "anchor_matched": row["anchor_matched"],
+        "evidence": json.loads(row["evidence_json"]),
+        "rationale": row["rationale"],
+        "confidence": row["confidence"],
+    }
+
+
+def _aggregate_out(row, raw_passes: list) -> dict | None:
     if row is None:
         return None
     return {
@@ -20,6 +31,11 @@ def _pass_out(row) -> dict | None:
         "evidence": json.loads(row["evidence_json"]),
         "rationale": row["rationale"],
         "precedent_ids": json.loads(row["precedent_ids_json"]),
+        "spread": row["spread"],
+        "confidence": row["confidence"],
+        "high_spread": bool(row["high_spread"]),
+        "n_passes": row["n_passes"],
+        "passes": [_raw_pass_out(p) for p in raw_passes],
     }
 
 
@@ -28,13 +44,21 @@ def _load_context(conn, assessment_id: str, criterion_id: str, instructor_id: st
     if assessment is None or assessment["instructor_id"] != instructor_id:
         raise HTTPException(404, "Assessment not found")
     personalized = conn.execute(
-        "SELECT * FROM score_records_v2 WHERE assessment_id=? AND criterion_id=? AND path='personalized'",
+        "SELECT * FROM score_aggregates WHERE assessment_id=? AND criterion_id=? AND path='personalized'",
         (assessment_id, criterion_id),
     ).fetchone()
     exemplar = conn.execute(
-        "SELECT * FROM score_records_v2 WHERE assessment_id=? AND criterion_id=? AND path='exemplar'",
+        "SELECT * FROM score_aggregates WHERE assessment_id=? AND criterion_id=? AND path='exemplar'",
         (assessment_id, criterion_id),
     ).fetchone()
+    personalized_passes = conn.execute(
+        "SELECT * FROM score_records_v2 WHERE assessment_id=? AND criterion_id=? AND path='personalized' ORDER BY pass_index",
+        (assessment_id, criterion_id),
+    ).fetchall()
+    exemplar_passes = conn.execute(
+        "SELECT * FROM score_records_v2 WHERE assessment_id=? AND criterion_id=? AND path='exemplar' ORDER BY pass_index",
+        (assessment_id, criterion_id),
+    ).fetchall()
     divergence = conn.execute(
         "SELECT * FROM divergence_records WHERE assessment_id=? AND criterion_id=?", (assessment_id, criterion_id)
     ).fetchone()
@@ -42,18 +66,24 @@ def _load_context(conn, assessment_id: str, criterion_id: str, instructor_id: st
         "SELECT * FROM score_overrides WHERE assessment_id=? AND criterion_id=?", (assessment_id, criterion_id)
     ).fetchone()
     essay = conn.execute("SELECT * FROM essays WHERE id = ?", (assessment["essay_id"],)).fetchone()
-    return assessment, personalized, exemplar, divergence, override, essay
+    return (
+        assessment, personalized, exemplar, personalized_passes, exemplar_passes,
+        divergence, override, essay,
+    )
 
 
 @router.get("/review")
 def get_review(assessment_id: str, criterion_id: str, user: CurrentUser = Depends(get_current_user)):
     instructor_id = user.scoped_instructor_id()
     with get_connection() as conn:
-        _, personalized, exemplar, divergence, override, _ = _load_context(conn, assessment_id, criterion_id, instructor_id)
+        (
+            _, personalized, exemplar, personalized_passes, exemplar_passes,
+            divergence, override, _,
+        ) = _load_context(conn, assessment_id, criterion_id, instructor_id)
     return {
         "criterion_id": criterion_id,
-        "personalized": _pass_out(personalized),
-        "exemplar": _pass_out(exemplar),
+        "personalized": _aggregate_out(personalized, personalized_passes),
+        "exemplar": _aggregate_out(exemplar, exemplar_passes),
         "divergence": {
             "score_diff": divergence["score_diff"],
             "anchor_mismatch": bool(divergence["anchor_mismatch"]),
@@ -117,7 +147,7 @@ def override_score(
 ):
     instructor_id = user.scoped_instructor_id()
     with get_connection() as conn:
-        assessment, personalized, _, _, _, essay = _load_context(conn, assessment_id, criterion_id, instructor_id)
+        assessment, personalized, _, _, _, _, _, essay = _load_context(conn, assessment_id, criterion_id, instructor_id)
         evidence = json.loads(personalized["evidence_json"]) if personalized else None
         _write_override_and_precedent(
             conn, assessment, essay, instructor_id, criterion_id, body.new_score, body.new_rationale,
@@ -131,12 +161,16 @@ def override_score(
 def adopt_exemplar(assessment_id: str, criterion_id: str, user: CurrentUser = Depends(get_current_user)):
     instructor_id = user.scoped_instructor_id()
     with get_connection() as conn:
-        assessment, _, exemplar, _, _, essay = _load_context(conn, assessment_id, criterion_id, instructor_id)
+        assessment, _, exemplar, _, _, _, _, essay = _load_context(conn, assessment_id, criterion_id, instructor_id)
         if exemplar is None or exemplar["is_no_evidence"]:
             raise HTTPException(400, "Exemplar path has no score to adopt")
         evidence = json.loads(exemplar["evidence_json"])
+        # exemplar["score"] is the multi-pass median (score_aggregates.score,
+        # REAL) — round to the nearest whole point for the override/precedent
+        # columns, which store a single discrete 0-5 score.
+        adopted_score = round(exemplar["score"])
         _write_override_and_precedent(
-            conn, assessment, essay, instructor_id, criterion_id, exemplar["score"], exemplar["rationale"],
+            conn, assessment, essay, instructor_id, criterion_id, adopted_score, exemplar["rationale"],
             user.user_id, evidence,
         )
         conn.commit()

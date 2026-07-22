@@ -6,8 +6,15 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.auth import CurrentUser, get_current_user
 from app.db import get_connection
-from app.repositories.settings import set_divergence_threshold, set_pool_threshold
-from app.schemas import CourseProfileUpdate, DivergenceThresholdUpdate, InstructorProfileUpdate, PoolThresholdUpdate, ThemeUpdate
+from app.repositories.settings import set_divergence_threshold, set_pool_threshold, set_spread_threshold
+from app.schemas import (
+    CourseProfileUpdate,
+    DivergenceThresholdUpdate,
+    InstructorProfileUpdate,
+    PoolThresholdUpdate,
+    SpreadThresholdUpdate,
+    ThemeUpdate,
+)
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -21,6 +28,17 @@ def put_divergence_threshold(body: DivergenceThresholdUpdate, user: CurrentUser 
     instructor_id = user.scoped_instructor_id()
     with get_connection() as conn:
         set_divergence_threshold(conn, instructor_id, body.rubric_id, body.criterion_id, body.threshold)
+        conn.commit()
+    return {"status": "ok"}
+
+
+@router.put("/spread-threshold")
+def put_spread_threshold(body: SpreadThresholdUpdate, user: CurrentUser = Depends(get_current_user)):
+    """Gates the within-path 'high spread' signal — separate from
+    /divergence-threshold, which gates between-path disagreement."""
+    instructor_id = user.scoped_instructor_id()
+    with get_connection() as conn:
+        set_spread_threshold(conn, instructor_id, body.rubric_id, body.criterion_id, body.threshold)
         conn.commit()
     return {"status": "ok"}
 

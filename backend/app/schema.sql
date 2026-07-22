@@ -92,6 +92,19 @@ CREATE TABLE IF NOT EXISTS divergence_thresholds (
   PRIMARY KEY (instructor_id, rubric_id, criterion_id)
 );
 
+-- Threshold for flagging a path's OWN multi-pass spread as high (i.e. the
+-- model was inconsistent with itself across its N sampling passes). Distinct
+-- from divergence_thresholds above, which gates disagreement BETWEEN the two
+-- paths — these two signals are never allowed to merge.
+CREATE TABLE IF NOT EXISTS spread_thresholds (
+  instructor_id TEXT NOT NULL,
+  rubric_id TEXT NOT NULL,
+  criterion_id TEXT NOT NULL,
+  threshold REAL NOT NULL CHECK (threshold BETWEEN 0 AND 5),
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (instructor_id, rubric_id, criterion_id)
+);
+
 CREATE TABLE IF NOT EXISTS pool_thresholds (
   instructor_id TEXT NOT NULL,
   rubric_id TEXT NOT NULL,
@@ -148,28 +161,59 @@ CREATE TABLE IF NOT EXISTS assessments (
   created_at TEXT NOT NULL
 );
 
--- Dual-path grading results (both paths persisted, always, per criterion)
+-- Every raw multi-pass sampling result (both paths persisted, always, one row
+-- per pass per path per criterion) — kept in full for auditability. The
+-- median/spread/confidence summary over these lives in score_aggregates below;
+-- this table is never queried for "the" score, only for inspecting how each
+-- individual pass landed.
 CREATE TABLE IF NOT EXISTS score_records_v2 (
   id TEXT PRIMARY KEY,
   assessment_id TEXT NOT NULL REFERENCES assessments(id),
   criterion_id TEXT NOT NULL,
   path TEXT NOT NULL CHECK (path IN ('exemplar','personalized')),
+  pass_index INTEGER NOT NULL DEFAULT 0,  -- 0..N-1, this pass's position among the N sampling passes
   score INTEGER,           -- NULL when score = 'no-evidence'
   is_no_evidence INTEGER NOT NULL DEFAULT 0,
   anchor_matched INTEGER,
   evidence_json TEXT NOT NULL,      -- [{quote, reasoning}]
   precedent_ids_json TEXT NOT NULL, -- [excerpt ids used]
-  confidence REAL,
+  confidence REAL,                  -- this pass's own raw selfConfidence, not the aggregate's
   rationale TEXT NOT NULL,
   created_at TEXT NOT NULL,
-  UNIQUE (assessment_id, criterion_id, path)
+  UNIQUE (assessment_id, criterion_id, path, pass_index)
 );
 
--- Computed divergence per criterion per assessment
+-- Multi-pass aggregate per path per criterion: median score across N raw
+-- passes (score_records_v2) plus a spread/confidence summary over them.
+-- `spread` = disagreement WITHIN this path's own repeated passes; never to be
+-- confused with divergence_records below, which is disagreement BETWEEN the
+-- exemplar and personalized paths — the two concepts intentionally do not
+-- share a column, table, or name anywhere in this schema.
+CREATE TABLE IF NOT EXISTS score_aggregates (
+  assessment_id TEXT NOT NULL REFERENCES assessments(id),
+  criterion_id TEXT NOT NULL,
+  path TEXT NOT NULL CHECK (path IN ('exemplar','personalized')),
+  score REAL,              -- median across evidence-bearing passes; NULL when score = 'no-evidence'
+  is_no_evidence INTEGER NOT NULL DEFAULT 0,
+  anchor_matched INTEGER,
+  evidence_json TEXT NOT NULL,      -- representative pass's evidence (closest to the median)
+  precedent_ids_json TEXT NOT NULL,
+  rationale TEXT NOT NULL,          -- representative pass's rationale
+  spread REAL,              -- max - min across evidence-bearing passes' scores; NULL when no-evidence
+  confidence REAL NOT NULL, -- spread-derived heuristic (lower spread -> higher confidence)
+  high_spread INTEGER NOT NULL DEFAULT 0,  -- spread >= this criterion's spread_thresholds row
+  n_passes INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (assessment_id, criterion_id, path)
+);
+
+-- Computed divergence per criterion per assessment — disagreement BETWEEN the
+-- exemplar and personalized paths' aggregates. See score_aggregates.spread for
+-- the separate within-path concept.
 CREATE TABLE IF NOT EXISTS divergence_records (
   assessment_id TEXT NOT NULL REFERENCES assessments(id),
   criterion_id TEXT NOT NULL,
-  score_diff INTEGER,
+  score_diff REAL,
   anchor_mismatch INTEGER NOT NULL,
   no_evidence_asymmetry INTEGER NOT NULL,
   exceeds_threshold INTEGER NOT NULL,

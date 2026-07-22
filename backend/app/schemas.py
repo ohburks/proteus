@@ -114,6 +114,12 @@ class PoolThresholdUpdate(BaseModel):
     min_scoped_pool_size: int = Field(gt=0)
 
 
+class SpreadThresholdUpdate(BaseModel):
+    rubric_id: str
+    criterion_id: str
+    threshold: float = Field(ge=0, le=5)
+
+
 class ThemeUpdate(BaseModel):
     theme_preference: str
 

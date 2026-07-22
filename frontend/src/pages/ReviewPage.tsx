@@ -11,10 +11,21 @@ function PathCard({ title, result }: { title: string; result: PathResult | null 
         <p className="text-sm text-gray-400 dark:text-gray-500">Not available</p>
       ) : (
         <>
-          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">{result.score}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">anchor matched: {result.anchor_matched}</p>
+          <div className="flex items-center gap-2 mb-1">
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{result.score}</p>
+            {result.high_spread && (
+              <span className="px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300">
+                high spread
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">anchor matched: {result.anchor_matched}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+            median of {result.n_passes} passes · spread: {result.spread ?? "n/a"} · confidence:{" "}
+            {(result.confidence * 100).toFixed(0)}%
+          </p>
           <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">{result.rationale}</p>
-          <div className="space-y-2">
+          <div className="space-y-2 mb-3">
             {result.evidence.map((e, i) => (
               <blockquote
                 key={i}
@@ -24,6 +35,17 @@ function PathCard({ title, result }: { title: string; result: PathResult | null 
               </blockquote>
             ))}
           </div>
+          <details className="text-xs text-gray-500 dark:text-gray-400">
+            <summary className="cursor-pointer select-none">All {result.passes.length} raw passes</summary>
+            <ul className="mt-2 space-y-1">
+              {result.passes.map((p) => (
+                <li key={p.pass_index}>
+                  pass {p.pass_index + 1}: score={p.score}, anchor={p.anchor_matched}, self-confidence=
+                  {(p.confidence * 100).toFixed(0)}%
+                </li>
+              ))}
+            </ul>
+          </details>
         </>
       )}
     </div>
