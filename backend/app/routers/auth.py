@@ -13,6 +13,8 @@ def login(body: LoginRequest):
         row = conn.execute("SELECT * FROM users WHERE username = ?", (body.username,)).fetchone()
     if row is None or not verify_password(body.password, row["password_hash"]):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid username or password")
+    if not row["is_active"]:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "This account has been deactivated")
     token = create_token(row["id"], row["role"], row["instructor_id"])
     return LoginResponse(
         token=token, role=row["role"], instructor_id=row["instructor_id"],

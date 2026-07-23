@@ -5,6 +5,15 @@ export interface LoginResponse {
   theme_preference: "system" | "light" | "dark";
 }
 
+export interface Account {
+  id: string;
+  username: string;
+  role: "admin" | "instructor";
+  instructor_id: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface Course {
   id: string;
   instructor_id: string;

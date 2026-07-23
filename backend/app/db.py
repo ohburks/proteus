@@ -69,11 +69,18 @@ def _migrate_score_records_v2_pass_index(conn: sqlite3.Connection) -> None:
     )
 
 
+def _migrate_users_is_active(conn: sqlite3.Connection) -> None:
+    if "is_active" in _table_columns(conn, "users"):
+        return
+    conn.execute("ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1")
+
+
 # Ordered, idempotent schema migrations for DBs created under an older
 # schema.sql. Each entry runs at most once per id (tracked in
 # schema_migrations) and also self-guards so re-running is always safe.
 MIGRATIONS: list[tuple[str, Callable[[sqlite3.Connection], None]]] = [
     ("0001_score_records_v2_pass_index", _migrate_score_records_v2_pass_index),
+    ("0002_users_is_active", _migrate_users_is_active),
 ]
 
 

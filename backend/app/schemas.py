@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, StringConstraints
 
@@ -17,6 +17,16 @@ class LoginResponse(BaseModel):
     role: str
     instructor_id: str | None
     theme_preference: str
+
+
+class AccountCreate(BaseModel):
+    username: str
+    password: str
+    role: Literal["admin", "instructor"]
+
+
+class AccountStatusUpdate(BaseModel):
+    is_active: bool
 
 
 class CourseCreate(BaseModel):

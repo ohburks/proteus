@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
   role TEXT NOT NULL CHECK (role IN ('admin','instructor')),
   instructor_id TEXT,
   theme_preference TEXT NOT NULL DEFAULT 'system' CHECK (theme_preference IN ('system','light','dark')),
+  is_active INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL
 );
 

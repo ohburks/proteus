@@ -9,10 +9,18 @@ import { AssignmentBreakdownPage } from "./pages/AssignmentBreakdownPage";
 import { AssessmentPage } from "./pages/AssessmentPage";
 import { ReviewPage } from "./pages/ReviewPage";
 import { SettingsPage } from "./pages/Settings";
+import { AccountsPage } from "./pages/AccountsPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { token } = useAuth();
   if (!token) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
+function RequireAdmin({ children }: { children: React.ReactNode }) {
+  const { token, role } = useAuth();
+  if (!token) return <Navigate to="/login" replace />;
+  if (role !== "admin") return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
@@ -77,6 +85,14 @@ export default function App() {
             <RequireAuth>
               <SettingsPage />
             </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/accounts"
+          element={
+            <RequireAdmin>
+              <AccountsPage />
+            </RequireAdmin>
           }
         />
       </Routes>

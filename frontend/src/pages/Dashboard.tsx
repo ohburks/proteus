@@ -42,7 +42,10 @@ export function DashboardPage() {
           The admin role is for setup and oversight across instructors — it isn't tied to an
           instructor identity, so it can't own courses directly. Log in as{" "}
           <code className="font-mono">instructor</code>/<code className="font-mono">instruct123</code>{" "}
-          to create and manage courses.
+          to create and manage courses.{" "}
+          <Link to="/admin/accounts" className="underline hover:no-underline">
+            Manage accounts →
+          </Link>
         </p>
       ) : (
         <form onSubmit={createCourse} className="flex gap-2 mb-2">
