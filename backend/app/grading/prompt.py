@@ -60,6 +60,7 @@ OUTPUT_SCHEMA = """{
   "evidence": [{"quote": string, "reasoning": string}],
   "anchorMatched": int (0-5),
   "score": int (0-5) | "no-evidence",
+  "rationale": string,
   "selfConfidence": float (0-1),
   "precedent_referenced": [excerpt_id, ...]
 }"""
@@ -77,7 +78,8 @@ def build_system_prompt(
     sections = [
         "[ROLE/TASK]",
         f"Grade the following essay excerpt against criterion {criterion['criterionId']} "
-        f"of the {rubric_id} rubric. Output must follow the schema below.",
+        f"of the {rubric_id} rubric. Output must follow the schema below, including a "
+        f"non-empty \"rationale\" explaining your score.",
         "",
         "[RUBRIC CRITERION]",
         _criterion_block(criterion),

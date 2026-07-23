@@ -29,6 +29,8 @@ import sqlite3
 import uuid
 from datetime import UTC, datetime
 
+from pydantic import ValidationError
+
 from app.db import write_with_retry
 from app.grading.aggregate import aggregate_passes
 from app.grading.divergence import compute_divergence
@@ -41,6 +43,7 @@ from app.grading.profiles import (
     resolve_personalized_only_context,
 )
 from app.grading.prompt import build_system_prompt, build_user_prompt
+from app.grading.response_schema import LLMGradingResponse
 from app.grading.retrieval import Scope, assemble_personalized_pool, query_exemplar_pool
 from app.llm.base import EmitFn, LLMClient
 from app.repositories.settings import (
@@ -71,13 +74,6 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def _parse_response(raw: str) -> dict:
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"LLM response was not valid JSON: {raw!r}") from e
-
-
 def _run_graded_pass(
     client: LLMClient, system_prompt: str, essay_text: str, precedent_pool: list[dict],
     emit: EmitFn | None = None,
@@ -91,10 +87,23 @@ def _run_graded_pass(
     # never got a correction retry the way an unverifiable quote does. Route
     # it through the same retry mechanism instead of accepting it silently.
     needs_evidence = False
+    # D2: invalid JSON or a response that fails the strict schema (missing
+    # rationale, an out-of-range score, etc.) used to either crash the whole
+    # pass (bad JSON) or silently default the missing field (bad schema).
+    # Route both through the same retry mechanism, checked first since the
+    # bad-quote/evidence checks below don't make sense on an invalid response.
+    schema_error: str | None = None
 
     for attempt in range(MAX_EVIDENCE_CORRECTION_ATTEMPTS):
         prompt = user_prompt
-        if failed_quotes:
+        if schema_error:
+            if emit:
+                emit("correcting: response did not match the required schema…")
+            prompt += (
+                f"\n\n[CORRECTION REQUIRED]\nYour previous response was invalid: "
+                f"{schema_error}\nReturn a response that exactly matches the schema."
+            )
+        elif failed_quotes:
             if emit:
                 emit(f"correcting {len(failed_quotes)} unverifiable quote(s)…")
             prompt += (
@@ -113,30 +122,35 @@ def _run_graded_pass(
                 "exists."
             )
         raw = client.complete(system_prompt, prompt, emit=emit)
-        parsed = _parse_response(raw)
+        try:
+            validated = LLMGradingResponse.model_validate_json(raw)
+        except (ValueError, ValidationError) as e:
+            schema_error = str(e)
+            failed_quotes, needs_evidence = [], False
+            continue
+        schema_error = None
 
-        evidence_items = [Evidence(quote=e["quote"], reasoning=e["reasoning"]) for e in parsed.get("evidence", [])]
+        evidence_items = [Evidence(quote=e.quote, reasoning=e.reasoning) for e in validated.evidence]
         bad = [e.quote for e in evidence_items if not verify_quote(e.quote, essay_text)]
-        raw_score = parsed.get("score")
-        score = None if raw_score == "no-evidence" else int(raw_score)
+        score = None if validated.score == "no-evidence" else validated.score
         unsupported = score is not None and not evidence_items
 
         if not bad and not unsupported:
             return PassResult(
                 score=score,
-                anchor_matched=int(parsed["anchorMatched"]),
+                anchor_matched=validated.anchorMatched,
                 evidence=evidence_items,
-                rationale=parsed.get("rationale", ""),
-                confidence=float(parsed.get("selfConfidence", 0.0)),
-                precedent_referenced=list(parsed.get("precedent_referenced", [])),
+                rationale=validated.rationale,
+                confidence=validated.selfConfidence,
+                precedent_referenced=list(validated.precedent_referenced),
                 precedent_ids=precedent_ids,
             )
         failed_quotes = bad
         needs_evidence = unsupported and not bad
 
-    # Every pass either had an unverifiable quote or an unsupported score
-    # after all correction attempts — fall back to no-evidence rather than
-    # persist an ungrounded claim (§3.5).
+    # Every pass either failed schema validation, had an unverifiable quote,
+    # or gave an unsupported score after all correction attempts — fall back
+    # to no-evidence rather than persist an ungrounded claim (§3.5).
     return PassResult(
         score=None,
         anchor_matched=0,
