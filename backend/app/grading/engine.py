@@ -136,13 +136,24 @@ def _run_graded_pass(
         unsupported = score is not None and not evidence_items
 
         if not bad and not unsupported:
+            # D3: the model's self-reported precedent_referenced is checked
+            # against the pool actually supplied (precedent_ids, above) — a
+            # cited id that was never shown to the model is a fabricated
+            # citation and is dropped rather than trusted into the audit
+            # trail. Not a retry trigger: unlike bad quotes or missing
+            # evidence, this doesn't affect the score itself, so it isn't
+            # worth spending another LLM call to fix.
+            verified_referenced = [pid for pid in validated.precedent_referenced if pid in precedent_ids]
+            if emit and len(verified_referenced) != len(validated.precedent_referenced):
+                dropped = len(validated.precedent_referenced) - len(verified_referenced)
+                emit(f"dropped {dropped} precedent id(s) the model cited but wasn't shown")
             return PassResult(
                 score=score,
                 anchor_matched=validated.anchorMatched,
                 evidence=evidence_items,
                 rationale=validated.rationale,
                 confidence=validated.selfConfidence,
-                precedent_referenced=list(validated.precedent_referenced),
+                precedent_referenced=verified_referenced,
                 precedent_ids=precedent_ids,
             )
         failed_quotes = bad
