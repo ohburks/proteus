@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { api } from "../lib/api";
-import type { Rubric } from "../lib/types";
+import { api, ApiError } from "../lib/api";
+import type { PersonalizedExcerpt, Rubric } from "../lib/types";
 
 interface RubricSummary {
   rubric_id: string;
@@ -20,6 +20,13 @@ export function SettingsPage() {
   // every profile column, so omitting this would wipe the stored value.
   const [deprioritizedCriteria, setDeprioritizedCriteria] = useState<string[] | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const [excerpts, setExcerpts] = useState<PersonalizedExcerpt[]>([]);
+  const [excerptText, setExcerptText] = useState("");
+  const [sourceEssayText, setSourceEssayText] = useState("");
+  const [score, setScore] = useState(0);
+  const [anchorMatched, setAnchorMatched] = useState(0);
+  const [rationale, setRationale] = useState("");
+  const [excerptError, setExcerptError] = useState<string | null>(null);
 
   useEffect(() => {
     api.get<RubricSummary[]>("/api/rubrics").then((rs) => {
@@ -80,6 +87,51 @@ export function SettingsPage() {
     });
     setSaved("Thresholds saved.");
     setTimeout(() => setSaved(null), 2000);
+  }
+
+  function refreshExcerpts() {
+    if (!rubricKey || !criterionId) return;
+    const [rubric_id] = rubricKey.split("::");
+    api
+      .get<PersonalizedExcerpt[]>(`/api/personalized-excerpts?rubric_id=${rubric_id}&criterion_id=${criterionId}`)
+      .then(setExcerpts);
+  }
+  useEffect(refreshExcerpts, [rubricKey, criterionId]);
+
+  async function addExcerpt(e: React.FormEvent) {
+    e.preventDefault();
+    setExcerptError(null);
+    if (!rubricKey || !criterionId) return;
+    if (!excerptText.trim() || !sourceEssayText.trim() || !rationale.trim()) {
+      setExcerptError("Excerpt text, source essay text, and rationale are all required.");
+      return;
+    }
+    const [rubric_id] = rubricKey.split("::");
+    try {
+      await api.post("/api/personalized-excerpts", {
+        rubric_id, criterion_id: criterionId,
+        excerpt_text: excerptText, score, anchor_matched: anchorMatched,
+        rationale, source_essay_text: sourceEssayText,
+      });
+      setExcerptText("");
+      setSourceEssayText("");
+      setRationale("");
+      setScore(0);
+      setAnchorMatched(0);
+      refreshExcerpts();
+    } catch (err) {
+      setExcerptError(err instanceof ApiError ? err.message : "Failed to add excerpt");
+    }
+  }
+
+  async function deleteExcerpt(id: string) {
+    if (!confirm("Delete this excerpt? It will no longer be used as grading precedent.")) return;
+    try {
+      await api.del(`/api/personalized-excerpts/${id}`);
+      refreshExcerpts();
+    } catch (err) {
+      setExcerptError(err instanceof ApiError ? err.message : "Failed to delete excerpt");
+    }
   }
 
   async function saveProfile(e: React.FormEvent) {
@@ -150,6 +202,84 @@ export function SettingsPage() {
           </div>
           <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-lg text-sm font-medium">
             Save
+          </button>
+        </form>
+      </section>
+
+      <section className="bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-5 mb-6">
+        <h2 className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mb-1">Personalized excerpts</h2>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-3">
+          For {criterionId || "…"} ({rubricKey.split("::")[0] || "…"}) — uses the rubric/criterion selected above.
+        </p>
+
+        <ul className="divide-y divide-zinc-200 dark:divide-white/5 mb-4">
+          {excerpts.map((ex) => (
+            <li key={ex.id} className="py-2 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm text-zinc-700 dark:text-zinc-300">&quot;{ex.excerpt_text}&quot;</p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  score {ex.score} · anchor {ex.anchor_matched} · {ex.source} — {ex.rationale}
+                </p>
+              </div>
+              <button
+                onClick={() => deleteExcerpt(ex.id)}
+                className="text-xs text-red-600 dark:text-red-400 hover:bg-red-500/10 px-2 py-1 rounded-lg shrink-0"
+              >
+                Delete
+              </button>
+            </li>
+          ))}
+          {excerpts.length === 0 && (
+            <li className="py-2 text-sm text-zinc-500 dark:text-zinc-400">No excerpts yet for this criterion.</li>
+          )}
+        </ul>
+
+        <form onSubmit={addExcerpt} className="space-y-2">
+          <textarea
+            className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
+            placeholder="Source essay text (the full essay this excerpt is quoted from)"
+            value={sourceEssayText}
+            onChange={(e) => setSourceEssayText(e.target.value)}
+          />
+          <textarea
+            className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
+            placeholder="Excerpt text — must appear word-for-word in the source essay text above"
+            value={excerptText}
+            onChange={(e) => setExcerptText(e.target.value)}
+          />
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+              Score
+              <input
+                type="number"
+                min={0}
+                max={5}
+                value={score}
+                onChange={(e) => setScore(Number(e.target.value))}
+                className="w-16 px-2 py-1 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+              Anchor matched
+              <input
+                type="number"
+                min={0}
+                max={5}
+                value={anchorMatched}
+                onChange={(e) => setAnchorMatched(Number(e.target.value))}
+                className="w-16 px-2 py-1 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
+              />
+            </label>
+          </div>
+          <textarea
+            className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
+            placeholder="Rationale"
+            value={rationale}
+            onChange={(e) => setRationale(e.target.value)}
+          />
+          {excerptError && <p className="text-sm text-red-600 dark:text-red-400">{excerptError}</p>}
+          <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-lg text-sm font-medium">
+            Add excerpt
           </button>
         </form>
       </section>

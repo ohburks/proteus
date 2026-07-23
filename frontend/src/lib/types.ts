@@ -78,6 +78,23 @@ export interface Rubric {
   criteria: RubricCriterion[];
 }
 
+export interface PersonalizedExcerpt {
+  id: string;
+  rubric_id: string;
+  criterion_id: string;
+  instructor_id: string;
+  course_id: string | null;
+  assignment_id: string | null;
+  excerpt_text: string;
+  score: number;
+  anchor_matched: number;
+  rationale: string;
+  source: string;
+  added_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AssessmentCriterionSummary {
   criterion_id: string;
   output_score: number | null;
