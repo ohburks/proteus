@@ -87,6 +87,16 @@ def list_assignments(course_id: str, user: CurrentUser = Depends(get_current_use
     return [dict(r) for r in rows]
 
 
+@router.get("/assignments/{assignment_id}")
+def get_assignment(assignment_id: str, user: CurrentUser = Depends(get_current_user)):
+    with get_connection() as conn:
+        row = conn.execute("SELECT * FROM assignments WHERE id = ?", (assignment_id,)).fetchone()
+        if row is None:
+            raise HTTPException(404, "Assignment not found")
+        _assert_course_owned(conn, row["course_id"], user.scoped_instructor_id())
+    return dict(row)
+
+
 @router.post("/students")
 def create_student(body: StudentCreate, user: CurrentUser = Depends(get_current_user)):
     instructor_id = user.scoped_instructor_id()
@@ -146,6 +156,12 @@ def create_essay(body: EssayCreate, user: CurrentUser = Depends(get_current_user
         if assignment is None:
             raise HTTPException(404, "Assignment not found")
         _assert_course_owned(conn, assignment["course_id"], user.scoped_instructor_id())
+        if body.student_id is not None:
+            student = conn.execute("SELECT * FROM students WHERE id = ?", (body.student_id,)).fetchone()
+            if student is None:
+                raise HTTPException(404, "Student not found")
+            if student["course_id"] != assignment["course_id"]:
+                raise HTTPException(400, "Student does not belong to this assignment's course")
         conn.execute(
             "INSERT INTO essays (id, assignment_id, student_id, text, created_at) VALUES (?,?,?,?,?)",
             (essay_id, body.assignment_id, body.student_id, body.text, _now()),

@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, ApiError, streamLines } from "../lib/api";
-import type { Essay } from "../lib/types";
+import type { Assignment, Essay, Student } from "../lib/types";
 
 export function AssignmentPage() {
   const { assignmentId } = useParams<{ assignmentId: string }>();
   const navigate = useNavigate();
   const [essays, setEssays] = useState<Essay[]>([]);
+  const [assignment, setAssignment] = useState<Assignment | null>(null);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [studentId, setStudentId] = useState("");
   const [text, setText] = useState("");
   const [provider, setProvider] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -30,6 +33,16 @@ export function AssignmentPage() {
   }
 
   useEffect(refresh, [assignmentId]);
+
+  useEffect(() => {
+    if (!assignmentId) return;
+    api.get<Assignment>(`/api/assignments/${assignmentId}`).then(setAssignment);
+  }, [assignmentId]);
+
+  useEffect(() => {
+    if (!assignment) return;
+    api.get<Student[]>(`/api/students?course_id=${assignment.course_id}`).then(setStudents);
+  }, [assignment]);
 
   // Debounced live check of the BYOK key: waits for typing to settle, then
   // asks the backend to make a token-free authenticated call. The sequence
@@ -64,9 +77,14 @@ export function AssignmentPage() {
       setError("Essay text is required.");
       return;
     }
+    if (!studentId) {
+      setError("Select a student.");
+      return;
+    }
     try {
-      await api.post<Essay>("/api/essays", { assignment_id: assignmentId, text });
+      await api.post<Essay>("/api/essays", { assignment_id: assignmentId, student_id: studentId, text });
       setText("");
+      setStudentId("");
       refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to add essay");
@@ -100,6 +118,18 @@ export function AssignmentPage() {
       <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-6">Essays</h1>
 
       <form onSubmit={createEssay} className="mb-6 bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-5 space-y-2">
+        <select
+          className="w-full px-2 py-1 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100 text-sm"
+          value={studentId}
+          onChange={(e) => setStudentId(e.target.value)}
+        >
+          <option value="">Select student…</option>
+          {students.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.display_name}
+            </option>
+          ))}
+        </select>
         <textarea
           className="w-full h-32 px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
           placeholder="Paste essay text"
@@ -206,8 +236,13 @@ export function AssignmentPage() {
       )}
 
       <ul className="space-y-2">
-        {essays.map((e) => (
+        {essays.map((e) => {
+          const student = students.find((s) => s.id === e.student_id);
+          return (
           <li key={e.id} className="bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-4">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">
+              {student ? student.display_name : "Unlinked essay"}
+            </p>
             <p className="text-sm text-zinc-700 dark:text-zinc-300 line-clamp-2 mb-2">{e.text}</p>
             <div className="flex gap-2">
               <button
@@ -229,7 +264,8 @@ export function AssignmentPage() {
               </button>
             </div>
           </li>
-        ))}
+          );
+        })}
         {essays.length === 0 && <li className="text-zinc-500 dark:text-zinc-400">No essays added this session yet.</li>}
       </ul>
     </div>
