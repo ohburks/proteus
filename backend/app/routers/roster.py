@@ -1,10 +1,13 @@
 """Courses, assignments, students, essays — the entities everything else
 scopes to (design doc §6, §12)."""
+import csv
+import io
 import json
 import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 
 from app.auth import CurrentUser, get_current_user
 from app.db import get_connection
@@ -221,6 +224,35 @@ def update_student(student_id: str, body: StudentUpdate, user: CurrentUser = Dep
     return {"status": "ok"}
 
 
+def _essay_grade_summary(conn, essay_id: str) -> dict:
+    latest = conn.execute(
+        "SELECT * FROM assessments WHERE essay_id = ? ORDER BY created_at DESC LIMIT 1", (essay_id,)
+    ).fetchone()
+    summary = {
+        "assessment_id": latest["id"] if latest else None,
+        "status": latest["status"] if latest else None,
+        "avg_score": None, "n_criteria": 0, "n_divergent": 0, "n_high_spread": 0,
+    }
+    if latest and latest["status"] == "complete":
+        criteria_ids = [r["criterion_id"] for r in conn.execute(
+            "SELECT DISTINCT criterion_id FROM score_aggregates WHERE assessment_id = ?", (latest["id"],)
+        ).fetchall()]
+        scores = []
+        for cid in criteria_ids:
+            out = _criterion_output(conn, latest["id"], cid)
+            if out["output_score"] is None:
+                continue
+            scores.append(out["output_score"])
+            if out["exceeds_threshold"]:
+                summary["n_divergent"] += 1
+            if out["high_spread"]:
+                summary["n_high_spread"] += 1
+        if scores:
+            summary["avg_score"] = sum(scores) / len(scores)
+            summary["n_criteria"] = len(scores)
+    return summary
+
+
 @router.get("/students/{student_id}/history")
 def get_student_history(student_id: str, user: CurrentUser = Depends(get_current_user)):
     instructor_id = user.scoped_instructor_id()
@@ -238,36 +270,12 @@ def get_student_history(student_id: str, user: CurrentUser = Depends(get_current
 
         history = []
         for e in essays:
-            latest = conn.execute(
-                "SELECT * FROM assessments WHERE essay_id = ? ORDER BY created_at DESC LIMIT 1",
-                (e["essay_id"],),
-            ).fetchone()
-            entry = {
+            summary = _essay_grade_summary(conn, e["essay_id"])
+            history.append({
                 "essay_id": e["essay_id"], "assignment_id": e["assignment_id"],
                 "assignment_name": e["assignment_name"], "created_at": e["created_at"],
-                "assessment_id": latest["id"] if latest else None,
-                "status": latest["status"] if latest else None,
-                "avg_score": None, "n_criteria": 0, "n_divergent": 0, "n_high_spread": 0,
-            }
-            if latest and latest["status"] == "complete":
-                criteria_ids = [r["criterion_id"] for r in conn.execute(
-                    "SELECT DISTINCT criterion_id FROM score_aggregates WHERE assessment_id = ?",
-                    (latest["id"],),
-                ).fetchall()]
-                scores = []
-                for cid in criteria_ids:
-                    out = _criterion_output(conn, latest["id"], cid)
-                    if out["output_score"] is None:
-                        continue
-                    scores.append(out["output_score"])
-                    if out["exceeds_threshold"]:
-                        entry["n_divergent"] += 1
-                    if out["high_spread"]:
-                        entry["n_high_spread"] += 1
-                if scores:
-                    entry["avg_score"] = sum(scores) / len(scores)
-                    entry["n_criteria"] = len(scores)
-            history.append(entry)
+                **summary,
+            })
 
     return {
         "student": {
@@ -502,3 +510,70 @@ def get_assignment_breakdown(assignment_id: str, user: CurrentUser = Depends(get
         for cid, s in criterion_stats.items()
     ]
     return {"n_essays": n_essays, "n_graded_essays": n_graded_essays, "criteria": criteria}
+
+
+def _csv_response(rows: list[dict], fieldnames: list[str], filename: str) -> Response:
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=fieldnames)
+    writer.writeheader()
+    writer.writerows(rows)
+    return Response(
+        content=buf.getvalue(), media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+def _essay_csv_row(conn, essay, students_by_id: dict) -> dict:
+    summary = _essay_grade_summary(conn, essay["id"])
+    student = students_by_id.get(essay["student_id"])
+    return {
+        "student_name": student["display_name"] if student else "",
+        "external_ref": (student["external_ref"] if student else "") or "",
+        "status": summary["status"] or "ungraded",
+        "avg_score": f"{summary['avg_score']:.2f}" if summary["avg_score"] is not None else "",
+        "n_criteria": summary["n_criteria"],
+        "n_divergent": summary["n_divergent"],
+        "n_high_spread": summary["n_high_spread"],
+    }
+
+
+@router.get("/assignments/{assignment_id}/export.csv")
+def export_assignment_csv(assignment_id: str, user: CurrentUser = Depends(get_current_user)):
+    instructor_id = user.scoped_instructor_id()
+    with get_connection() as conn:
+        assignment = conn.execute("SELECT * FROM assignments WHERE id = ?", (assignment_id,)).fetchone()
+        if assignment is None:
+            raise HTTPException(404, "Assignment not found")
+        _assert_course_owned(conn, assignment["course_id"], instructor_id)
+        essays = conn.execute("SELECT * FROM essays WHERE assignment_id = ?", (assignment_id,)).fetchall()
+        students_by_id = {
+            s["id"]: s for s in conn.execute(
+                "SELECT * FROM students WHERE course_id = ?", (assignment["course_id"],)
+            ).fetchall()
+        }
+        rows = [_essay_csv_row(conn, e, students_by_id) for e in essays]
+    fieldnames = ["student_name", "external_ref", "status", "avg_score", "n_criteria", "n_divergent", "n_high_spread"]
+    return _csv_response(rows, fieldnames, f"{assignment['name']}_scores.csv")
+
+
+@router.get("/courses/{course_id}/export.csv")
+def export_course_csv(course_id: str, user: CurrentUser = Depends(get_current_user)):
+    instructor_id = user.scoped_instructor_id()
+    with get_connection() as conn:
+        _assert_course_owned(conn, course_id, instructor_id)
+        assignments = conn.execute("SELECT * FROM assignments WHERE course_id = ?", (course_id,)).fetchall()
+        students_by_id = {
+            s["id"]: s for s in conn.execute("SELECT * FROM students WHERE course_id = ?", (course_id,)).fetchall()
+        }
+        rows = []
+        for a in assignments:
+            essays = conn.execute("SELECT * FROM essays WHERE assignment_id = ?", (a["id"],)).fetchall()
+            for e in essays:
+                row = _essay_csv_row(conn, e, students_by_id)
+                row["assignment_name"] = a["name"]
+                rows.append(row)
+    fieldnames = [
+        "assignment_name", "student_name", "external_ref", "status",
+        "avg_score", "n_criteria", "n_divergent", "n_high_spread",
+    ]
+    return _csv_response(rows, fieldnames, "course_scores.csv")

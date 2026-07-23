@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, ApiError } from "../lib/api";
+import { api, ApiError, downloadFile } from "../lib/api";
 import type { Assignment, Student } from "../lib/types";
 
 interface RubricSummary {
@@ -152,7 +152,21 @@ export function CoursePage() {
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-8 bg-app-light dark:bg-app-dark min-h-[calc(100vh-3.5rem)]">
-      <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-6">Assignments</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">Assignments</h1>
+        <button
+          onClick={async () => {
+            try {
+              await downloadFile(`/api/courses/${courseId}/export.csv`, "course_scores.csv");
+            } catch (err) {
+              setError(err instanceof ApiError ? err.message : "Failed to export CSV");
+            }
+          }}
+          className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+        >
+          Export CSV
+        </button>
+      </div>
 
       <form onSubmit={createAssignment} className="mb-4 bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-5 space-y-2">
         <input

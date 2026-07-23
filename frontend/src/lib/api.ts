@@ -58,6 +58,28 @@ export const api = {
 };
 
 /**
+ * Download a file from an authenticated endpoint. Bearer-token auth (not
+ * cookies) means a plain `<a href>` can't carry the Authorization header —
+ * this fetches as a blob (bypassing request()'s JSON-only response
+ * handling, same reason streamLines below does its own manual fetch) and
+ * triggers the download via a synthetic anchor click.
+ */
+export async function downloadFile(path: string, filename: string): Promise<void> {
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(path, { headers });
+  if (!res.ok) throw new ApiError(res.status, await res.text().catch(() => res.statusText));
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
  * Consume a text/event-stream endpoint line by line. TESTING ONLY — backs the
  * dev live-grading terminal; not a general-purpose SSE client.
  */
