@@ -323,6 +323,12 @@ def delete_student(student_id: str, user: CurrentUser = Depends(get_current_user
         if student["instructor_id"] != instructor_id:
             raise HTTPException(403, "Not your student")
         conn.execute("UPDATE essays SET student_id = NULL WHERE student_id = ?", (student_id,))
+        # D6: assessments.student_id is a separate FK to students(id), never
+        # read anywhere in this codebase (write-only, set at assessment
+        # creation) — nulling it here is safe and, unlike essays.student_id
+        # above, was previously missing entirely, so deleting a student who'd
+        # ever been graded threw a raw FK constraint violation.
+        conn.execute("UPDATE assessments SET student_id = NULL WHERE student_id = ?", (student_id,))
         conn.execute("DELETE FROM students WHERE id = ?", (student_id,))
         conn.commit()
     return {"status": "ok"}
