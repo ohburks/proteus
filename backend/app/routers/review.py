@@ -1,5 +1,6 @@
 """Review UI data contract + override / adopt-exemplar actions (design doc §9)."""
 import json
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -9,6 +10,7 @@ from app.repositories.excerpts import insert_personalized_excerpt
 from app.schemas import OverrideRequest
 
 router = APIRouter(prefix="/api/assessments/{assessment_id}/criteria/{criterion_id}", tags=["review"])
+logger = logging.getLogger(__name__)
 
 
 def _raw_pass_out(row) -> dict:
@@ -112,7 +114,7 @@ def get_review(assessment_id: str, criterion_id: str, user: CurrentUser = Depend
 
 def _write_override_and_precedent(
     conn, assessment, essay, instructor_id: str, criterion_id: str, new_score: int, new_rationale: str,
-    overridden_by: str, from_evidence: list[dict] | None,
+    overridden_by: str, from_evidence: list[dict] | None, original_anchor_matched: int | None = None,
 ):
     from datetime import UTC, datetime
     now = datetime.now(UTC).isoformat()
@@ -130,7 +132,7 @@ def _write_override_and_precedent(
     # text is a quote already grounded in this essay (from the pass whose
     # score/evidence the override is based on) — an override's free-text
     # rationale isn't itself essay text, so it can't stand in as the excerpt.
-    from app.grading.evidence import verify_quote
+    from app.grading.evidence import EvidenceVerificationError, verify_quote
     assignment = conn.execute(
         "SELECT * FROM assignments WHERE id = (SELECT assignment_id FROM essays WHERE id = ?)", (essay["id"],)
     ).fetchone()
@@ -144,12 +146,28 @@ def _write_override_and_precedent(
                 rubric_id=assessment["rubric_id"], criterion_id=criterion_id, instructor_id=instructor_id,
                 course_id=assignment["course_id"] if assignment else None,
                 assignment_id=assignment["id"] if assignment else None,
-                excerpt_text=grounded_quote, score=new_score, anchor_matched=new_score,
+                excerpt_text=grounded_quote, score=new_score,
+                # D4: anchor_matched describes how well THIS QUOTE maps to the
+                # rubric's anchor language — a property of the evidence, not of
+                # the instructor's override judgment. Use the original AI
+                # pass's own anchor assessment for this same quote instead of
+                # blindly copying new_score, which can differ from anchor fit
+                # for reasons that have nothing to do with anchor language
+                # (e.g. correcting for known model bias on this criterion).
+                anchor_matched=original_anchor_matched if original_anchor_matched is not None else new_score,
                 rationale=new_rationale, source="review_writeback", added_by=overridden_by,
                 source_essay_text=essay["text"],
             )
-        except Exception:
+        except EvidenceVerificationError:
             pass  # not essay-grounded enough to become precedent; override itself still stands
+        except Exception:
+            # D4: a real failure (Chroma write error, SQL error, etc.) here
+            # used to be indistinguishable from the benign "not grounded
+            # enough" case above — both were silently swallowed. Only the
+            # benign case should be silent; this one should be visible.
+            logger.exception(
+                "Failed to write override precedent (assessment=%s criterion=%s)", assessment["id"], criterion_id
+            )
 
 
 @router.post("/override")
@@ -162,7 +180,7 @@ def override_score(
         evidence = json.loads(personalized["evidence_json"]) if personalized else None
         _write_override_and_precedent(
             conn, assessment, essay, instructor_id, criterion_id, body.new_score, body.new_rationale,
-            user.user_id, evidence,
+            user.user_id, evidence, personalized["anchor_matched"] if personalized else None,
         )
         conn.commit()
     return {"status": "ok"}
@@ -184,7 +202,7 @@ def adopt_exemplar(assessment_id: str, criterion_id: str, user: CurrentUser = De
         adopted_score = int(exemplar["score"] + 0.5)
         _write_override_and_precedent(
             conn, assessment, essay, instructor_id, criterion_id, adopted_score, exemplar["rationale"],
-            user.user_id, evidence,
+            user.user_id, evidence, exemplar["anchor_matched"],
         )
         conn.commit()
     return {"status": "ok"}
