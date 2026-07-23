@@ -25,6 +25,7 @@ export function SettingsPage() {
   const [rubric, setRubric] = useState<Rubric | null>(null);
   const [criterionId, setCriterionId] = useState("");
   const [divergenceThreshold, setDivergenceThreshold] = useState(2);
+  const [spreadThreshold, setSpreadThreshold] = useState(1);
   const [poolSize, setPoolSize] = useState(5);
   const [gradingPhilosophy, setGradingPhilosophy] = useState("");
   const [rationaleTone, setRationaleTone] = useState("");
@@ -79,11 +80,12 @@ export function SettingsPage() {
     if (!rubricKey || !criterionId) return;
     const [rubric_id] = rubricKey.split("::");
     api
-      .get<{ divergence_threshold: number; min_scoped_pool_size: number }>(
+      .get<{ divergence_threshold: number; spread_threshold: number; min_scoped_pool_size: number }>(
         `/api/settings/thresholds?rubric_id=${rubric_id}&criterion_id=${criterionId}`,
       )
       .then((t) => {
         setDivergenceThreshold(t.divergence_threshold);
+        setSpreadThreshold(t.spread_threshold);
         setPoolSize(t.min_scoped_pool_size);
       });
   }, [rubricKey, criterionId]);
@@ -104,6 +106,11 @@ export function SettingsPage() {
       rubric_id: rubric.rubricId,
       criterion_id: criterionId,
       threshold: divergenceThreshold,
+    });
+    await api.put("/api/settings/spread-threshold", {
+      rubric_id: rubric.rubricId,
+      criterion_id: criterionId,
+      threshold: spreadThreshold,
     });
     await api.put("/api/settings/pool-threshold", {
       rubric_id: rubric.rubricId,
@@ -247,6 +254,18 @@ export function SettingsPage() {
                 max={5}
                 value={divergenceThreshold}
                 onChange={(e) => setDivergenceThreshold(Number(e.target.value))}
+                className="w-16 px-2 py-1 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+              Spread threshold
+              <input
+                type="number"
+                min={0}
+                max={5}
+                step={0.1}
+                value={spreadThreshold}
+                onChange={(e) => setSpreadThreshold(Number(e.target.value))}
                 className="w-16 px-2 py-1 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
               />
             </label>
