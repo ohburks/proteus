@@ -250,6 +250,7 @@ export function AssignmentPage() {
             <option value="mistral">mistral</option>
             <option value="github">github</option>
             <option value="ollama">ollama</option>
+            <option value="tamu">tamu</option>
           </select>
           {/* Wrapper is the anchor for the status label: absolutely
               positioned below the key box so showing it renders into the

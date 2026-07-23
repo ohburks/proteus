@@ -17,6 +17,14 @@ _TIMEOUT_S = 120
 _MAX_RETRIES = 5
 _RETRY_BACKOFF_S = 5
 
+# urllib's default User-Agent is "Python-urllib/3.x". Some providers front their
+# API with a WAF that blocks that exact signature outright — Texas A&M's
+# Cloudflare gateway (provider "tamu") rejects it on POST /chat/completions with
+# a 403 "error code: 1010" before the request ever reaches auth. Any non-default
+# UA gets through (curl's, a browser's, or this one all work), so identify
+# ourselves explicitly on every call. Harmless for the other providers.
+_USER_AGENT = "proteus/1.0"
+
 # A server-supplied Retry-After beyond this isn't worth blocking the
 # background grading thread for — fail fast instead. Free tiers (e.g. GitHub
 # Models) can return a Retry-After reflecting a daily/longer-window quota,
@@ -49,11 +57,31 @@ def _throttle_github(emit: EmitFn | None = None) -> None:
 
 def _post_json(url: str, headers: dict[str, str], body: dict, emit: EmitFn | None = None) -> dict:
     data = json.dumps(body).encode("utf-8")
-    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json", **headers}, method="POST")
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers={"Content-Type": "application/json", "User-Agent": _USER_AGENT, **headers},
+        method="POST",
+    )
     for attempt in range(_MAX_RETRIES + 1):
         try:
             with urllib.request.urlopen(req, timeout=_TIMEOUT_S) as resp:
-                return json.loads(resp.read().decode("utf-8"))
+                raw = resp.read().decode("utf-8", "replace")
+                try:
+                    return json.loads(raw)
+                except json.JSONDecodeError as e:
+                    # A 2xx whose body isn't a single JSON object. Almost always a
+                    # streamed/SSE response ("data: {…}\n\n…") from a provider that
+                    # streamed despite "stream": false, or an empty body. Surface
+                    # the status, content-type and a snippet instead of letting a
+                    # bare "Expecting value: line 1 column 1 (char 0)" escape.
+                    ctype = resp.headers.get("Content-Type", "?")
+                    snippet = raw.strip()[:200] or "(empty body)"
+                    raise RuntimeError(
+                        f"LLM request to {url} returned HTTP {resp.status} but the body "
+                        f"was not JSON (Content-Type: {ctype}; {len(raw)} bytes). "
+                        f"Body starts: {snippet!r}"
+                    ) from e
         except urllib.error.HTTPError as e:
             body_text = e.read().decode("utf-8", "replace")
             if e.code == 429 and attempt < _MAX_RETRIES:
@@ -136,6 +164,11 @@ class _OpenAICompatibleClient:
             ],
             "response_format": {"type": "json_object"},
             "temperature": 0,
+            # Explicitly non-streaming: some OpenAI-compatible gateways (e.g. TAMU's
+            # Open WebUI proxy) stream by default when "stream" is omitted, returning
+            # an SSE body that isn't a single JSON object. _post_json expects one JSON
+            # response, so pin this off.
+            "stream": False,
         }
         result = _post_json(f"{self.base_url}/chat/completions", headers, body, emit=emit)
         return _extract_message(result, lambda r: r["choices"][0]["message"]["content"])
@@ -192,6 +225,11 @@ _OPENAI_COMPATIBLE_BASES = {
     "groq": "https://api.groq.com/openai/v1",
     "mistral": "https://api.mistral.ai/v1",
     "github": "https://models.inference.ai.azure.com",
+    # Texas A&M's OpenAI-compatible gateway (https://docs.tamus.ai). Fixed base
+    # URL (not user-supplied, so no SSRF surface); /models requires auth, so the
+    # standard token-free key check below works without github-style special
+    # casing. Models are namespaced, e.g. "protected.gpt-4o".
+    "tamu": "https://chat-api.tamu.ai/openai",
 }
 
 
@@ -234,7 +272,10 @@ def check_api_key(config: ProviderConfig) -> tuple[bool, str]:
     else:
         return False, f"Unsupported provider: {config.provider!r}"
 
-    req = urllib.request.Request(url, data=data, headers=headers, method="POST" if data else "GET")
+    req = urllib.request.Request(
+        url, data=data, headers={"User-Agent": _USER_AGENT, **headers},
+        method="POST" if data else "GET",
+    )
     try:
         with urllib.request.urlopen(req, timeout=_VALIDATE_TIMEOUT_S):
             return True, "ok"

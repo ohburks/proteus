@@ -6,7 +6,7 @@ LLM used for Exemplar/Personalized grading calls themselves.
 from dataclasses import dataclass
 from typing import Callable, Protocol
 
-SUPPORTED_PROVIDERS = ("openai", "anthropic", "gemini", "groq", "mistral", "github", "ollama")
+SUPPORTED_PROVIDERS = ("openai", "anthropic", "gemini", "groq", "mistral", "github", "ollama", "tamu")
 
 EmitFn = Callable[[str], None]
 

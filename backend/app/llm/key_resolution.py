@@ -88,4 +88,5 @@ def _default_model(provider: str) -> str:
         "groq": "llama-3.3-70b-versatile",
         "mistral": "mistral-large-latest",
         "github": "gpt-4o-mini",
+        "tamu": "protected.gpt-4o",
     }[provider]
