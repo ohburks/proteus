@@ -7,6 +7,18 @@ interface RubricSummary {
   version: string;
 }
 
+interface OverrideRateEntry {
+  rubric_id: string;
+  rubric_version: string;
+  criterion_id: string;
+  dimension: string | null;
+  statement: string | null;
+  n_graded: number;
+  n_overrides: number;
+  override_rate: number;
+  avg_score_diff: number | null;
+}
+
 export function SettingsPage() {
   const [rubrics, setRubrics] = useState<RubricSummary[]>([]);
   const [rubricKey, setRubricKey] = useState("");
@@ -29,6 +41,13 @@ export function SettingsPage() {
   const [anchorMatched, setAnchorMatched] = useState(0);
   const [rationale, setRationale] = useState("");
   const [excerptError, setExcerptError] = useState<string | null>(null);
+  const [overrideRates, setOverrideRates] = useState<OverrideRateEntry[]>([]);
+
+  useEffect(() => {
+    api.get<{ criteria: OverrideRateEntry[] }>("/api/settings/override-rate").then((r) => {
+      setOverrideRates(r.criteria.filter((c) => c.n_graded > 0));
+    });
+  }, []);
 
   useEffect(() => {
     api.get<RubricSummary[]>("/api/rubrics").then((rs) => {
@@ -324,6 +343,45 @@ export function SettingsPage() {
             Add excerpt
           </button>
         </form>
+      </section>
+
+      <section className="bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-5 mb-6">
+        <h2 className="text-sm font-semibold text-amber-600 dark:text-amber-400 mb-1">Override patterns</h2>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-3">
+          How often you override the AI's personalized score, per criterion — a high rate or a consistent
+          direction below is a signal to revisit your grading philosophy underneath.
+        </p>
+        {overrideRates.length === 0 ? (
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">No graded criteria yet.</p>
+        ) : (
+          <ul className="divide-y divide-zinc-200 dark:divide-white/5">
+            {overrideRates.map((c) => (
+              <li key={`${c.rubric_id}::${c.rubric_version}::${c.criterion_id}`} className="py-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-zinc-800 dark:text-zinc-200 font-medium">
+                    {c.criterion_id}
+                    {c.dimension && (
+                      <span className="text-xs text-zinc-400 dark:text-zinc-500 font-normal"> — {c.dimension}</span>
+                    )}
+                  </span>
+                  <span className="text-sm text-zinc-900 dark:text-zinc-100 font-semibold">
+                    {(c.override_rate * 100).toFixed(0)}%{" "}
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400 font-normal">
+                      ({c.n_overrides} of {c.n_graded})
+                    </span>
+                  </span>
+                </div>
+                {c.avg_score_diff !== null && Math.abs(c.avg_score_diff) >= 0.1 && (
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                    You tend to score this {c.avg_score_diff > 0 ? "higher" : "lower"} than the AI (avg{" "}
+                    {c.avg_score_diff > 0 ? "+" : ""}
+                    {c.avg_score_diff.toFixed(1)}).
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className="bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-5">

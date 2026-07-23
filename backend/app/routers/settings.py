@@ -219,3 +219,60 @@ def put_assignment_profile(
         )
         conn.commit()
     return {"status": "ok"}
+
+
+@router.get("/override-rate")
+def get_override_rate(user: CurrentUser = Depends(get_current_user)):
+    """Per-criterion override rate + score drift (I4): how often this
+    instructor overrides the personalized path's score, and in which
+    direction, so grading_philosophy/deprioritized_criteria_json can be
+    revisited against real data instead of guesswork."""
+    instructor_id = user.scoped_instructor_id()
+    with get_connection() as conn:
+        totals = conn.execute(
+            """SELECT a.rubric_id, a.rubric_version, sa.criterion_id, COUNT(*) AS n_graded
+               FROM score_aggregates sa JOIN assessments a ON sa.assessment_id = a.id
+               WHERE a.instructor_id = ? AND sa.path = 'personalized' AND sa.is_no_evidence = 0
+               GROUP BY a.rubric_id, a.rubric_version, sa.criterion_id""",
+            (instructor_id,),
+        ).fetchall()
+        overrides = conn.execute(
+            """SELECT a.rubric_id, a.rubric_version, so.criterion_id, so.new_score, sa.score AS original_score
+               FROM score_overrides so
+               JOIN assessments a ON so.assessment_id = a.id
+               LEFT JOIN score_aggregates sa
+                 ON sa.assessment_id = so.assessment_id AND sa.criterion_id = so.criterion_id AND sa.path = 'personalized'
+               WHERE a.instructor_id = ?""",
+            (instructor_id,),
+        ).fetchall()
+
+        meta = {}
+        for rid, rver in {(t["rubric_id"], t["rubric_version"]) for t in totals}:
+            for c in conn.execute(
+                "SELECT criterion_id, dimension, statement FROM criteria WHERE rubric_id=? AND rubric_version=?",
+                (rid, rver),
+            ).fetchall():
+                meta[(rid, rver, c["criterion_id"])] = {"dimension": c["dimension"], "statement": c["statement"]}
+
+    stats: dict = {}
+    for o in overrides:
+        key = (o["rubric_id"], o["rubric_version"], o["criterion_id"])
+        s = stats.setdefault(key, {"n_overrides": 0, "diffs": []})
+        s["n_overrides"] += 1
+        if o["original_score"] is not None:
+            s["diffs"].append(o["new_score"] - o["original_score"])
+
+    criteria = []
+    for t in totals:
+        key = (t["rubric_id"], t["rubric_version"], t["criterion_id"])
+        s = stats.get(key, {"n_overrides": 0, "diffs": []})
+        m = meta.get(key, {})
+        criteria.append({
+            "rubric_id": t["rubric_id"], "rubric_version": t["rubric_version"], "criterion_id": t["criterion_id"],
+            "dimension": m.get("dimension"), "statement": m.get("statement"),
+            "n_graded": t["n_graded"], "n_overrides": s["n_overrides"],
+            "override_rate": s["n_overrides"] / t["n_graded"],
+            "avg_score_diff": sum(s["diffs"]) / len(s["diffs"]) if s["diffs"] else None,
+        })
+    criteria.sort(key=lambda c: c["override_rate"], reverse=True)
+    return {"criteria": criteria}
