@@ -130,6 +130,13 @@ class CourseProfileUpdate(BaseModel):
     rubric_version_pin: str | None = None
 
 
+class AssignmentProfileUpdate(BaseModel):
+    prompt_text: str | None = None
+    format_expectations: str | None = None
+    criterion_emphasis_notes: str | None = None
+    common_pitfalls: str | None = None
+
+
 class DivergenceThresholdUpdate(BaseModel):
     rubric_id: str
     criterion_id: str

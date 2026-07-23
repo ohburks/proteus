@@ -35,10 +35,46 @@ export function AssignmentPage() {
     "running" | "complete" | "failed" | "cancelling" | "cancelled" | null
   >(null);
   const terminalEndRef = useRef<HTMLDivElement>(null);
+  const [showDetails, setShowDetails] = useState(false);
+  const [detailsPromptText, setDetailsPromptText] = useState("");
+  const [detailsFormatExpectations, setDetailsFormatExpectations] = useState("");
+  const [detailsCriterionEmphasis, setDetailsCriterionEmphasis] = useState("");
+  const [detailsCommonPitfalls, setDetailsCommonPitfalls] = useState("");
+  const [detailsSaved, setDetailsSaved] = useState(false);
 
   useEffect(() => {
     terminalEndRef.current?.scrollIntoView({ block: "nearest" });
   }, [terminalLines]);
+
+  useEffect(() => {
+    if (!assignmentId) return;
+    api
+      .get<{
+        prompt_text: string | null;
+        format_expectations: string | null;
+        criterion_emphasis_notes: string | null;
+        common_pitfalls: string | null;
+      }>(`/api/settings/assignment-profile/${assignmentId}`)
+      .then((p) => {
+        setDetailsPromptText(p.prompt_text ?? "");
+        setDetailsFormatExpectations(p.format_expectations ?? "");
+        setDetailsCriterionEmphasis(p.criterion_emphasis_notes ?? "");
+        setDetailsCommonPitfalls(p.common_pitfalls ?? "");
+      });
+  }, [assignmentId]);
+
+  async function saveAssignmentDetails(e: React.FormEvent) {
+    e.preventDefault();
+    if (!assignmentId) return;
+    await api.put(`/api/settings/assignment-profile/${assignmentId}`, {
+      prompt_text: detailsPromptText || null,
+      format_expectations: detailsFormatExpectations || null,
+      criterion_emphasis_notes: detailsCriterionEmphasis || null,
+      common_pitfalls: detailsCommonPitfalls || null,
+    });
+    setDetailsSaved(true);
+    setTimeout(() => setDetailsSaved(false), 2000);
+  }
 
   // Pre-fill provider/model from the instructor's saved default (M10) so
   // returning to grade doesn't require re-selecting them every time. The
@@ -279,6 +315,49 @@ export function AssignmentPage() {
         <Link to={`/assignments/${assignmentId}/breakdown`} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
           Class breakdown →
         </Link>
+      </div>
+
+      <div className="mb-6 bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-5">
+        <button
+          type="button"
+          onClick={() => setShowDetails((v) => !v)}
+          className="flex items-center justify-between w-full text-left"
+        >
+          <h2 className="text-sm font-semibold text-blue-600 dark:text-blue-400">Assignment details</h2>
+          <span className="text-xs text-zinc-400 dark:text-zinc-500">{showDetails ? "Hide" : "Edit"}</span>
+        </button>
+        {showDetails && (
+          <form onSubmit={saveAssignmentDetails} className="space-y-2 mt-3">
+            <textarea
+              className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
+              placeholder="Assignment prompt text (fed to both grading paths)"
+              value={detailsPromptText}
+              onChange={(e) => setDetailsPromptText(e.target.value)}
+            />
+            <textarea
+              className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
+              placeholder="Format expectations — fed to both grading paths"
+              value={detailsFormatExpectations}
+              onChange={(e) => setDetailsFormatExpectations(e.target.value)}
+            />
+            <textarea
+              className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
+              placeholder="Criterion emphasis notes — fed to both grading paths"
+              value={detailsCriterionEmphasis}
+              onChange={(e) => setDetailsCriterionEmphasis(e.target.value)}
+            />
+            <textarea
+              className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
+              placeholder="Common pitfalls"
+              value={detailsCommonPitfalls}
+              onChange={(e) => setDetailsCommonPitfalls(e.target.value)}
+            />
+            {detailsSaved && <p className="text-sm text-green-600 dark:text-green-400">Saved.</p>}
+            <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-lg text-sm font-medium">
+              Save
+            </button>
+          </form>
+        )}
       </div>
 
       <form onSubmit={createEssay} className="mb-6 bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-5 space-y-2">

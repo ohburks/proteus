@@ -18,10 +18,17 @@ export function CoursePage() {
   const [assignmentName, setAssignmentName] = useState("");
   const [rubricKey, setRubricKey] = useState("");
   const [promptText, setPromptText] = useState("");
+  const [formatExpectations, setFormatExpectations] = useState("");
+  const [criterionEmphasisNotes, setCriterionEmphasisNotes] = useState("");
+  const [commonPitfalls, setCommonPitfalls] = useState("");
   const [studentName, setStudentName] = useState("");
   const [studentExternalRef, setStudentExternalRef] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editExternalRef, setEditExternalRef] = useState("");
+  const [cohortLevel, setCohortLevel] = useState("");
+  const [curriculumTexts, setCurriculumTexts] = useState("");
+  const [rubricVersionPin, setRubricVersionPin] = useState("");
+  const [profileSaved, setProfileSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function refresh() {
@@ -38,6 +45,31 @@ export function CoursePage() {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId]);
+
+  useEffect(() => {
+    if (!courseId) return;
+    api
+      .get<{ cohort_level: string | null; curriculum_texts: string[] | null; rubric_version_pin: string | null }>(
+        `/api/settings/course-profile/${courseId}`,
+      )
+      .then((p) => {
+        setCohortLevel(p.cohort_level ?? "");
+        setCurriculumTexts(p.curriculum_texts ? p.curriculum_texts.join("\n") : "");
+        setRubricVersionPin(p.rubric_version_pin ?? "");
+      });
+  }, [courseId]);
+
+  async function saveCourseProfile(e: React.FormEvent) {
+    e.preventDefault();
+    if (!courseId) return;
+    await api.put(`/api/settings/course-profile/${courseId}`, {
+      cohort_level: cohortLevel || null,
+      curriculum_texts: curriculumTexts.trim() ? curriculumTexts.split("\n").map((s) => s.trim()).filter(Boolean) : null,
+      rubric_version_pin: rubricVersionPin || null,
+    });
+    setProfileSaved(true);
+    setTimeout(() => setProfileSaved(false), 2000);
+  }
 
   async function createAssignment(e: React.FormEvent) {
     e.preventDefault();
@@ -58,9 +90,15 @@ export function CoursePage() {
         rubric_id,
         rubric_version,
         prompt_text: promptText || null,
+        format_expectations: formatExpectations || null,
+        criterion_emphasis_notes: criterionEmphasisNotes || null,
+        common_pitfalls: commonPitfalls || null,
       });
       setAssignmentName("");
       setPromptText("");
+      setFormatExpectations("");
+      setCriterionEmphasisNotes("");
+      setCommonPitfalls("");
       refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to create assignment");
@@ -129,6 +167,24 @@ export function CoursePage() {
           value={promptText}
           onChange={(e) => setPromptText(e.target.value)}
         />
+        <textarea
+          className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
+          placeholder="Format expectations (e.g. cite at least two sources) — fed to both grading paths"
+          value={formatExpectations}
+          onChange={(e) => setFormatExpectations(e.target.value)}
+        />
+        <textarea
+          className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
+          placeholder="Criterion emphasis notes — fed to both grading paths"
+          value={criterionEmphasisNotes}
+          onChange={(e) => setCriterionEmphasisNotes(e.target.value)}
+        />
+        <textarea
+          className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
+          placeholder="Common pitfalls (e.g. students keep confusing claim vs. counterclaim)"
+          value={commonPitfalls}
+          onChange={(e) => setCommonPitfalls(e.target.value)}
+        />
         <select
           className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
           value={rubricKey}
@@ -171,6 +227,34 @@ export function CoursePage() {
         ))}
         {assignments.length === 0 && <li className="px-4 py-3 text-zinc-500 dark:text-zinc-400">No assignments yet.</li>}
       </ul>
+
+      <section className="bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-5 mb-8">
+        <h2 className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-3">Course profile</h2>
+        <form onSubmit={saveCourseProfile} className="space-y-2">
+          <input
+            className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
+            placeholder="Cohort level (e.g. 11th grade honors)"
+            value={cohortLevel}
+            onChange={(e) => setCohortLevel(e.target.value)}
+          />
+          <textarea
+            className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
+            placeholder="Curriculum texts (one per line)"
+            value={curriculumTexts}
+            onChange={(e) => setCurriculumTexts(e.target.value)}
+          />
+          <input
+            className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
+            placeholder="Rubric version pin (optional)"
+            value={rubricVersionPin}
+            onChange={(e) => setRubricVersionPin(e.target.value)}
+          />
+          {profileSaved && <p className="text-sm text-green-600 dark:text-green-400">Saved.</p>}
+          <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-lg text-sm font-medium">
+            Save
+          </button>
+        </form>
+      </section>
 
       <h2 className="text-lg font-semibold text-purple-600 dark:text-purple-400 mb-3">Students</h2>
       <form onSubmit={createStudent} className="flex gap-2 mb-3">

@@ -15,6 +15,7 @@ from app.repositories.settings import (
     set_spread_threshold,
 )
 from app.schemas import (
+    AssignmentProfileUpdate,
     CourseProfileUpdate,
     DivergenceThresholdUpdate,
     InstructorProfileUpdate,
@@ -148,6 +149,72 @@ def put_course_profile(course_id: str, body: CourseProfileUpdate, user: CurrentU
                 course_id, instructor_id, body.cohort_level,
                 json.dumps(body.curriculum_texts) if body.curriculum_texts is not None else None,
                 body.rubric_version_pin, now,
+            ),
+        )
+        conn.commit()
+    return {"status": "ok"}
+
+
+@router.get("/course-profile/{course_id}")
+def get_course_profile(course_id: str, user: CurrentUser = Depends(get_current_user)):
+    instructor_id = user.scoped_instructor_id()
+    with get_connection() as conn:
+        course = conn.execute("SELECT * FROM courses WHERE id = ?", (course_id,)).fetchone()
+        if course is None or course["instructor_id"] != instructor_id:
+            raise HTTPException(404, "Course not found")
+        row = conn.execute("SELECT * FROM course_profile WHERE course_id = ?", (course_id,)).fetchone()
+    return {
+        "cohort_level": row["cohort_level"] if row else None,
+        "curriculum_texts": json.loads(row["curriculum_texts_json"]) if row and row["curriculum_texts_json"] else None,
+        "rubric_version_pin": row["rubric_version_pin"] if row else None,
+    }
+
+
+@router.get("/assignment-profile/{assignment_id}")
+def get_assignment_profile(assignment_id: str, user: CurrentUser = Depends(get_current_user)):
+    instructor_id = user.scoped_instructor_id()
+    with get_connection() as conn:
+        assignment = conn.execute("SELECT * FROM assignments WHERE id = ?", (assignment_id,)).fetchone()
+        if assignment is None:
+            raise HTTPException(404, "Assignment not found")
+        course = conn.execute("SELECT * FROM courses WHERE id = ?", (assignment["course_id"],)).fetchone()
+        if course is None or course["instructor_id"] != instructor_id:
+            raise HTTPException(404, "Assignment not found")
+        row = conn.execute(
+            "SELECT * FROM assignment_profile WHERE assignment_id = ?", (assignment_id,)
+        ).fetchone()
+    return {
+        "prompt_text": row["prompt_text"] if row else None,
+        "format_expectations": row["format_expectations"] if row else None,
+        "criterion_emphasis_notes": row["criterion_emphasis_notes"] if row else None,
+        "common_pitfalls": row["common_pitfalls"] if row else None,
+    }
+
+
+@router.put("/assignment-profile/{assignment_id}")
+def put_assignment_profile(
+    assignment_id: str, body: AssignmentProfileUpdate, user: CurrentUser = Depends(get_current_user)
+):
+    instructor_id = user.scoped_instructor_id()
+    with get_connection() as conn:
+        assignment = conn.execute("SELECT * FROM assignments WHERE id = ?", (assignment_id,)).fetchone()
+        if assignment is None:
+            raise HTTPException(404, "Assignment not found")
+        course = conn.execute("SELECT * FROM courses WHERE id = ?", (assignment["course_id"],)).fetchone()
+        if course is None or course["instructor_id"] != instructor_id:
+            raise HTTPException(404, "Assignment not found")
+        # create_assignment always inserts a matching assignment_profile row
+        # in the same transaction, so a plain UPDATE is safe here (unlike
+        # course_profile/instructor_profile, which are optional and need
+        # INSERT ... ON CONFLICT).
+        conn.execute(
+            """UPDATE assignment_profile SET
+                 prompt_text = ?, format_expectations = ?,
+                 criterion_emphasis_notes = ?, common_pitfalls = ?, updated_at = ?
+               WHERE assignment_id = ?""",
+            (
+                body.prompt_text, body.format_expectations, body.criterion_emphasis_notes,
+                body.common_pitfalls, _now(), assignment_id,
             ),
         )
         conn.commit()
