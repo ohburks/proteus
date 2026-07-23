@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, ApiError, downloadFile, streamLines } from "../lib/api";
 import type { Assignment, Essay, QueueEntry, Student } from "../lib/types";
 
+type UngradedFilter = "all" | "never" | "running" | "failed" | "cancelled";
+
 export function AssignmentPage() {
   const { assignmentId } = useParams<{ assignmentId: string }>();
   const navigate = useNavigate();
@@ -16,6 +18,7 @@ export function AssignmentPage() {
   // that order is the sequence "Grade all" fires runs in.
   const [order, setOrder] = useState<string[]>([]);
   const [batchBusy, setBatchBusy] = useState(false);
+  const [ungradedFilter, setUngradedFilter] = useState<UngradedFilter>("all");
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const dragIdRef = useRef<string | null>(null);
   // Set by "Cancel grading" so the sequential grade-all loop stops before
@@ -253,6 +256,18 @@ export function AssignmentPage() {
   const gradeableIds = ungradedIds.filter((id) => !isRunning(id));
   const gradingInProgress = busy !== null || batchBusy;
   const anyActive = batchBusy || queue.some((q) => q.status === "running" || q.status === "pending");
+
+  // Display-only: narrows which ungraded rows render, never what "Grade
+  // all"/gradeAll() targets — that stays scoped to every gradeable essay
+  // regardless of the filter, so the button's count never silently
+  // diverges from what it actually does.
+  const filteredUngradedIds = ungradedIds.filter((id) => {
+    if (ungradedFilter === "all") return true;
+    const s = statusOf(id);
+    if (ungradedFilter === "never") return s === null;
+    if (ungradedFilter === "running") return s === "running" || s === "pending";
+    return s === ungradedFilter; // "failed" | "cancelled"
+  });
 
   // Drag-and-drop reorder of the ungraded queue: move the dragged essay to just
   // before the row it was dropped on, within the master `order` list.
@@ -528,6 +543,17 @@ export function AssignmentPage() {
             Ungraded queue ({ungradedIds.length})
           </h2>
           <div className="flex items-center gap-2">
+            <select
+              value={ungradedFilter}
+              onChange={(e) => setUngradedFilter(e.target.value as UngradedFilter)}
+              className="px-2 py-1 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100 text-xs"
+            >
+              <option value="all">All</option>
+              <option value="never">Never graded</option>
+              <option value="running">Running</option>
+              <option value="failed">Failed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
             <button
               onClick={gradeAll}
               disabled={gradingInProgress || gradeableIds.length === 0}
@@ -548,10 +574,12 @@ export function AssignmentPage() {
 
         {ungradedIds.length === 0 ? (
           <p className="text-sm text-zinc-500 dark:text-zinc-400">No ungraded essays.</p>
+        ) : filteredUngradedIds.length === 0 ? (
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">No essays match this filter.</p>
         ) : (
           <>
             <ul className="space-y-2">
-              {ungradedIds.map((id) => {
+              {filteredUngradedIds.map((id) => {
                 const essay = essays.find((e) => e.id === id);
                 if (!essay) return null;
                 const status = statusOf(id);
