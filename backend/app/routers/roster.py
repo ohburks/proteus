@@ -8,7 +8,10 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.auth import CurrentUser, get_current_user
 from app.db import get_connection
-from app.schemas import AssignmentCreate, CourseCreate, EssayCreate, StudentCreate
+from app.llm.key_resolution import KeyResolutionError, resolve_provider_config
+from app.llm.providers import build_client
+from app.routers.assessments import _launch_assessment
+from app.schemas import AssignmentCreate, BulkGradeRequest, CourseCreate, EssayCreate, StudentCreate
 
 router = APIRouter(prefix="/api", tags=["roster"])
 
@@ -40,6 +43,30 @@ def list_courses(user: CurrentUser = Depends(get_current_user)):
     return [dict(r) for r in rows]
 
 
+@router.delete("/courses/{course_id}")
+def delete_course(course_id: str, user: CurrentUser = Depends(get_current_user)):
+    instructor_id = user.scoped_instructor_id()
+    with get_connection() as conn:
+        _assert_course_owned(conn, course_id, instructor_id)
+
+        assignment_ids = [r["id"] for r in conn.execute(
+            "SELECT id FROM assignments WHERE course_id = ?", (course_id,)
+        ).fetchall()]
+        for aid in assignment_ids:
+            for eid in _assignment_essay_ids(conn, aid):
+                if _essay_has_active_assessment(conn, eid):
+                    raise HTTPException(409, "Grading is still in progress for an essay in this course")
+        for aid in assignment_ids:
+            _delete_assignment_cascade(conn, aid)
+
+        conn.execute("DELETE FROM personalized_excerpts_src WHERE course_id = ?", (course_id,))
+        conn.execute("DELETE FROM course_profile WHERE course_id = ?", (course_id,))
+        conn.execute("DELETE FROM students WHERE course_id = ?", (course_id,))
+        conn.execute("DELETE FROM courses WHERE id = ?", (course_id,))
+        conn.commit()
+    return {"status": "ok"}
+
+
 def _assert_course_owned(conn, course_id: str, instructor_id: str):
     row = conn.execute("SELECT * FROM courses WHERE id = ?", (course_id,)).fetchone()
     if row is None:
@@ -47,6 +74,40 @@ def _assert_course_owned(conn, course_id: str, instructor_id: str):
     if row["instructor_id"] != instructor_id:
         raise HTTPException(403, "Not your course")
     return row
+
+
+def _delete_essay_cascade(conn, essay_id: str) -> None:
+    assessment_ids = [r["id"] for r in conn.execute(
+        "SELECT id FROM assessments WHERE essay_id = ?", (essay_id,)
+    ).fetchall()]
+    for aid in assessment_ids:
+        conn.execute("DELETE FROM divergence_records WHERE assessment_id = ?", (aid,))
+        conn.execute("DELETE FROM score_overrides WHERE assessment_id = ?", (aid,))
+        conn.execute("DELETE FROM score_aggregates WHERE assessment_id = ?", (aid,))
+        conn.execute("DELETE FROM score_records_v2 WHERE assessment_id = ?", (aid,))
+    conn.execute("DELETE FROM assessments WHERE essay_id = ?", (essay_id,))
+    conn.execute("DELETE FROM essays WHERE id = ?", (essay_id,))
+
+
+def _essay_has_active_assessment(conn, essay_id: str) -> bool:
+    return conn.execute(
+        "SELECT 1 FROM assessments WHERE essay_id = ? AND status IN ('running','pending') LIMIT 1",
+        (essay_id,),
+    ).fetchone() is not None
+
+
+def _assignment_essay_ids(conn, assignment_id: str) -> list[str]:
+    return [r["id"] for r in conn.execute(
+        "SELECT id FROM essays WHERE assignment_id = ?", (assignment_id,)
+    ).fetchall()]
+
+
+def _delete_assignment_cascade(conn, assignment_id: str) -> None:
+    for eid in _assignment_essay_ids(conn, assignment_id):
+        _delete_essay_cascade(conn, eid)
+    conn.execute("DELETE FROM assignment_profile WHERE assignment_id = ?", (assignment_id,))
+    conn.execute("DELETE FROM personalized_excerpts_src WHERE assignment_id = ?", (assignment_id,))
+    conn.execute("DELETE FROM assignments WHERE id = ?", (assignment_id,))
 
 
 @router.post("/assignments")
@@ -97,6 +158,22 @@ def get_assignment(assignment_id: str, user: CurrentUser = Depends(get_current_u
     return dict(row)
 
 
+@router.delete("/assignments/{assignment_id}")
+def delete_assignment(assignment_id: str, user: CurrentUser = Depends(get_current_user)):
+    instructor_id = user.scoped_instructor_id()
+    with get_connection() as conn:
+        assignment = conn.execute("SELECT * FROM assignments WHERE id = ?", (assignment_id,)).fetchone()
+        if assignment is None:
+            raise HTTPException(404, "Assignment not found")
+        _assert_course_owned(conn, assignment["course_id"], instructor_id)
+        for eid in _assignment_essay_ids(conn, assignment_id):
+            if _essay_has_active_assessment(conn, eid):
+                raise HTTPException(409, "Grading is still in progress for an essay in this assignment")
+        _delete_assignment_cascade(conn, assignment_id)
+        conn.commit()
+    return {"status": "ok"}
+
+
 @router.post("/students")
 def create_student(body: StudentCreate, user: CurrentUser = Depends(get_current_user)):
     instructor_id = user.scoped_instructor_id()
@@ -125,6 +202,21 @@ def list_students(user: CurrentUser = Depends(get_current_user), course_id: str 
         else:
             rows = conn.execute("SELECT * FROM students WHERE instructor_id = ?", (instructor_id,)).fetchall()
     return [dict(r) for r in rows]
+
+
+@router.delete("/students/{student_id}")
+def delete_student(student_id: str, user: CurrentUser = Depends(get_current_user)):
+    instructor_id = user.scoped_instructor_id()
+    with get_connection() as conn:
+        student = conn.execute("SELECT * FROM students WHERE id = ?", (student_id,)).fetchone()
+        if student is None:
+            raise HTTPException(404, "Student not found")
+        if student["instructor_id"] != instructor_id:
+            raise HTTPException(403, "Not your student")
+        conn.execute("UPDATE essays SET student_id = NULL WHERE student_id = ?", (student_id,))
+        conn.execute("DELETE FROM students WHERE id = ?", (student_id,))
+        conn.commit()
+    return {"status": "ok"}
 
 
 @router.get("/essays")
@@ -168,3 +260,110 @@ def create_essay(body: EssayCreate, user: CurrentUser = Depends(get_current_user
         )
         conn.commit()
     return {"id": essay_id, "assignment_id": body.assignment_id, "student_id": body.student_id, "text": body.text}
+
+
+@router.delete("/essays/{essay_id}")
+def delete_essay(essay_id: str, user: CurrentUser = Depends(get_current_user)):
+    instructor_id = user.scoped_instructor_id()
+    with get_connection() as conn:
+        essay = conn.execute("SELECT * FROM essays WHERE id = ?", (essay_id,)).fetchone()
+        if essay is None:
+            raise HTTPException(404, "Essay not found")
+        assignment = conn.execute("SELECT * FROM assignments WHERE id = ?", (essay["assignment_id"],)).fetchone()
+        _assert_course_owned(conn, assignment["course_id"], instructor_id)
+        if _essay_has_active_assessment(conn, essay_id):
+            raise HTTPException(409, "Grading is still in progress for this essay")
+        _delete_essay_cascade(conn, essay_id)
+        conn.commit()
+    return {"status": "ok"}
+
+
+@router.post("/assignments/{assignment_id}/bulk-grade")
+def bulk_grade(assignment_id: str, body: BulkGradeRequest, user: CurrentUser = Depends(get_current_user)):
+    instructor_id = user.scoped_instructor_id()
+    byok = body.byok
+    try:
+        config = resolve_provider_config(
+            byok_provider=byok.provider if byok else None,
+            byok_key=byok.api_key if byok else None,
+            byok_model=byok.model if byok else None,
+            byok_base_url=byok.base_url if byok else None,
+        )
+    except KeyResolutionError as e:
+        raise HTTPException(400, str(e)) from e
+    client = build_client(config)
+
+    results = []
+    with get_connection() as conn:
+        assignment = conn.execute("SELECT * FROM assignments WHERE id = ?", (assignment_id,)).fetchone()
+        if assignment is None:
+            raise HTTPException(404, "Assignment not found")
+        _assert_course_owned(conn, assignment["course_id"], instructor_id)
+
+        criteria_rows = conn.execute(
+            "SELECT * FROM criteria WHERE rubric_id = ? AND rubric_version = ?",
+            (assignment["rubric_id"], assignment["rubric_version"]),
+        ).fetchall()
+        if not criteria_rows:
+            raise HTTPException(400, "Rubric has no criteria loaded")
+        criteria_rows_dicts = [dict(c) for c in criteria_rows]
+        assignment_dict = dict(assignment)
+
+        for essay_id in body.essay_ids:
+            essay = conn.execute("SELECT * FROM essays WHERE id = ?", (essay_id,)).fetchone()
+            if essay is None:
+                results.append({"essay_id": essay_id, "status": "error", "detail": "Essay not found"})
+                continue
+            if essay["assignment_id"] != assignment_id:
+                results.append({"essay_id": essay_id, "status": "error", "detail": "Essay does not belong to this assignment"})
+                continue
+            latest = conn.execute(
+                "SELECT status FROM assessments WHERE essay_id = ? ORDER BY created_at DESC LIMIT 1",
+                (essay_id,),
+            ).fetchone()
+            if latest is not None and latest["status"] in ("running", "pending"):
+                results.append({"essay_id": essay_id, "status": "skipped", "detail": "Already in progress"})
+                continue
+            assessment_id = _launch_assessment(essay, assignment_dict, criteria_rows_dicts, config, client, instructor_id)
+            results.append({"essay_id": essay_id, "status": "started", "assessment_id": assessment_id})
+
+    return {"results": results}
+
+
+@router.get("/assignments/{assignment_id}/queue")
+def get_queue(assignment_id: str, user: CurrentUser = Depends(get_current_user)):
+    instructor_id = user.scoped_instructor_id()
+    with get_connection() as conn:
+        assignment = conn.execute("SELECT * FROM assignments WHERE id = ?", (assignment_id,)).fetchone()
+        if assignment is None:
+            raise HTTPException(404, "Assignment not found")
+        _assert_course_owned(conn, assignment["course_id"], instructor_id)
+
+        essays = conn.execute("SELECT * FROM essays WHERE assignment_id = ?", (assignment_id,)).fetchall()
+        entries = []
+        for essay in essays:
+            latest = conn.execute(
+                "SELECT * FROM assessments WHERE essay_id = ? ORDER BY created_at DESC LIMIT 1",
+                (essay["id"],),
+            ).fetchone()
+            if latest is None:
+                entries.append({
+                    "essay_id": essay["id"], "student_id": essay["student_id"],
+                    "latest_assessment_id": None, "status": None,
+                    "exceeds_threshold": False, "high_spread": False,
+                })
+                continue
+            exceeds = conn.execute(
+                "SELECT 1 FROM divergence_records WHERE assessment_id = ? AND exceeds_threshold = 1 LIMIT 1",
+                (latest["id"],),
+            ).fetchone() is not None
+            high_spread = conn.execute(
+                "SELECT 1 FROM score_aggregates WHERE assessment_id = ? AND high_spread = 1 LIMIT 1",
+                (latest["id"],),
+            ).fetchone() is not None
+            entries.append({
+                "essay_id": essay["id"], "student_id": essay["student_id"],
+                "latest_assessment_id": latest["id"], "status": latest["status"],
+                "exceeds_threshold": exceeds, "high_spread": high_spread,
+            })
+    return entries

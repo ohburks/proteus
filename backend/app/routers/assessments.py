@@ -63,6 +63,36 @@ def _run_assessment(assessment_id: str, client, criteria_rows_dicts, assignment_
             progress.finish(assessment_id, "failed")
 
 
+def _launch_assessment(essay_row, assignment_dict, criteria_rows_dicts, config, client, instructor_id) -> str:
+    """Insert an assessments row (status='running'), snapshot state, and spawn
+    the background grading thread. Opens its own connection so callers looping
+    over many essays (bulk grading) don't share a connection across the batch."""
+    assessment_id = str(uuid.uuid4())
+    with get_connection() as conn:
+        conn.execute(
+            """INSERT INTO assessments
+               (id, essay_id, instructor_id, student_id, rubric_id, rubric_version, provider, model, status, created_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (
+                assessment_id, essay_row["id"], instructor_id, essay_row["student_id"],
+                assignment_dict["rubric_id"], assignment_dict["rubric_version"], config.provider, config.model,
+                "running", _now(),
+            ),
+        )
+        conn.commit()
+        essay_text = essay_row["text"]
+
+    progress.start(assessment_id)
+    progress.emit(assessment_id, f"Assessment started — provider={config.provider} model={config.model}, {len(criteria_rows_dicts)} criteria")
+    thread = threading.Thread(
+        target=_run_assessment,
+        args=(assessment_id, client, criteria_rows_dicts, assignment_dict, essay_text, instructor_id),
+        daemon=True,
+    )
+    thread.start()
+    return assessment_id
+
+
 @router.post("/validate-byok")
 def validate_byok(body: BYOKConfig, user: CurrentUser = Depends(get_current_user)):
     """Live check of a BYOK provider/key pair for the grading form's key
@@ -114,34 +144,10 @@ def start_assessment(body: GradeRequest, user: CurrentUser = Depends(get_current
         if not criteria_rows:
             raise HTTPException(400, "Rubric has no criteria loaded")
 
-        assessment_id = str(uuid.uuid4())
-        conn.execute(
-            """INSERT INTO assessments
-               (id, essay_id, instructor_id, student_id, rubric_id, rubric_version, provider, model, status, created_at)
-               VALUES (?,?,?,?,?,?,?,?,?,?)""",
-            (
-                assessment_id, body.essay_id, instructor_id, essay["student_id"],
-                assignment["rubric_id"], assignment["rubric_version"], config.provider, config.model,
-                "running", _now(),
-            ),
-        )
-        conn.commit()
-
-        # Snapshot everything the background thread needs — it opens its own
-        # sqlite connection rather than sharing this request's connection.
         criteria_rows_dicts = [dict(c) for c in criteria_rows]
         assignment_dict = dict(assignment)
-        essay_text = essay["text"]
 
-    progress.start(assessment_id)
-    progress.emit(assessment_id, f"Assessment started — provider={config.provider} model={config.model}, {len(criteria_rows_dicts)} criteria")
-    thread = threading.Thread(
-        target=_run_assessment,
-        args=(assessment_id, client, criteria_rows_dicts, assignment_dict, essay_text, instructor_id),
-        daemon=True,
-    )
-    thread.start()
-
+    assessment_id = _launch_assessment(essay, assignment_dict, criteria_rows_dicts, config, client, instructor_id)
     return {"id": assessment_id, "status": "running"}
 
 

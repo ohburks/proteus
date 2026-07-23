@@ -35,6 +35,15 @@ export interface Essay {
   text: string;
 }
 
+export interface QueueEntry {
+  essay_id: string;
+  student_id: string | null;
+  latest_assessment_id: string | null;
+  status: "running" | "pending" | "complete" | "failed" | null;
+  exceeds_threshold: boolean;
+  high_spread: boolean;
+}
+
 export interface RubricCriterion {
   criterionId: string;
   standard: string;

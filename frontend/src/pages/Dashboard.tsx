@@ -66,13 +66,24 @@ export function DashboardPage() {
       ) : (
         <ul className="divide-y divide-zinc-200 dark:divide-white/5 bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl overflow-hidden">
           {courses.map((c) => (
-            <li key={c.id}>
-              <Link
-                to={`/courses/${c.id}`}
-                className="block px-4 py-3 text-zinc-800 dark:text-zinc-200 hover:bg-black/[0.03] dark:hover:bg-white/5"
-              >
+            <li key={c.id} className="flex items-center justify-between px-4 py-3 hover:bg-black/[0.03] dark:hover:bg-white/5">
+              <Link to={`/courses/${c.id}`} className="flex-1 text-zinc-800 dark:text-zinc-200">
                 {c.name}
               </Link>
+              <button
+                onClick={async () => {
+                  if (!confirm(`Delete course "${c.name}"? This permanently deletes all its assignments, essays, grading history, and students. This cannot be undone.`)) return;
+                  try {
+                    await api.del(`/api/courses/${c.id}`);
+                    refresh();
+                  } catch (err) {
+                    setError(err instanceof ApiError ? err.message : "Failed to delete course");
+                  }
+                }}
+                className="ml-3 px-2 py-1 text-xs text-red-600 dark:text-red-400 hover:bg-red-500/10 rounded-lg"
+              >
+                Delete
+              </button>
             </li>
           ))}
         </ul>

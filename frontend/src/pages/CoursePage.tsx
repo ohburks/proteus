@@ -117,10 +117,24 @@ export function CoursePage() {
 
       <ul className="divide-y divide-zinc-200 dark:divide-white/5 bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl overflow-hidden mb-8">
         {assignments.map((a) => (
-          <li key={a.id}>
-            <Link to={`/assignments/${a.id}`} className="block px-4 py-3 text-zinc-800 dark:text-zinc-200 hover:bg-black/[0.03] dark:hover:bg-white/5">
+          <li key={a.id} className="flex items-center justify-between px-4 py-3 hover:bg-black/[0.03] dark:hover:bg-white/5">
+            <Link to={`/assignments/${a.id}`} className="flex-1 text-zinc-800 dark:text-zinc-200">
               {a.name} <span className="text-xs text-zinc-400 dark:text-zinc-500">({a.rubric_id} v{a.rubric_version})</span>
             </Link>
+            <button
+              onClick={async () => {
+                if (!confirm(`Delete assignment "${a.name}"? This permanently deletes all its essays and grading history. This cannot be undone.`)) return;
+                try {
+                  await api.del(`/api/assignments/${a.id}`);
+                  refresh();
+                } catch (err) {
+                  setError(err instanceof ApiError ? err.message : "Failed to delete assignment");
+                }
+              }}
+              className="ml-3 px-2 py-1 text-xs text-red-600 dark:text-red-400 hover:bg-red-500/10 rounded-lg"
+            >
+              Delete
+            </button>
           </li>
         ))}
         {assignments.length === 0 && <li className="px-4 py-3 text-zinc-500 dark:text-zinc-400">No assignments yet.</li>}
@@ -140,8 +154,23 @@ export function CoursePage() {
       </form>
       <ul className="flex flex-wrap gap-2">
         {students.map((s) => (
-          <li key={s.id} className="px-3 py-1 text-sm bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-full text-zinc-700 dark:text-zinc-300">
+          <li key={s.id} className="flex items-center gap-1.5 px-3 py-1 text-sm bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-full text-zinc-700 dark:text-zinc-300">
             {s.display_name}
+            <button
+              onClick={async () => {
+                if (!confirm(`Remove student "${s.display_name}"? Their essays will be unlinked, not deleted.`)) return;
+                try {
+                  await api.del(`/api/students/${s.id}`);
+                  refresh();
+                } catch (err) {
+                  setError(err instanceof ApiError ? err.message : "Failed to remove student");
+                }
+              }}
+              className="text-zinc-400 hover:text-red-600 dark:hover:text-red-400"
+              aria-label={`Remove ${s.display_name}`}
+            >
+              ✕
+            </button>
           </li>
         ))}
       </ul>

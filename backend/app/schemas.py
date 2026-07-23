@@ -88,6 +88,11 @@ class GradeRequest(BaseModel):
     byok: BYOKConfig | None = None
 
 
+class BulkGradeRequest(BaseModel):
+    essay_ids: list[str]
+    byok: BYOKConfig | None = None
+
+
 class AssessmentOut(BaseModel):
     id: str
     essay_id: str
