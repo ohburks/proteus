@@ -2,10 +2,12 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { ApiError } from "../lib/api";
+import { useTheme } from "../theme/ThemeContext";
 
 export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const { preference, setPreference } = useTheme();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +29,15 @@ export function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-app-light dark:bg-app-dark">
+      <select
+        value={preference}
+        onChange={(e) => setPreference(e.target.value as "system" | "light" | "dark")}
+        className="fixed top-4 right-4 text-sm bg-white dark:bg-white/5 text-zinc-700 dark:text-zinc-200 border border-zinc-300 dark:border-white/10 rounded-lg px-2 py-1"
+      >
+        <option value="system">System</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
       <form onSubmit={onSubmit} className="w-full max-w-sm bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-6 shadow-sm">
         <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-4">Sign in</h1>
         {error && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{error}</p>}
