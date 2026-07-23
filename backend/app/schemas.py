@@ -73,6 +73,11 @@ class StudentOut(BaseModel):
     status: str
 
 
+class StudentUpdate(BaseModel):
+    external_ref: str | None = None
+    status: Literal["active", "archived"]
+
+
 class EssayCreate(BaseModel):
     assignment_id: str
     student_id: str | None = None

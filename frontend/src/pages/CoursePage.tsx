@@ -19,6 +19,9 @@ export function CoursePage() {
   const [rubricKey, setRubricKey] = useState("");
   const [promptText, setPromptText] = useState("");
   const [studentName, setStudentName] = useState("");
+  const [studentExternalRef, setStudentExternalRef] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editExternalRef, setEditExternalRef] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   function refresh() {
@@ -72,11 +75,40 @@ export function CoursePage() {
       return;
     }
     try {
-      await api.post("/api/students", { course_id: courseId, display_name: studentName });
+      await api.post("/api/students", {
+        course_id: courseId,
+        display_name: studentName,
+        external_ref: studentExternalRef.trim() || null,
+      });
       setStudentName("");
+      setStudentExternalRef("");
       refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to add student");
+    }
+  }
+
+  async function saveExternalRef(s: Student) {
+    try {
+      await api.put(`/api/students/${s.id}`, {
+        external_ref: editExternalRef.trim() || null,
+        status: s.status,
+      });
+      setEditingId(null);
+      refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to update student");
+    }
+  }
+
+  async function toggleStudentStatus(s: Student) {
+    const nextStatus = s.status === "archived" ? "active" : "archived";
+    if (nextStatus === "archived" && !confirm(`Archive "${s.display_name}"? They'll stay on the roster but be marked inactive.`)) return;
+    try {
+      await api.put(`/api/students/${s.id}`, { external_ref: s.external_ref, status: nextStatus });
+      refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to update student");
     }
   }
 
@@ -148,31 +180,89 @@ export function CoursePage() {
           value={studentName}
           onChange={(e) => setStudentName(e.target.value)}
         />
+        <input
+          className="w-40 px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-surface-dark text-zinc-900 dark:text-zinc-100"
+          placeholder="External ref (optional)"
+          value={studentExternalRef}
+          onChange={(e) => setStudentExternalRef(e.target.value)}
+        />
         <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-lg text-sm font-medium">
           Add student
         </button>
       </form>
-      <ul className="flex flex-wrap gap-2">
+      <ul className="divide-y divide-zinc-200 dark:divide-white/5 bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl overflow-hidden">
         {students.map((s) => (
-          <li key={s.id} className="flex items-center gap-1.5 px-3 py-1 text-sm bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-full text-zinc-700 dark:text-zinc-300">
-            {s.display_name}
-            <button
-              onClick={async () => {
-                if (!confirm(`Remove student "${s.display_name}"? Their essays will be unlinked, not deleted.`)) return;
-                try {
-                  await api.del(`/api/students/${s.id}`);
-                  refresh();
-                } catch (err) {
-                  setError(err instanceof ApiError ? err.message : "Failed to remove student");
+          <li key={s.id} className="flex items-center justify-between px-4 py-3">
+            <div>
+              <p className="text-zinc-800 dark:text-zinc-200 font-medium">
+                {s.display_name}
+                {s.status === "archived" && (
+                  <span className="ml-2 px-2 py-0.5 text-xs font-medium rounded-full bg-zinc-500/15 text-zinc-600 dark:text-zinc-400">
+                    archived
+                  </span>
+                )}
+              </p>
+              {editingId === s.id ? (
+                <div className="flex items-center gap-1.5 mt-1">
+                  <input
+                    className="px-2 py-1 text-xs border border-zinc-300 dark:border-white/10 rounded bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
+                    placeholder="External ref"
+                    value={editExternalRef}
+                    onChange={(e) => setEditExternalRef(e.target.value)}
+                    autoFocus
+                  />
+                  <button onClick={() => saveExternalRef(s)} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                    Save
+                  </button>
+                  <button onClick={() => setEditingId(null)} className="text-xs text-zinc-500 dark:text-zinc-400 hover:underline">
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-zinc-400 dark:text-zinc-500">
+                  {s.external_ref ? `Ref: ${s.external_ref}` : "No external ref"}{" "}
+                  <button
+                    onClick={() => {
+                      setEditingId(s.id);
+                      setEditExternalRef(s.external_ref ?? "");
+                    }}
+                    className="text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    Edit
+                  </button>
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => toggleStudentStatus(s)}
+                className={
+                  s.status === "archived"
+                    ? "px-3 py-1 border border-zinc-300 dark:border-white/10 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-medium hover:bg-black/[0.03] dark:hover:bg-white/5"
+                    : "px-3 py-1 border border-amber-300 dark:border-amber-500/30 text-amber-700 dark:text-amber-400 rounded-lg text-xs font-medium hover:bg-amber-500/10"
                 }
-              }}
-              className="text-zinc-400 hover:text-red-600 dark:hover:text-red-400"
-              aria-label={`Remove ${s.display_name}`}
-            >
-              ✕
-            </button>
+              >
+                {s.status === "archived" ? "Reactivate" : "Archive"}
+              </button>
+              <button
+                onClick={async () => {
+                  if (!confirm(`Remove student "${s.display_name}"? Their essays will be unlinked, not deleted.`)) return;
+                  try {
+                    await api.del(`/api/students/${s.id}`);
+                    refresh();
+                  } catch (err) {
+                    setError(err instanceof ApiError ? err.message : "Failed to remove student");
+                  }
+                }}
+                className="text-zinc-400 hover:text-red-600 dark:hover:text-red-400"
+                aria-label={`Remove ${s.display_name}`}
+              >
+                ✕
+              </button>
+            </div>
           </li>
         ))}
+        {students.length === 0 && <li className="px-4 py-3 text-zinc-500 dark:text-zinc-400">No students yet.</li>}
       </ul>
     </div>
   );

@@ -11,7 +11,7 @@ from app.db import get_connection
 from app.llm.key_resolution import KeyResolutionError, resolve_provider_config
 from app.llm.providers import build_client
 from app.routers.assessments import _criterion_output, _launch_assessment
-from app.schemas import AssignmentCreate, BulkGradeRequest, CourseCreate, EssayCreate, StudentCreate
+from app.schemas import AssignmentCreate, BulkGradeRequest, CourseCreate, EssayCreate, StudentCreate, StudentUpdate
 
 router = APIRouter(prefix="/api", tags=["roster"])
 
@@ -202,6 +202,23 @@ def list_students(user: CurrentUser = Depends(get_current_user), course_id: str 
         else:
             rows = conn.execute("SELECT * FROM students WHERE instructor_id = ?", (instructor_id,)).fetchall()
     return [dict(r) for r in rows]
+
+
+@router.put("/students/{student_id}")
+def update_student(student_id: str, body: StudentUpdate, user: CurrentUser = Depends(get_current_user)):
+    instructor_id = user.scoped_instructor_id()
+    with get_connection() as conn:
+        student = conn.execute("SELECT * FROM students WHERE id = ?", (student_id,)).fetchone()
+        if student is None:
+            raise HTTPException(404, "Student not found")
+        if student["instructor_id"] != instructor_id:
+            raise HTTPException(403, "Not your student")
+        conn.execute(
+            "UPDATE students SET external_ref = ?, status = ? WHERE id = ?",
+            (body.external_ref, body.status, student_id),
+        )
+        conn.commit()
+    return {"status": "ok"}
 
 
 @router.delete("/students/{student_id}")
