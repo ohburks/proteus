@@ -77,11 +77,19 @@ def get_review(assessment_id: str, criterion_id: str, user: CurrentUser = Depend
     instructor_id = user.scoped_instructor_id()
     with get_connection() as conn:
         (
-            _, personalized, exemplar, personalized_passes, exemplar_passes,
+            assessment, personalized, exemplar, personalized_passes, exemplar_passes,
             divergence, override, _,
         ) = _load_context(conn, assessment_id, criterion_id, instructor_id)
+        criterion_row = conn.execute(
+            "SELECT statement, anchors_json FROM criteria WHERE rubric_id = ? AND rubric_version = ? AND criterion_id = ?",
+            (assessment["rubric_id"], assessment["rubric_version"], criterion_id),
+        ).fetchone()
     return {
         "criterion_id": criterion_id,
+        "criterion": {
+            "statement": criterion_row["statement"],
+            "anchors": json.loads(criterion_row["anchors_json"]),
+        } if criterion_row else None,
         "personalized": _aggregate_out(personalized, personalized_passes),
         "exemplar": _aggregate_out(exemplar, exemplar_passes),
         "divergence": {

@@ -3,7 +3,9 @@ import { useParams } from "react-router-dom";
 import { api, ApiError } from "../lib/api";
 import type { PathResult, ReviewContract } from "../lib/types";
 
-function PathCard({ title, result, highlight }: { title: string; result: PathResult | null; highlight?: boolean }) {
+function PathCard({
+  title, result, highlight, anchorText,
+}: { title: string; result: PathResult | null; highlight?: boolean; anchorText?: string }) {
   return (
     <div
       className={
@@ -42,6 +44,11 @@ function PathCard({ title, result, highlight }: { title: string; result: PathRes
             median of {result.n_passes} passes · spread: {result.spread ?? "n/a"} · confidence:{" "}
             {(result.confidence * 100).toFixed(0)}%
           </p>
+          {anchorText && (
+            <p className={highlight ? "text-xs text-white/80 mb-3 italic" : "text-xs text-zinc-600 dark:text-zinc-400 mb-3 italic"}>
+              {anchorText}
+            </p>
+          )}
           <p className={highlight ? "text-sm text-white/90 mb-3" : "text-sm text-zinc-700 dark:text-zinc-300 mb-3"}>
             {result.rationale}
           </p>
@@ -74,6 +81,14 @@ function PathCard({ title, result, highlight }: { title: string; result: PathRes
       )}
     </div>
   );
+}
+
+function anchorTextFor(result: PathResult | null, anchors?: Record<string, string>): string | undefined {
+  if (!result || typeof result.score !== "number" || !anchors) return undefined;
+  // Aggregate scores are multi-pass medians and can be fractional (e.g. 3.5);
+  // anchors are keyed by whole point "0".."5", so round the same way the
+  // override field seeding below does.
+  return anchors[String(Math.round(result.score))];
 }
 
 export function ReviewPage() {
@@ -138,6 +153,9 @@ export function ReviewPage() {
   return (
     <div className="max-w-4xl mx-auto px-6 py-8 bg-app-light dark:bg-app-dark min-h-[calc(100vh-3.5rem)]">
       <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-1">{criterionId}</h1>
+      {data.criterion && (
+        <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">{data.criterion.statement}</p>
+      )}
       {data.divergence && (
         <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
           score diff: {data.divergence.score_diff ?? "n/a"} · anchor mismatch: {String(data.divergence.anchor_mismatch)} ·
@@ -146,8 +164,17 @@ export function ReviewPage() {
       )}
 
       <div className="flex gap-4 mb-6">
-        <PathCard title="Personalized (output)" result={data.personalized} highlight />
-        <PathCard title="Exemplar (reference)" result={data.exemplar} />
+        <PathCard
+          title="Personalized (output)"
+          result={data.personalized}
+          highlight
+          anchorText={anchorTextFor(data.personalized, data.criterion?.anchors)}
+        />
+        <PathCard
+          title="Exemplar (reference)"
+          result={data.exemplar}
+          anchorText={anchorTextFor(data.exemplar, data.criterion?.anchors)}
+        />
       </div>
 
       {data.current_override && (

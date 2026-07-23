@@ -78,6 +78,8 @@ export interface AssessmentCriterionSummary {
 export interface AssessmentDetail {
   id: string;
   status: string;
+  rubric_id: string;
+  rubric_version: string;
   criteria: AssessmentCriterionSummary[];
 }
 
@@ -125,6 +127,7 @@ export interface Override {
 
 export interface ReviewContract {
   criterion_id: string;
+  criterion: { statement: string; anchors: Record<string, string> } | null;
   personalized: PathResult | null;
   exemplar: PathResult | null;
   divergence: Divergence | null;

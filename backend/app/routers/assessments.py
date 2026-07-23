@@ -231,4 +231,8 @@ def get_assessment(assessment_id: str, user: CurrentUser = Depends(get_current_u
                 "high_spread": bool(personalized and personalized["high_spread"])
                 or bool(exemplar and exemplar["high_spread"]),
             })
-    return {"id": assessment["id"], "status": assessment["status"], "criteria": results}
+    return {
+        "id": assessment["id"], "status": assessment["status"],
+        "rubric_id": assessment["rubric_id"], "rubric_version": assessment["rubric_version"],
+        "criteria": results,
+    }
