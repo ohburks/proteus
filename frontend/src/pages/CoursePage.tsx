@@ -195,7 +195,9 @@ export function CoursePage() {
           <li key={s.id} className="flex items-center justify-between px-4 py-3">
             <div>
               <p className="text-zinc-800 dark:text-zinc-200 font-medium">
-                {s.display_name}
+                <Link to={`/students/${s.id}/history`} className="hover:underline">
+                  {s.display_name}
+                </Link>
                 {s.status === "archived" && (
                   <span className="ml-2 px-2 py-0.5 text-xs font-medium rounded-full bg-zinc-500/15 text-zinc-600 dark:text-zinc-400">
                     archived

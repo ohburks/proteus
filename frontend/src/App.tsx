@@ -11,6 +11,7 @@ import { ReviewPage } from "./pages/ReviewPage";
 import { SettingsPage } from "./pages/Settings";
 import { AccountsPage } from "./pages/AccountsPage";
 import { LibraryPage } from "./pages/LibraryPage";
+import { StudentHistoryPage } from "./pages/StudentHistoryPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { token } = useAuth();
@@ -93,6 +94,14 @@ export default function App() {
           element={
             <RequireAuth>
               <LibraryPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/students/:studentId/history"
+          element={
+            <RequireAuth>
+              <StudentHistoryPage />
             </RequireAuth>
           }
         />

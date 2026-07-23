@@ -60,6 +60,24 @@ export interface AssignmentBreakdown {
   criteria: CriterionBreakdown[];
 }
 
+export interface StudentHistoryEntry {
+  essay_id: string;
+  assignment_id: string;
+  assignment_name: string;
+  created_at: string;
+  assessment_id: string | null;
+  status: "running" | "pending" | "complete" | "failed" | "cancelled" | null;
+  avg_score: number | null;
+  n_criteria: number;
+  n_divergent: number;
+  n_high_spread: number;
+}
+
+export interface StudentHistory {
+  student: { id: string; display_name: string; external_ref: string | null; status: string };
+  history: StudentHistoryEntry[];
+}
+
 export interface QueueEntry {
   essay_id: string;
   student_id: string | null;

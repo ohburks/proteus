@@ -221,6 +221,63 @@ def update_student(student_id: str, body: StudentUpdate, user: CurrentUser = Dep
     return {"status": "ok"}
 
 
+@router.get("/students/{student_id}/history")
+def get_student_history(student_id: str, user: CurrentUser = Depends(get_current_user)):
+    instructor_id = user.scoped_instructor_id()
+    with get_connection() as conn:
+        student = conn.execute("SELECT * FROM students WHERE id = ?", (student_id,)).fetchone()
+        if student is None or student["instructor_id"] != instructor_id:
+            raise HTTPException(404, "Student not found")
+
+        essays = conn.execute(
+            "SELECT e.id AS essay_id, e.assignment_id, e.created_at, a.name AS assignment_name "
+            "FROM essays e JOIN assignments a ON e.assignment_id = a.id "
+            "WHERE e.student_id = ? ORDER BY e.created_at",
+            (student_id,),
+        ).fetchall()
+
+        history = []
+        for e in essays:
+            latest = conn.execute(
+                "SELECT * FROM assessments WHERE essay_id = ? ORDER BY created_at DESC LIMIT 1",
+                (e["essay_id"],),
+            ).fetchone()
+            entry = {
+                "essay_id": e["essay_id"], "assignment_id": e["assignment_id"],
+                "assignment_name": e["assignment_name"], "created_at": e["created_at"],
+                "assessment_id": latest["id"] if latest else None,
+                "status": latest["status"] if latest else None,
+                "avg_score": None, "n_criteria": 0, "n_divergent": 0, "n_high_spread": 0,
+            }
+            if latest and latest["status"] == "complete":
+                criteria_ids = [r["criterion_id"] for r in conn.execute(
+                    "SELECT DISTINCT criterion_id FROM score_aggregates WHERE assessment_id = ?",
+                    (latest["id"],),
+                ).fetchall()]
+                scores = []
+                for cid in criteria_ids:
+                    out = _criterion_output(conn, latest["id"], cid)
+                    if out["output_score"] is None:
+                        continue
+                    scores.append(out["output_score"])
+                    if out["exceeds_threshold"]:
+                        entry["n_divergent"] += 1
+                    if out["high_spread"]:
+                        entry["n_high_spread"] += 1
+                if scores:
+                    entry["avg_score"] = sum(scores) / len(scores)
+                    entry["n_criteria"] = len(scores)
+            history.append(entry)
+
+    return {
+        "student": {
+            "id": student["id"], "display_name": student["display_name"],
+            "external_ref": student["external_ref"], "status": student["status"],
+        },
+        "history": history,
+    }
+
+
 @router.delete("/students/{student_id}")
 def delete_student(student_id: str, user: CurrentUser = Depends(get_current_user)):
     instructor_id = user.scoped_instructor_id()
