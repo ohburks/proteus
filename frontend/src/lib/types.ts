@@ -35,6 +35,22 @@ export interface Essay {
   text: string;
 }
 
+export interface CriterionBreakdown {
+  criterion_id: string;
+  n_graded: number;
+  avg_score: number;
+  min_score: number;
+  max_score: number;
+  n_divergent: number;
+  n_high_spread: number;
+}
+
+export interface AssignmentBreakdown {
+  n_essays: number;
+  n_graded_essays: number;
+  criteria: CriterionBreakdown[];
+}
+
 export interface QueueEntry {
   essay_id: string;
   student_id: string | null;

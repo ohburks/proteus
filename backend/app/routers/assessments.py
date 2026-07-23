@@ -181,6 +181,43 @@ def list_assessments(essay_id: str, user: CurrentUser = Depends(get_current_user
     return [dict(r) for r in rows]
 
 
+def _criterion_output(conn, assessment_id: str, criterion_id: str) -> dict:
+    personalized = conn.execute(
+        "SELECT * FROM score_aggregates WHERE assessment_id = ? AND criterion_id = ? AND path = 'personalized'",
+        (assessment_id, criterion_id),
+    ).fetchone()
+    exemplar = conn.execute(
+        "SELECT * FROM score_aggregates WHERE assessment_id = ? AND criterion_id = ? AND path = 'exemplar'",
+        (assessment_id, criterion_id),
+    ).fetchone()
+    override = conn.execute(
+        "SELECT * FROM score_overrides WHERE assessment_id = ? AND criterion_id = ?", (assessment_id, criterion_id)
+    ).fetchone()
+    divergence = conn.execute(
+        "SELECT * FROM divergence_records WHERE assessment_id = ? AND criterion_id = ?", (assessment_id, criterion_id)
+    ).fetchone()
+    # A criterion can have one path's aggregate without the other: the engine
+    # persists exemplar before personalized, and a failure in between still
+    # commits the partial rows via the failed-status commit. Guard rather
+    # than 500 on such criteria.
+    if override:
+        output_score, output_source = override["new_score"], "override"
+    elif personalized:
+        output_score, output_source = personalized["score"], "personalized"
+    else:
+        output_score, output_source = None, "incomplete"
+    return {
+        "output_score": output_score,
+        "output_source": output_source,
+        "exceeds_threshold": bool(divergence["exceeds_threshold"]) if divergence else False,
+        # High spread is an additive signal, separate from divergence: it
+        # flags a path that wasn't consistent with its own repeated passes,
+        # not disagreement between the two paths.
+        "high_spread": bool(personalized and personalized["high_spread"])
+        or bool(exemplar and exemplar["high_spread"]),
+    }
+
+
 @router.get("/{assessment_id}")
 def get_assessment(assessment_id: str, user: CurrentUser = Depends(get_current_user)):
     instructor_id = user.scoped_instructor_id()
@@ -194,43 +231,10 @@ def get_assessment(assessment_id: str, user: CurrentUser = Depends(get_current_u
                 "SELECT DISTINCT criterion_id FROM score_aggregates WHERE assessment_id = ?", (assessment_id,)
             ).fetchall()
         ]
-        results = []
-        for cid in criteria_ids:
-            personalized = conn.execute(
-                "SELECT * FROM score_aggregates WHERE assessment_id = ? AND criterion_id = ? AND path = 'personalized'",
-                (assessment_id, cid),
-            ).fetchone()
-            exemplar = conn.execute(
-                "SELECT * FROM score_aggregates WHERE assessment_id = ? AND criterion_id = ? AND path = 'exemplar'",
-                (assessment_id, cid),
-            ).fetchone()
-            override = conn.execute(
-                "SELECT * FROM score_overrides WHERE assessment_id = ? AND criterion_id = ?", (assessment_id, cid)
-            ).fetchone()
-            divergence = conn.execute(
-                "SELECT * FROM divergence_records WHERE assessment_id = ? AND criterion_id = ?", (assessment_id, cid)
-            ).fetchone()
-            # A criterion can have one path's aggregate without the other:
-            # the engine persists exemplar before personalized, and a failure
-            # in between still commits the partial rows via the failed-status
-            # commit. Guard rather than 500 on such criteria.
-            if override:
-                output_score, output_source = override["new_score"], "override"
-            elif personalized:
-                output_score, output_source = personalized["score"], "personalized"
-            else:
-                output_score, output_source = None, "incomplete"
-            results.append({
-                "criterion_id": cid,
-                "output_score": output_score,
-                "output_source": output_source,
-                "exceeds_threshold": bool(divergence["exceeds_threshold"]) if divergence else False,
-                # High spread is an additive signal, separate from divergence:
-                # it flags a path that wasn't consistent with its own repeated
-                # passes, not disagreement between the two paths.
-                "high_spread": bool(personalized and personalized["high_spread"])
-                or bool(exemplar and exemplar["high_spread"]),
-            })
+        results = [
+            {"criterion_id": cid, **_criterion_output(conn, assessment_id, cid)}
+            for cid in criteria_ids
+        ]
     return {
         "id": assessment["id"], "status": assessment["status"],
         "rubric_id": assessment["rubric_id"], "rubric_version": assessment["rubric_version"],

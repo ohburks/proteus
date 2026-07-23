@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, ApiError, streamLines } from "../lib/api";
 import type { Assignment, Essay, QueueEntry, Student } from "../lib/types";
 
@@ -199,7 +199,12 @@ export function AssignmentPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-8 bg-app-light dark:bg-app-dark min-h-[calc(100vh-3.5rem)]">
-      <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-6">Essays</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">Essays</h1>
+        <Link to={`/assignments/${assignmentId}/breakdown`} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+          Class breakdown →
+        </Link>
+      </div>
 
       <form onSubmit={createEssay} className="mb-6 bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-5 space-y-2">
         <select

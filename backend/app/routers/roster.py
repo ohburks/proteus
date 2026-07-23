@@ -10,7 +10,7 @@ from app.auth import CurrentUser, get_current_user
 from app.db import get_connection
 from app.llm.key_resolution import KeyResolutionError, resolve_provider_config
 from app.llm.providers import build_client
-from app.routers.assessments import _launch_assessment
+from app.routers.assessments import _criterion_output, _launch_assessment
 from app.schemas import AssignmentCreate, BulkGradeRequest, CourseCreate, EssayCreate, StudentCreate
 
 router = APIRouter(prefix="/api", tags=["roster"])
@@ -367,3 +367,56 @@ def get_queue(assignment_id: str, user: CurrentUser = Depends(get_current_user))
                 "exceeds_threshold": exceeds, "high_spread": high_spread,
             })
     return entries
+
+
+@router.get("/assignments/{assignment_id}/breakdown")
+def get_assignment_breakdown(assignment_id: str, user: CurrentUser = Depends(get_current_user)):
+    instructor_id = user.scoped_instructor_id()
+    with get_connection() as conn:
+        assignment = conn.execute("SELECT * FROM assignments WHERE id = ?", (assignment_id,)).fetchone()
+        if assignment is None:
+            raise HTTPException(404, "Assignment not found")
+        _assert_course_owned(conn, assignment["course_id"], instructor_id)
+
+        essays = conn.execute("SELECT id FROM essays WHERE assignment_id = ?", (assignment_id,)).fetchall()
+        n_essays = len(essays)
+        n_graded_essays = 0
+        criterion_stats: dict[str, dict] = {}
+
+        for essay in essays:
+            latest = conn.execute(
+                "SELECT * FROM assessments WHERE essay_id = ? ORDER BY created_at DESC LIMIT 1",
+                (essay["id"],),
+            ).fetchone()
+            if latest is None or latest["status"] != "complete":
+                continue
+            n_graded_essays += 1
+            criteria_ids = [
+                r["criterion_id"] for r in conn.execute(
+                    "SELECT DISTINCT criterion_id FROM score_aggregates WHERE assessment_id = ?", (latest["id"],)
+                ).fetchall()
+            ]
+            for cid in criteria_ids:
+                out = _criterion_output(conn, latest["id"], cid)
+                if out["output_score"] is None:
+                    continue
+                stats = criterion_stats.setdefault(cid, {"scores": [], "n_divergent": 0, "n_high_spread": 0})
+                stats["scores"].append(out["output_score"])
+                if out["exceeds_threshold"]:
+                    stats["n_divergent"] += 1
+                if out["high_spread"]:
+                    stats["n_high_spread"] += 1
+
+    criteria = [
+        {
+            "criterion_id": cid,
+            "n_graded": len(s["scores"]),
+            "avg_score": sum(s["scores"]) / len(s["scores"]),
+            "min_score": min(s["scores"]),
+            "max_score": max(s["scores"]),
+            "n_divergent": s["n_divergent"],
+            "n_high_spread": s["n_high_spread"],
+        }
+        for cid, s in criterion_stats.items()
+    ]
+    return {"n_essays": n_essays, "n_graded_essays": n_graded_essays, "criteria": criteria}

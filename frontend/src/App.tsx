@@ -5,6 +5,7 @@ import { LoginPage } from "./pages/Login";
 import { DashboardPage } from "./pages/Dashboard";
 import { CoursePage } from "./pages/CoursePage";
 import { AssignmentPage } from "./pages/AssignmentPage";
+import { AssignmentBreakdownPage } from "./pages/AssignmentBreakdownPage";
 import { AssessmentPage } from "./pages/AssessmentPage";
 import { ReviewPage } from "./pages/ReviewPage";
 import { SettingsPage } from "./pages/Settings";
@@ -43,6 +44,14 @@ export default function App() {
           element={
             <RequireAuth>
               <AssignmentPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/assignments/:assignmentId/breakdown"
+          element={
+            <RequireAuth>
+              <AssignmentBreakdownPage />
             </RequireAuth>
           }
         />
