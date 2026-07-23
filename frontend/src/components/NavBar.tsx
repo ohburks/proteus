@@ -26,6 +26,11 @@ export function NavBar() {
           Courses
         </Link>
         {role && (
+          <Link to="/library" className={navLinkClass(location.pathname === "/library")}>
+            Library
+          </Link>
+        )}
+        {role && (
           <Link to="/settings" className={navLinkClass(location.pathname === "/settings")}>
             Settings
           </Link>

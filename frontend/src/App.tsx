@@ -10,6 +10,7 @@ import { AssessmentPage } from "./pages/AssessmentPage";
 import { ReviewPage } from "./pages/ReviewPage";
 import { SettingsPage } from "./pages/Settings";
 import { AccountsPage } from "./pages/AccountsPage";
+import { LibraryPage } from "./pages/LibraryPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { token } = useAuth();
@@ -84,6 +85,14 @@ export default function App() {
           element={
             <RequireAuth>
               <SettingsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/library"
+          element={
+            <RequireAuth>
+              <LibraryPage />
             </RequireAuth>
           }
         />
