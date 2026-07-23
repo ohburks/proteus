@@ -13,6 +13,7 @@ from app.auth import CurrentUser, get_current_user
 from app.db import get_connection
 from app.llm.key_resolution import KeyResolutionError, resolve_provider_config
 from app.llm.providers import build_client
+from app.repositories.excerpts import delete_personalized_excerpt
 from app.routers.assessments import _criterion_output, _grading_error_detail, _launch_assessment
 from app.schemas import AssignmentCreate, BulkGradeRequest, CourseCreate, EssayCreate, StudentCreate, StudentUpdate
 
@@ -62,7 +63,7 @@ def delete_course(course_id: str, user: CurrentUser = Depends(get_current_user))
         for aid in assignment_ids:
             _delete_assignment_cascade(conn, aid)
 
-        conn.execute("DELETE FROM personalized_excerpts_src WHERE course_id = ?", (course_id,))
+        _delete_personalized_excerpts_for_course(conn, course_id)
         conn.execute("DELETE FROM course_profile WHERE course_id = ?", (course_id,))
         conn.execute("DELETE FROM students WHERE course_id = ?", (course_id,))
         conn.execute("DELETE FROM courses WHERE id = ?", (course_id,))
@@ -105,11 +106,35 @@ def _assignment_essay_ids(conn, assignment_id: str) -> list[str]:
     ).fetchall()]
 
 
+def _delete_personalized_excerpts_for_assignment(conn, assignment_id: str) -> None:
+    # D5: route through delete_personalized_excerpt (not a raw DELETE) so the
+    # Chroma embedding backing each excerpt is removed too — a raw SQLite
+    # delete here leaves a "ghost" embedding that keeps surfacing as
+    # retrievable precedent from an assignment the UI no longer shows.
+    ids = [r["id"] for r in conn.execute(
+        "SELECT id FROM personalized_excerpts_src WHERE assignment_id = ?", (assignment_id,)
+    ).fetchall()]
+    for excerpt_id in ids:
+        delete_personalized_excerpt(conn, excerpt_id)
+
+
+def _delete_personalized_excerpts_for_course(conn, course_id: str) -> None:
+    # Same reasoning as _delete_personalized_excerpts_for_assignment above —
+    # this is the course-level catch-all for excerpts added without an
+    # assignment context; anything assignment-scoped is already gone by the
+    # time this runs (delete_course calls _delete_assignment_cascade first).
+    ids = [r["id"] for r in conn.execute(
+        "SELECT id FROM personalized_excerpts_src WHERE course_id = ?", (course_id,)
+    ).fetchall()]
+    for excerpt_id in ids:
+        delete_personalized_excerpt(conn, excerpt_id)
+
+
 def _delete_assignment_cascade(conn, assignment_id: str) -> None:
     for eid in _assignment_essay_ids(conn, assignment_id):
         _delete_essay_cascade(conn, eid)
     conn.execute("DELETE FROM assignment_profile WHERE assignment_id = ?", (assignment_id,))
-    conn.execute("DELETE FROM personalized_excerpts_src WHERE assignment_id = ?", (assignment_id,))
+    _delete_personalized_excerpts_for_assignment(conn, assignment_id)
     conn.execute("DELETE FROM assignments WHERE id = ?", (assignment_id,))
 
 
