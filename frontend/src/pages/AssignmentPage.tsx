@@ -426,11 +426,10 @@ export function AssignmentPage() {
           renders into this bottom padding (constant height — no shift). */}
       <div className="mb-6 bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-5 pb-8">
         <h2 className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-2">
-          Grading provider — pre-filled from your{" "}
+          Insert LLM API key here | {" "}
           <Link to="/settings" className="underline hover:no-underline">
             Settings
           </Link>{" "}
-          default; override here for just this session
         </h2>
         <div className="flex gap-2">
           <select

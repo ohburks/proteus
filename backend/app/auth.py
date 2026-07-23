@@ -3,6 +3,7 @@
 instructor: scoped to their own courses/assignments/students/personalized
 corpus/settings. admin: sees all instructors; used for setup/seeding/oversight.
 """
+import logging
 import os
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -14,11 +15,34 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.db import get_connection
 
-JWT_SECRET = os.environ.get("JWT_SECRET", "dev-secret-change-me-please-2026")
+_FALLBACK_JWT_SECRET = "dev-secret-change-me-please-2026"
+JWT_SECRET = os.environ.get("JWT_SECRET", _FALLBACK_JWT_SECRET)
 JWT_ALGORITHM = "HS256"
 JWT_TTL = timedelta(hours=12)
 
 _bearer = HTTPBearer()
+_logger = logging.getLogger("proteus")
+
+
+def assert_secure_jwt_secret() -> None:
+    """Refuse to boot in production on the built-in dev signing secret (D9).
+
+    Keyed on an explicit PROTEUS_ENV=production so local dev (the default) still
+    boots on the fallback exactly as before — but a real deployment that forgot
+    to set JWT_SECRET fails loudly at startup instead of silently signing tokens
+    with a public, source-controlled key. A warning is logged in every other
+    case where the fallback is in use, so it never goes unnoticed."""
+    if JWT_SECRET != _FALLBACK_JWT_SECRET:
+        return
+    env = os.environ.get("PROTEUS_ENV", "dev").lower()
+    if env in ("production", "prod"):
+        raise RuntimeError(
+            "JWT_SECRET is unset and PROTEUS_ENV=production — refusing to boot with "
+            "the built-in dev signing secret. Set JWT_SECRET to a strong random value."
+        )
+    _logger.warning(
+        "Using the built-in dev JWT secret. Set JWT_SECRET for any non-local deployment."
+    )
 
 
 def hash_password(password: str) -> str:
@@ -60,6 +84,14 @@ def get_current_user(creds: HTTPAuthorizationCredentials = Depends(_bearer)) -> 
         payload = jwt.decode(creds.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
     except jwt.PyJWTError as e:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token") from e
+    # Re-check the account is still active on every request (D8), not just at
+    # login: a token issued before deactivation must stop working immediately
+    # (e.g. a compromised or revoked account), rather than staying valid for the
+    # rest of its 12h TTL. Cheap primary-key lookup.
+    with get_connection() as conn:
+        row = conn.execute("SELECT is_active FROM users WHERE id = ?", (payload["sub"],)).fetchone()
+    if row is None or not row["is_active"]:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Account is deactivated or no longer exists")
     return CurrentUser(payload["sub"], payload["role"], payload.get("instructor_id"))
 
 

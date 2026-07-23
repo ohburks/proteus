@@ -171,6 +171,24 @@ def init_db() -> None:
         _run_migrations(conn)
 
 
+def reconcile_interrupted_assessments() -> int:
+    """Move any assessment still 'running'/'pending' at startup to 'failed'.
+
+    Grading runs in in-process background threads (routers.assessments) that die
+    with the process, and this is a single-worker deployment — so at startup no
+    assessment can legitimately still be in flight. Any left in a non-terminal
+    status was orphaned by a process that died mid-grade (D7): the UI would show
+    it as perpetually grading and the delete endpoints' active-assessment guard
+    would block cleanup forever. Returns how many rows were reconciled.
+    """
+    with get_connection() as conn:
+        cur = conn.execute(
+            "UPDATE assessments SET status = 'failed' WHERE status IN ('running','pending')"
+        )
+        conn.commit()
+        return cur.rowcount
+
+
 def write_with_retry(
     conn: sqlite3.Connection, write_fn: Callable[[], object], *, retries: int = 5, base_delay: float = 0.25
 ) -> None:
