@@ -24,7 +24,9 @@ export function AssignmentPage() {
   const keyCheckSeq = useRef(0);
   const [terminalLines, setTerminalLines] = useState<string[]>([]);
   const [terminalAssessmentId, setTerminalAssessmentId] = useState<string | null>(null);
-  const [terminalStatus, setTerminalStatus] = useState<"running" | "complete" | "failed" | null>(null);
+  const [terminalStatus, setTerminalStatus] = useState<
+    "running" | "complete" | "failed" | "cancelling" | "cancelled" | null
+  >(null);
   const terminalEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -123,7 +125,10 @@ export function AssignmentPage() {
       await streamLines(
         `/api/assessments/${assessment.id}/stream`,
         (line) => setTerminalLines((prev) => [...prev, line]),
-        (status) => setTerminalStatus(status === "complete" ? "complete" : "failed"),
+        (status) =>
+          setTerminalStatus(
+            status === "complete" ? "complete" : status === "cancelled" ? "cancelled" : "failed",
+          ),
       );
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Grading failed");
@@ -131,6 +136,23 @@ export function AssignmentPage() {
     } finally {
       setBusy(null);
       refreshQueue();
+    }
+  }
+
+  // Signal the backend to stop an in-progress run. The row moves to 'cancelled'
+  // only once the grading thread reaches its next criterion checkpoint, so
+  // reflect the interim "cancelling…" state optimistically and let the queue
+  // poll (or the live SSE 'done' event) confirm the terminal status.
+  async function cancel(assessmentId: string) {
+    setError(null);
+    try {
+      await api.post(`/api/assessments/${assessmentId}/cancel`);
+      if (terminalAssessmentId === assessmentId && terminalStatus === "running") {
+        setTerminalStatus("cancelling");
+      }
+      refreshQueue();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to cancel grading");
     }
   }
 
@@ -144,7 +166,9 @@ export function AssignmentPage() {
   }
 
   function selectAllUngraded() {
-    const ungraded = queue.filter((q) => q.status === null || q.status === "failed").map((q) => q.essay_id);
+    const ungraded = queue
+      .filter((q) => q.status === null || q.status === "failed" || q.status === "cancelled")
+      .map((q) => q.essay_id);
     setSelected(new Set(ungraded));
   }
 
@@ -153,11 +177,12 @@ export function AssignmentPage() {
   // is clicked. `launched` tracks ids from the most recent bulk-grade call so
   // the queue panel can keep showing them as grading/graded/failed even
   // after `selected` is cleared for the next staging round.
-  function queueRowState(essayId: string): "staged" | "grading" | "graded" | "failed" {
+  function queueRowState(essayId: string): "staged" | "grading" | "graded" | "failed" | "cancelled" {
     if (launched.has(essayId)) {
       const entry = queue.find((q) => q.essay_id === essayId);
       if (entry?.status === "complete") return "graded";
       if (entry?.status === "failed") return "failed";
+      if (entry?.status === "cancelled") return "cancelled";
       return "grading";
     }
     return "staged";
@@ -191,7 +216,8 @@ export function AssignmentPage() {
       const next = new Set(prev);
       for (const id of prev) {
         const entry = queue.find((q) => q.essay_id === id);
-        if (!entry || entry.status === "complete" || entry.status === "failed") next.delete(id);
+        if (!entry || entry.status === "complete" || entry.status === "failed" || entry.status === "cancelled")
+          next.delete(id);
       }
       return next;
     });
@@ -293,10 +319,20 @@ export function AssignmentPage() {
             <div className="flex items-center gap-2">
               <span className="text-xs text-amber-700 dark:text-amber-400">
                 {terminalStatus === "running" && "running…"}
+                {terminalStatus === "cancelling" && "cancelling…"}
+                {terminalStatus === "cancelled" && "cancelled"}
                 {terminalStatus === "complete" && "complete"}
                 {terminalStatus === "failed" && "failed"}
               </span>
-              {terminalStatus !== "running" && (
+              {terminalStatus === "running" && (
+                <button
+                  onClick={() => cancel(terminalAssessmentId)}
+                  className="px-2 py-0.5 border border-red-300 dark:border-red-500/30 text-red-600 dark:text-red-400 rounded-lg text-xs font-medium hover:bg-red-500/10"
+                >
+                  Cancel
+                </button>
+              )}
+              {terminalStatus !== "running" && terminalStatus !== "cancelling" && (
                 <button
                   onClick={() => navigate(`/assessments/${terminalAssessmentId}`)}
                   className="px-2 py-0.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium"
@@ -347,7 +383,10 @@ export function AssignmentPage() {
         const rowIds = Array.from(new Set([...selected, ...launched]));
         const stagedCount = rowIds.filter((id) => queueRowState(id) === "staged").length;
         const runningCount = rowIds.filter((id) => queueRowState(id) === "grading").length;
-        const doneCount = rowIds.filter((id) => queueRowState(id) === "graded" || queueRowState(id) === "failed").length;
+        const doneCount = rowIds.filter((id) => {
+          const s = queueRowState(id);
+          return s === "graded" || s === "failed" || s === "cancelled";
+        }).length;
         return (
           <div className="mb-6 border border-amber-500/30 rounded-2xl overflow-hidden">
             <div className="flex items-center justify-between bg-amber-500/15 px-3 py-1.5 border-b border-amber-500/30">
@@ -389,11 +428,24 @@ export function AssignmentPage() {
                               ? "text-blue-700 dark:text-blue-400"
                               : state === "graded"
                                 ? "text-green-700 dark:text-green-400"
-                                : "text-pink-700 dark:text-pink-400"
+                                : state === "cancelled"
+                                  ? "text-zinc-500 dark:text-zinc-400"
+                                  : "text-pink-700 dark:text-pink-400"
                         }
                       >
                         {state === "grading" ? "grading…" : state}
                       </span>
+                      {state === "grading" && (() => {
+                        const aid = queue.find((q) => q.essay_id === id)?.latest_assessment_id;
+                        return aid ? (
+                          <button
+                            onClick={() => cancel(aid)}
+                            className="text-red-600 dark:text-red-400 hover:underline"
+                          >
+                            cancel
+                          </button>
+                        ) : null;
+                      })()}
                       {state === "staged" && (
                         <button
                           onClick={() => setSelected((prev) => {
@@ -454,6 +506,11 @@ export function AssignmentPage() {
                       failed
                     </span>
                   )}
+                  {entry?.status === "cancelled" && (
+                    <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-zinc-500/15 text-zinc-600 dark:text-zinc-400">
+                      cancelled
+                    </span>
+                  )}
                   {entry?.exceeds_threshold && (
                     <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400">
                       divergent
@@ -474,6 +531,14 @@ export function AssignmentPage() {
                   >
                     {busy === e.id ? "Grading…" : "Grade"}
                   </button>
+                  {(entry?.status === "running" || entry?.status === "pending") && entry?.latest_assessment_id && (
+                    <button
+                      onClick={() => cancel(entry.latest_assessment_id!)}
+                      className="px-3 py-1 border border-red-300 dark:border-red-500/30 text-red-600 dark:text-red-400 rounded-lg text-xs font-medium hover:bg-red-500/10"
+                    >
+                      Cancel
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       if (entry?.latest_assessment_id) navigate(`/assessments/${entry.latest_assessment_id}`);

@@ -75,12 +75,66 @@ def _migrate_users_is_active(conn: sqlite3.Connection) -> None:
     conn.execute("ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1")
 
 
+def _migrate_assessments_cancelled_status(conn: sqlite3.Connection) -> None:
+    # Widen the assessments.status CHECK to allow 'cancelled' (added so an
+    # in-progress grading run can be halted — see routers.assessments cancel).
+    # A CHECK constraint can't be altered in place, so the table is rebuilt.
+    # assessments is referenced by several child tables' foreign keys, so follow
+    # SQLite's documented table-redefinition procedure: disable FK enforcement,
+    # swap the table inside a transaction, verify nothing broke, re-enable.
+    # Guarded on the table's own SQL so re-running is a no-op once 'cancelled'
+    # is already allowed (and so a fresh DB, created from the updated schema.sql,
+    # skips it entirely).
+    row = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'assessments'"
+    ).fetchone()
+    if row is None or "cancelled" in row["sql"]:
+        return
+    # PRAGMA foreign_keys only takes effect outside a transaction, and the
+    # migration runner may hold an open one from a prior migration's bookkeeping
+    # insert — commit first so the pragma isn't silently ignored.
+    conn.commit()
+    conn.execute("PRAGMA foreign_keys = OFF")
+    try:
+        conn.executescript(
+            """
+            BEGIN;
+            CREATE TABLE assessments_new (
+              id TEXT PRIMARY KEY,
+              essay_id TEXT NOT NULL REFERENCES essays(id),
+              instructor_id TEXT NOT NULL,
+              student_id TEXT REFERENCES students(id),
+              rubric_id TEXT NOT NULL,
+              rubric_version TEXT NOT NULL,
+              provider TEXT NOT NULL,
+              model TEXT NOT NULL,
+              status TEXT NOT NULL DEFAULT 'pending'
+                CHECK (status IN ('pending','running','complete','failed','cancelled')),
+              created_at TEXT NOT NULL
+            );
+            INSERT INTO assessments_new SELECT * FROM assessments;
+            DROP TABLE assessments;
+            ALTER TABLE assessments_new RENAME TO assessments;
+            COMMIT;
+            """
+        )
+        violations = conn.execute("PRAGMA foreign_key_check").fetchall()
+        if violations:
+            raise sqlite3.IntegrityError(
+                f"assessments status migration left {len(violations)} foreign-key "
+                f"violation(s); aborting"
+            )
+    finally:
+        conn.execute("PRAGMA foreign_keys = ON")
+
+
 # Ordered, idempotent schema migrations for DBs created under an older
 # schema.sql. Each entry runs at most once per id (tracked in
 # schema_migrations) and also self-guards so re-running is always safe.
 MIGRATIONS: list[tuple[str, Callable[[sqlite3.Connection], None]]] = [
     ("0001_score_records_v2_pass_index", _migrate_score_records_v2_pass_index),
     ("0002_users_is_active", _migrate_users_is_active),
+    ("0003_assessments_cancelled_status", _migrate_assessments_cancelled_status),
 ]
 
 

@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 
 from app.auth import CurrentUser, get_current_user
 from app.db import get_connection, write_with_retry
-from app.grading import progress
+from app.grading import cancellation, progress
 from app.grading.engine import run_dual_path_for_criterion
 from app.llm.key_resolution import KeyResolutionError, resolve_provider_config
 from app.llm.providers import build_client, check_api_key
@@ -23,10 +23,34 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _mark_cancelled(conn, assessment_id: str) -> None:
+    """Roll back any partial work and move the run to a terminal 'cancelled'
+    state. Only the grading thread ever writes a terminal status, so this can't
+    race the cancel endpoint (which only sets the in-memory flag)."""
+    try:
+        conn.rollback()
+    except sqlite3.Error:
+        pass
+    try:
+        write_with_retry(
+            conn, lambda: conn.execute("UPDATE assessments SET status = 'cancelled' WHERE id = ?", (assessment_id,))
+        )
+    except sqlite3.Error:
+        pass
+    progress.emit(assessment_id, "Assessment cancelled.")
+    progress.finish(assessment_id, "cancelled")
+
+
 def _run_assessment(assessment_id: str, client, criteria_rows_dicts, assignment_dict, essay_text, instructor_id):
     with get_connection() as conn:
         try:
             for c in criteria_rows_dicts:
+                # Cancellation is checked between criteria (not mid-criterion): an
+                # in-flight LLM call can't be interrupted, but the loop stops before
+                # starting the next one. Completed criteria stay checkpointed.
+                if cancellation.is_cancelled(assessment_id):
+                    _mark_cancelled(conn, assessment_id)
+                    return
                 criterion = {
                     "criterionId": c["criterion_id"],
                     "statement": c["statement"],
@@ -40,6 +64,12 @@ def _run_assessment(assessment_id: str, client, criteria_rows_dicts, assignment_
                     instructor_id=instructor_id, course_id=assignment_dict["course_id"],
                     emit=lambda msg, aid=assessment_id: progress.emit(aid, msg),
                 )
+            # A cancel that lands after the last criterion but before the complete
+            # write still wins — don't report a run the instructor asked to stop
+            # as complete.
+            if cancellation.is_cancelled(assessment_id):
+                _mark_cancelled(conn, assessment_id)
+                return
             write_with_retry(
                 conn, lambda: conn.execute("UPDATE assessments SET status = 'complete' WHERE id = ?", (assessment_id,))
             )
@@ -61,6 +91,11 @@ def _run_assessment(assessment_id: str, client, criteria_rows_dicts, assignment_
                 pass
             progress.emit(assessment_id, f"Assessment FAILED: {e}")
             progress.finish(assessment_id, "failed")
+        finally:
+            # Drop the flag whether the run cancelled, completed, or failed, so a
+            # late cancel for this id can't linger and clip a future run that
+            # happens to reuse it (ids are UUIDs, so this is belt-and-suspenders).
+            cancellation.clear(assessment_id)
 
 
 def _launch_assessment(essay_row, assignment_dict, criteria_rows_dicts, config, client, instructor_id) -> str:
@@ -149,6 +184,30 @@ def start_assessment(body: GradeRequest, user: CurrentUser = Depends(get_current
 
     assessment_id = _launch_assessment(essay, assignment_dict, criteria_rows_dicts, config, client, instructor_id)
     return {"id": assessment_id, "status": "running"}
+
+
+@router.post("/{assessment_id}/cancel")
+def cancel_assessment(assessment_id: str, user: CurrentUser = Depends(get_current_user)):
+    """Request cancellation of an in-progress grading run.
+
+    Only signals the run's in-memory flag; the grading thread owns the terminal
+    status transition (it flips the row to 'cancelled' before its next criterion).
+    Doing it that way avoids racing the thread — if the endpoint wrote the status
+    itself, a criterion finishing at the same moment could overwrite it. So the
+    response is 'cancelling', not 'cancelled': the row lands in 'cancelled' once
+    the thread reaches its next checkpoint (it can't interrupt an in-flight LLM
+    call, so a run stuck in one call stops only when that call returns)."""
+    instructor_id = user.scoped_instructor_id()
+    with get_connection() as conn:
+        assessment = conn.execute("SELECT * FROM assessments WHERE id = ?", (assessment_id,)).fetchone()
+        if assessment is None or assessment["instructor_id"] != instructor_id:
+            raise HTTPException(404, "Assessment not found")
+        if assessment["status"] not in ("running", "pending"):
+            # Already terminal (complete/failed/cancelled) — nothing to stop.
+            raise HTTPException(409, f"Assessment is not in progress (status: {assessment['status']})")
+    cancellation.request(assessment_id)
+    progress.emit(assessment_id, "Cancellation requested — stopping after the current criterion…")
+    return {"id": assessment_id, "status": "cancelling"}
 
 
 @router.get("/{assessment_id}/stream")

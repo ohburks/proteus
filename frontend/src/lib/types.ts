@@ -64,7 +64,7 @@ export interface QueueEntry {
   essay_id: string;
   student_id: string | null;
   latest_assessment_id: string | null;
-  status: "running" | "pending" | "complete" | "failed" | null;
+  status: "running" | "pending" | "complete" | "failed" | "cancelled" | null;
   exceeds_threshold: boolean;
   high_spread: boolean;
 }

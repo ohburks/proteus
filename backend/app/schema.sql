@@ -158,7 +158,7 @@ CREATE TABLE IF NOT EXISTS assessments (
   rubric_version TEXT NOT NULL,
   provider TEXT NOT NULL,
   model TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','running','complete','failed')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','running','complete','failed','cancelled')),
   created_at TEXT NOT NULL
 );
 
