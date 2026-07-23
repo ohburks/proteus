@@ -16,6 +16,8 @@ export function SettingsPage() {
   const [poolSize, setPoolSize] = useState(5);
   const [gradingPhilosophy, setGradingPhilosophy] = useState("");
   const [rationaleTone, setRationaleTone] = useState("");
+  const [defaultProvider, setDefaultProvider] = useState("");
+  const [defaultModel, setDefaultModel] = useState("");
   // Not editable here, but must round-trip through the save: the PUT upserts
   // every profile column, so omitting this would wipe the stored value.
   const [deprioritizedCriteria, setDeprioritizedCriteria] = useState<string[] | null>(null);
@@ -40,11 +42,15 @@ export function SettingsPage() {
         grading_philosophy: string | null;
         deprioritized_criteria: string[] | null;
         rationale_tone: string | null;
+        default_llm_provider: string | null;
+        default_llm_model: string | null;
       }>("/api/settings/instructor-profile")
       .then((p) => {
         setGradingPhilosophy(p.grading_philosophy ?? "");
         setRationaleTone(p.rationale_tone ?? "");
         setDeprioritizedCriteria(p.deprioritized_criteria);
+        setDefaultProvider(p.default_llm_provider ?? "");
+        setDefaultModel(p.default_llm_model ?? "");
       });
   }, []);
 
@@ -140,6 +146,8 @@ export function SettingsPage() {
       grading_philosophy: gradingPhilosophy || null,
       rationale_tone: rationaleTone || null,
       deprioritized_criteria: deprioritizedCriteria,
+      default_llm_provider: defaultProvider || null,
+      default_llm_model: defaultModel || null,
     });
     setSaved("Instructor profile saved.");
     setTimeout(() => setSaved(null), 2000);
@@ -149,6 +157,40 @@ export function SettingsPage() {
     <div className="max-w-2xl mx-auto px-6 py-8 bg-app-light dark:bg-app-dark min-h-[calc(100vh-3.5rem)]">
       <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-6">Settings</h1>
       {saved && <p className="text-sm text-green-600 dark:text-green-400 mb-3">{saved}</p>}
+
+      <section className="bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-5 mb-6">
+        <h2 className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-1">Default LLM provider</h2>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-3">
+          Pre-fills the grading page's provider/model fields. The API key is never stored here — it's still
+          typed in per session on the grading page (or comes from the server default).
+        </p>
+        <form onSubmit={saveProfile} className="flex gap-2">
+          <select
+            className="px-2 py-1 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100 text-sm"
+            value={defaultProvider}
+            onChange={(e) => setDefaultProvider(e.target.value)}
+          >
+            <option value="">server default</option>
+            <option value="openai">openai</option>
+            <option value="anthropic">anthropic</option>
+            <option value="gemini">gemini</option>
+            <option value="groq">groq</option>
+            <option value="mistral">mistral</option>
+            <option value="github">github</option>
+            <option value="ollama">ollama</option>
+            <option value="tamu">tamu</option>
+          </select>
+          <input
+            className="flex-1 px-2 py-1 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100 text-sm"
+            placeholder="model (optional)"
+            value={defaultModel}
+            onChange={(e) => setDefaultModel(e.target.value)}
+          />
+          <button className="px-4 py-1 bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-lg text-sm font-medium">
+            Save
+          </button>
+        </form>
+      </section>
 
       <section className="bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-5 mb-6">
         <h2 className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-3">

@@ -10,7 +10,7 @@ from app.auth import CurrentUser, get_current_user
 from app.db import get_connection
 from app.llm.key_resolution import KeyResolutionError, resolve_provider_config
 from app.llm.providers import build_client
-from app.routers.assessments import _criterion_output, _launch_assessment
+from app.routers.assessments import _criterion_output, _grading_error_detail, _launch_assessment
 from app.schemas import AssignmentCreate, BulkGradeRequest, CourseCreate, EssayCreate, StudentCreate, StudentUpdate
 
 router = APIRouter(prefix="/api", tags=["roster"])
@@ -307,7 +307,7 @@ def bulk_grade(assignment_id: str, body: BulkGradeRequest, user: CurrentUser = D
             byok_base_url=byok.base_url if byok else None,
         )
     except KeyResolutionError as e:
-        raise HTTPException(400, str(e)) from e
+        raise HTTPException(400, _grading_error_detail(e)) from e
     client = build_client(config)
 
     results = []

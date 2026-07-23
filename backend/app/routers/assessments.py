@@ -23,6 +23,16 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _grading_error_detail(e: KeyResolutionError) -> str:
+    """Rewrite the "nothing configured anywhere" resolver message into
+    something Settings-actionable (M10). Every other KeyResolutionError
+    (unsupported provider, a misconfigured server .env) isn't fixable by an
+    instructor via Settings, so those pass through unchanged."""
+    if str(e).startswith("No LLM provider configured"):
+        return "No LLM provider configured."
+    return str(e)
+
+
 def _mark_cancelled(conn, assessment_id: str) -> None:
     """Roll back any partial work and move the run to a terminal 'cancelled'
     state. Only the grading thread ever writes a terminal status, so this can't
@@ -160,7 +170,7 @@ def start_assessment(body: GradeRequest, user: CurrentUser = Depends(get_current
             byok_base_url=byok.base_url if byok else None,
         )
     except KeyResolutionError as e:
-        raise HTTPException(400, str(e)) from e
+        raise HTTPException(400, _grading_error_detail(e)) from e
     client = build_client(config)
 
     with get_connection() as conn:

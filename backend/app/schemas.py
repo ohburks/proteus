@@ -120,6 +120,8 @@ class InstructorProfileUpdate(BaseModel):
     grading_philosophy: str | None = None
     deprioritized_criteria: list[str] | None = None
     rationale_tone: str | None = None
+    default_llm_provider: str | None = None
+    default_llm_model: str | None = None
 
 
 class CourseProfileUpdate(BaseModel):

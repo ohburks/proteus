@@ -128,6 +128,14 @@ def _migrate_assessments_cancelled_status(conn: sqlite3.Connection) -> None:
         conn.execute("PRAGMA foreign_keys = ON")
 
 
+def _migrate_instructor_profile_llm_defaults(conn: sqlite3.Connection) -> None:
+    cols = _table_columns(conn, "instructor_profile")
+    if "default_llm_provider" not in cols:
+        conn.execute("ALTER TABLE instructor_profile ADD COLUMN default_llm_provider TEXT")
+    if "default_llm_model" not in cols:
+        conn.execute("ALTER TABLE instructor_profile ADD COLUMN default_llm_model TEXT")
+
+
 # Ordered, idempotent schema migrations for DBs created under an older
 # schema.sql. Each entry runs at most once per id (tracked in
 # schema_migrations) and also self-guards so re-running is always safe.
@@ -135,6 +143,7 @@ MIGRATIONS: list[tuple[str, Callable[[sqlite3.Connection], None]]] = [
     ("0001_score_records_v2_pass_index", _migrate_score_records_v2_pass_index),
     ("0002_users_is_active", _migrate_users_is_active),
     ("0003_assessments_cancelled_status", _migrate_assessments_cancelled_status),
+    ("0004_instructor_profile_llm_defaults", _migrate_instructor_profile_llm_defaults),
 ]
 
 

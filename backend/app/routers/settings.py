@@ -48,6 +48,8 @@ def get_instructor_profile(user: CurrentUser = Depends(get_current_user)):
             if row and row["deprioritized_criteria_json"] else None
         ),
         "rationale_tone": row["rationale_tone"] if row else None,
+        "default_llm_provider": row["default_llm_provider"] if row else None,
+        "default_llm_model": row["default_llm_model"] if row else None,
     }
 
 
@@ -110,16 +112,18 @@ def put_instructor_profile(body: InstructorProfileUpdate, user: CurrentUser = De
     now = _now()
     with get_connection() as conn:
         conn.execute(
-            """INSERT INTO instructor_profile (instructor_id, grading_philosophy, deprioritized_criteria_json, rationale_tone, updated_at)
-               VALUES (?,?,?,?,?)
+            """INSERT INTO instructor_profile (instructor_id, grading_philosophy, deprioritized_criteria_json, rationale_tone, default_llm_provider, default_llm_model, updated_at)
+               VALUES (?,?,?,?,?,?,?)
                ON CONFLICT (instructor_id) DO UPDATE SET
                  grading_philosophy=excluded.grading_philosophy,
                  deprioritized_criteria_json=excluded.deprioritized_criteria_json,
-                 rationale_tone=excluded.rationale_tone, updated_at=excluded.updated_at""",
+                 rationale_tone=excluded.rationale_tone,
+                 default_llm_provider=excluded.default_llm_provider,
+                 default_llm_model=excluded.default_llm_model, updated_at=excluded.updated_at""",
             (
                 instructor_id, body.grading_philosophy,
                 json.dumps(body.deprioritized_criteria) if body.deprioritized_criteria is not None else None,
-                body.rationale_tone, now,
+                body.rationale_tone, body.default_llm_provider, body.default_llm_model, now,
             ),
         )
         conn.commit()

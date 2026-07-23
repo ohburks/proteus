@@ -238,6 +238,8 @@ CREATE TABLE IF NOT EXISTS instructor_profile (
   grading_philosophy TEXT,
   deprioritized_criteria_json TEXT,  -- [criterion_id]
   rationale_tone TEXT CHECK (rationale_tone IS NULL OR rationale_tone IN ('terse','detailed','encouraging','blunt')),
+  default_llm_provider TEXT,
+  default_llm_model TEXT,
   updated_at TEXT NOT NULL
 );
 

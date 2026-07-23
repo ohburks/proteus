@@ -40,6 +40,21 @@ export function AssignmentPage() {
     terminalEndRef.current?.scrollIntoView({ block: "nearest" });
   }, [terminalLines]);
 
+  // Pre-fill provider/model from the instructor's saved default (M10) so
+  // returning to grade doesn't require re-selecting them every time. The
+  // functional updater means a slow response can't clobber typing that
+  // already happened.
+  useEffect(() => {
+    api
+      .get<{ default_llm_provider: string | null; default_llm_model: string | null }>(
+        "/api/settings/instructor-profile",
+      )
+      .then((p) => {
+        setProvider((cur) => cur || p.default_llm_provider || "");
+        setModel((cur) => cur || p.default_llm_model || "");
+      });
+  }, []);
+
   function refresh() {
     if (!assignmentId) return;
     api.get<Essay[]>(`/api/essays?assignment_id=${assignmentId}`).then(setEssays);
@@ -294,7 +309,11 @@ export function AssignmentPage() {
           renders into this bottom padding (constant height — no shift). */}
       <div className="mb-6 bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-5 pb-8">
         <h2 className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-2">
-          LLM provider (BYOK) — leave blank to use the server-configured default
+          Grading provider — pre-filled from your{" "}
+          <Link to="/settings" className="underline hover:no-underline">
+            Settings
+          </Link>{" "}
+          default; override here for just this session
         </h2>
         <div className="flex gap-2">
           <select
@@ -342,7 +361,21 @@ export function AssignmentPage() {
         </div>
       </div>
 
-      {error && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{error}</p>}
+      {error && (
+        <p className="text-sm text-red-600 dark:text-red-400 mb-3">
+          {error === "No LLM provider configured." ? (
+            <>
+              No LLM provider configured —{" "}
+              <Link to="/settings" className="underline hover:no-underline">
+                set a default in Settings
+              </Link>
+              , or fill in a one-off key above.
+            </>
+          ) : (
+            error
+          )}
+        </p>
+      )}
 
       {terminalAssessmentId && (
         <div className="mb-6 border border-amber-500/30 rounded-2xl overflow-hidden">
