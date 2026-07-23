@@ -19,6 +19,7 @@ export function AssignmentPage() {
   const [order, setOrder] = useState<string[]>([]);
   const [batchBusy, setBatchBusy] = useState(false);
   const [ungradedFilter, setUngradedFilter] = useState<UngradedFilter>("all");
+  const [gradedNeedsReviewOnly, setGradedNeedsReviewOnly] = useState(false);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const dragIdRef = useRef<string | null>(null);
   // Set by "Cancel grading" so the sequential grade-all loop stops before
@@ -267,6 +268,14 @@ export function AssignmentPage() {
     if (ungradedFilter === "never") return s === null;
     if (ungradedFilter === "running") return s === "running" || s === "pending";
     return s === ungradedFilter; // "failed" | "cancelled"
+  });
+
+  // Display-only, same reasoning as filteredUngradedIds above — no bulk
+  // action reads gradedIds directly, so there's nothing for this filter to
+  // silently de-scope.
+  const filteredGradedIds = gradedIds.filter((id) => {
+    if (!gradedNeedsReviewOnly) return true;
+    return entryOf(id)?.needs_review ?? false;
   });
 
   // Drag-and-drop reorder of the ungraded queue: move the dragged essay to just
@@ -688,14 +697,26 @@ export function AssignmentPage() {
 
       {/* ── Graded ─────────────────────────────────────────────────────── */}
       <section>
-        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-2">
-          Graded ({gradedIds.length})
-        </h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+            Graded ({gradedIds.length})
+          </h2>
+          <label className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
+            <input
+              type="checkbox"
+              checked={gradedNeedsReviewOnly}
+              onChange={(e) => setGradedNeedsReviewOnly(e.target.checked)}
+            />
+            Needs review only
+          </label>
+        </div>
         {gradedIds.length === 0 ? (
           <p className="text-sm text-zinc-500 dark:text-zinc-400">No graded essays yet.</p>
+        ) : filteredGradedIds.length === 0 ? (
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">No essays match this filter.</p>
         ) : (
           <ul className="space-y-2">
-            {gradedIds.map((id) => {
+            {filteredGradedIds.map((id) => {
               const essay = essays.find((e) => e.id === id);
               if (!essay) return null;
               const entry = entryOf(id);
@@ -717,6 +738,11 @@ export function AssignmentPage() {
                     {entry?.high_spread && (
                       <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-400">
                         high spread
+                      </span>
+                    )}
+                    {entry?.needs_review && (
+                      <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-red-500/15 text-red-700 dark:text-red-400">
+                        needs review
                       </span>
                     )}
                   </div>

@@ -26,6 +26,16 @@ function CriterionRow({ assessmentId, c }: { assessmentId: string; c: Assessment
               high spread
             </span>
           )}
+          {c.review_reasons.includes("weak_referenceability") && (
+            <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-orange-500/15 text-orange-700 dark:text-orange-400">
+              weak criterion
+            </span>
+          )}
+          {c.review_reasons.includes("unsupported_evidence") && (
+            <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-red-500/15 text-red-700 dark:text-red-400">
+              unsupported evidence
+            </span>
+          )}
           {c.output_source === "override" && (
             <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-blue-500/15 text-blue-700 dark:text-blue-400">
               overridden

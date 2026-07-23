@@ -32,7 +32,10 @@ def _aggregate_out(row, raw_passes: list) -> dict | None:
         "rationale": row["rationale"],
         "precedent_ids": json.loads(row["precedent_ids_json"]),
         "spread": row["spread"],
-        "confidence": row["confidence"],
+        # Renamed from "confidence" (B2): this is 1 - spread/5 over N repeated
+        # sampling passes, not a probability the score is correct — the old
+        # name overstated it, especially now that N defaults to 1 (engine.py).
+        "pass_stability": row["confidence"],
         "high_spread": bool(row["high_spread"]),
         "n_passes": row["n_passes"],
         "passes": [_raw_pass_out(p) for p in raw_passes],

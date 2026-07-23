@@ -41,8 +41,13 @@ function PathCard({
             anchor matched: {result.anchor_matched}
           </p>
           <p className={highlight ? "text-xs text-white/70 mb-3" : "text-xs text-zinc-500 dark:text-zinc-400 mb-3"}>
-            median of {result.n_passes} passes · spread: {result.spread ?? "n/a"} · confidence:{" "}
-            {(result.confidence * 100).toFixed(0)}%
+            median of {result.n_passes} passes · spread: {result.spread ?? "n/a"}
+            {/* A stability figure over repeated passes only means something when
+                there's more than one pass to compare — with n_passes=1 (the
+                default) it's trivially 1.0 and not worth displaying. Never shown
+                as a percentage: that framing reads as "confidence the score is
+                correct," which this number doesn't measure. */}
+            {result.n_passes > 1 && <> · pass stability: {result.pass_stability.toFixed(2)}</>}
           </p>
           {anchorText && (
             <p className={highlight ? "text-xs text-white/80 mb-3 italic" : "text-xs text-zinc-600 dark:text-zinc-400 mb-3 italic"}>

@@ -66,7 +66,7 @@ export function AssignmentBreakdownPage() {
                         <span className="text-zinc-400 dark:text-zinc-500 text-sm">no data yet</span>
                       )}
                     </div>
-                    {stats && (stats.n_divergent > 0 || stats.n_high_spread > 0) && (
+                    {stats && stats.flagged.length > 0 && (
                       <button
                         type="button"
                         onClick={() =>
@@ -82,6 +82,16 @@ export function AssignmentBreakdownPage() {
                         {stats.n_high_spread > 0 && (
                           <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-400 hover:bg-purple-500/25">
                             {stats.n_high_spread} high spread
+                          </span>
+                        )}
+                        {stats.n_weak_referenceability > 0 && (
+                          <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-orange-500/15 text-orange-700 dark:text-orange-400 hover:bg-orange-500/25">
+                            {stats.n_weak_referenceability} weak criterion
+                          </span>
+                        )}
+                        {stats.n_unsupported_evidence > 0 && (
+                          <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-red-500/15 text-red-700 dark:text-red-400 hover:bg-red-500/25">
+                            {stats.n_unsupported_evidence} unsupported evidence
                           </span>
                         )}
                       </button>
@@ -100,6 +110,16 @@ export function AssignmentBreakdownPage() {
                               {f.high_spread && (
                                 <span className="px-2 py-0.5 font-medium rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-400">
                                   high spread
+                                </span>
+                              )}
+                              {f.review_reasons.includes("weak_referenceability") && (
+                                <span className="px-2 py-0.5 font-medium rounded-full bg-orange-500/15 text-orange-700 dark:text-orange-400">
+                                  weak criterion
+                                </span>
+                              )}
+                              {f.review_reasons.includes("unsupported_evidence") && (
+                                <span className="px-2 py-0.5 font-medium rounded-full bg-red-500/15 text-red-700 dark:text-red-400">
+                                  unsupported evidence
                                 </span>
                               )}
                               <Link

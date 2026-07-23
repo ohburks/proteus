@@ -231,7 +231,7 @@ def _essay_grade_summary(conn, essay_id: str) -> dict:
     summary = {
         "assessment_id": latest["id"] if latest else None,
         "status": latest["status"] if latest else None,
-        "avg_score": None, "n_criteria": 0, "n_divergent": 0, "n_high_spread": 0,
+        "avg_score": None, "n_criteria": 0, "n_divergent": 0, "n_high_spread": 0, "needs_review": False,
     }
     if latest and latest["status"] == "complete":
         criteria_ids = [r["criterion_id"] for r in conn.execute(
@@ -240,6 +240,8 @@ def _essay_grade_summary(conn, essay_id: str) -> dict:
         scores = []
         for cid in criteria_ids:
             out = _criterion_output(conn, latest["id"], cid)
+            if out["needs_review"]:
+                summary["needs_review"] = True
             if out["output_score"] is None:
                 continue
             scores.append(out["output_score"])
@@ -432,7 +434,7 @@ def get_queue(assignment_id: str, user: CurrentUser = Depends(get_current_user))
                 entries.append({
                     "essay_id": essay["id"], "student_id": essay["student_id"],
                     "latest_assessment_id": None, "status": None,
-                    "exceeds_threshold": False, "high_spread": False,
+                    "exceeds_threshold": False, "high_spread": False, "needs_review": False,
                 })
                 continue
             exceeds = conn.execute(
@@ -443,10 +445,26 @@ def get_queue(assignment_id: str, user: CurrentUser = Depends(get_current_user))
                 "SELECT 1 FROM score_aggregates WHERE assessment_id = ? AND high_spread = 1 LIMIT 1",
                 (latest["id"],),
             ).fetchone() is not None
+            # Cheap EXISTS-style approximation of _criterion_output's
+            # needs_review (B3) — this endpoint is polled every 2s while
+            # grading is active, so it deliberately avoids the full
+            # per-criterion loop the breakdown/assessment endpoints use.
+            weak_ref_present = conn.execute(
+                """SELECT 1 FROM score_aggregates sa
+                   JOIN criteria c ON c.rubric_id = ? AND c.rubric_version = ? AND c.criterion_id = sa.criterion_id
+                   WHERE sa.assessment_id = ? AND sa.path = 'personalized' AND c.referenceability = 'weak' LIMIT 1""",
+                (assignment["rubric_id"], assignment["rubric_version"], latest["id"]),
+            ).fetchone() is not None
+            unsupported_evidence_present = conn.execute(
+                """SELECT 1 FROM score_aggregates WHERE assessment_id = ? AND path = 'personalized'
+                   AND is_no_evidence = 0 AND json_array_length(evidence_json) = 0 LIMIT 1""",
+                (latest["id"],),
+            ).fetchone() is not None
             entries.append({
                 "essay_id": essay["id"], "student_id": essay["student_id"],
                 "latest_assessment_id": latest["id"], "status": latest["status"],
                 "exceeds_threshold": exceeds, "high_spread": high_spread,
+                "needs_review": exceeds or high_spread or weak_ref_present or unsupported_evidence_present,
             })
     return entries
 
@@ -483,18 +501,26 @@ def get_assignment_breakdown(assignment_id: str, user: CurrentUser = Depends(get
                 if out["output_score"] is None:
                     continue
                 stats = criterion_stats.setdefault(
-                    cid, {"scores": [], "n_divergent": 0, "n_high_spread": 0, "flagged": []}
+                    cid, {
+                        "scores": [], "n_divergent": 0, "n_high_spread": 0,
+                        "n_weak_referenceability": 0, "n_unsupported_evidence": 0, "flagged": [],
+                    }
                 )
                 stats["scores"].append(out["output_score"])
-                if out["exceeds_threshold"] or out["high_spread"]:
+                if out["needs_review"]:
                     stats["flagged"].append({
                         "essay_id": essay["id"], "assessment_id": latest["id"], "student_id": essay["student_id"],
                         "exceeds_threshold": out["exceeds_threshold"], "high_spread": out["high_spread"],
+                        "review_reasons": out["review_reasons"],
                     })
                 if out["exceeds_threshold"]:
                     stats["n_divergent"] += 1
                 if out["high_spread"]:
                     stats["n_high_spread"] += 1
+                if "weak_referenceability" in out["review_reasons"]:
+                    stats["n_weak_referenceability"] += 1
+                if "unsupported_evidence" in out["review_reasons"]:
+                    stats["n_unsupported_evidence"] += 1
 
     criteria = [
         {
@@ -505,6 +531,8 @@ def get_assignment_breakdown(assignment_id: str, user: CurrentUser = Depends(get
             "max_score": max(s["scores"]),
             "n_divergent": s["n_divergent"],
             "n_high_spread": s["n_high_spread"],
+            "n_weak_referenceability": s["n_weak_referenceability"],
+            "n_unsupported_evidence": s["n_unsupported_evidence"],
             "flagged": s["flagged"],
         }
         for cid, s in criterion_stats.items()

@@ -50,6 +50,7 @@ export interface FlaggedEssay {
   student_id: string | null;
   exceeds_threshold: boolean;
   high_spread: boolean;
+  review_reasons: string[];
 }
 
 export interface CriterionBreakdown {
@@ -60,6 +61,8 @@ export interface CriterionBreakdown {
   max_score: number;
   n_divergent: number;
   n_high_spread: number;
+  n_weak_referenceability: number;
+  n_unsupported_evidence: number;
   flagged: FlaggedEssay[];
 }
 
@@ -80,6 +83,7 @@ export interface StudentHistoryEntry {
   n_criteria: number;
   n_divergent: number;
   n_high_spread: number;
+  needs_review: boolean;
 }
 
 export interface StudentHistory {
@@ -94,6 +98,7 @@ export interface QueueEntry {
   status: "running" | "pending" | "complete" | "failed" | "cancelled" | null;
   exceeds_threshold: boolean;
   high_spread: boolean;
+  needs_review: boolean;
 }
 
 export interface RubricCriterion {
@@ -142,6 +147,10 @@ export interface AssessmentCriterionSummary {
   // Distinct from exceeds_threshold (divergence BETWEEN the two paths) —
   // never merge these two signals.
   high_spread: boolean;
+  // Soft flag (B3) — output_score above is unaffected by this; it's purely
+  // "an instructor should look at this," never a block on grading.
+  needs_review: boolean;
+  review_reasons: string[];
 }
 
 export interface AssessmentDetail {
@@ -174,7 +183,10 @@ export interface PathResult {
   precedent_ids: string[];
   // Multi-pass summary (design doc §7 multi-pass extension):
   spread: number | null; // disagreement WITHIN this path's own repeated passes
-  confidence: number; // spread-derived heuristic — lower spread means higher confidence
+  // Renamed from "confidence" (B2): 1 - spread/5 across N passes — a
+  // stability heuristic, not a probability the score is correct. Only
+  // meaningful when n_passes > 1.
+  pass_stability: number;
   high_spread: boolean; // spread exceeds this criterion's spread threshold
   n_passes: number;
   passes: RawPass[]; // every raw pass, kept for audit

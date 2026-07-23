@@ -53,7 +53,12 @@ from app.repositories.settings import (
 # to N below, which controls how many independent sampling passes are taken.
 MAX_EVIDENCE_CORRECTION_ATTEMPTS = 2
 
-DEFAULT_N_GRADING_PASSES = 3
+# Default to a single pass: at temperature=0 (providers.py) repeated passes
+# are near-deterministic and the resulting "confidence" is a stability
+# artifact, not evidence of correctness (see review.py's pass_stability
+# rename). Override via GRADING_N_PASSES below for real repeated-pass
+# stability checking when that's actually being evaluated.
+DEFAULT_N_GRADING_PASSES = 1
 
 
 def _n_grading_passes() -> int:

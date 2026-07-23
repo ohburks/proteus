@@ -275,15 +275,44 @@ def _criterion_output(conn, assessment_id: str, criterion_id: str) -> dict:
         output_score, output_source = personalized["score"], "personalized"
     else:
         output_score, output_source = None, "incomplete"
+
+    exceeds_threshold = bool(divergence["exceeds_threshold"]) if divergence else False
+    # High spread is an additive signal, separate from divergence: it flags a
+    # path that wasn't consistent with its own repeated passes, not
+    # disagreement between the two paths.
+    high_spread = bool(personalized and personalized["high_spread"]) or bool(exemplar and exemplar["high_spread"])
+
+    # needs_review (B3, soft flag — doesn't affect output_score or grading
+    # completion, purely a "an instructor should look at this" signal):
+    # weak-referenceability criteria are the rubric's own documented
+    # teacher-reserve routing (H3), and an evidence-empty score is D1's gap
+    # made visible instead of silently indistinguishable from a well-
+    # evidenced one.
+    assessment_row = conn.execute(
+        "SELECT rubric_id, rubric_version FROM assessments WHERE id = ?", (assessment_id,)
+    ).fetchone()
+    criterion_row = conn.execute(
+        "SELECT referenceability FROM criteria WHERE rubric_id = ? AND rubric_version = ? AND criterion_id = ?",
+        (assessment_row["rubric_id"], assessment_row["rubric_version"], criterion_id),
+    ).fetchone()
+    weak_referenceability = bool(criterion_row and criterion_row["referenceability"] == "weak")
+    unsupported_evidence = bool(
+        personalized and not personalized["is_no_evidence"] and json.loads(personalized["evidence_json"]) == []
+    )
+    review_reasons = [
+        reason for reason, present in [
+            ("divergent", exceeds_threshold), ("high_spread", high_spread),
+            ("weak_referenceability", weak_referenceability), ("unsupported_evidence", unsupported_evidence),
+        ] if present
+    ]
+
     return {
         "output_score": output_score,
         "output_source": output_source,
-        "exceeds_threshold": bool(divergence["exceeds_threshold"]) if divergence else False,
-        # High spread is an additive signal, separate from divergence: it
-        # flags a path that wasn't consistent with its own repeated passes,
-        # not disagreement between the two paths.
-        "high_spread": bool(personalized and personalized["high_spread"])
-        or bool(exemplar and exemplar["high_spread"]),
+        "exceeds_threshold": exceeds_threshold,
+        "high_spread": high_spread,
+        "needs_review": bool(review_reasons),
+        "review_reasons": review_reasons,
     }
 
 

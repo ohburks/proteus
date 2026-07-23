@@ -101,6 +101,11 @@ export function StudentHistoryPage() {
                     {h.n_high_spread} high spread
                   </span>
                 )}
+                {h.needs_review && (
+                  <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-red-500/15 text-red-700 dark:text-red-400">
+                    needs review
+                  </span>
+                )}
               </div>
               {h.assessment_id && (
                 <Link
