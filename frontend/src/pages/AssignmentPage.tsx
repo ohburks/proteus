@@ -11,9 +11,16 @@ export function AssignmentPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [studentId, setStudentId] = useState("");
   const [queue, setQueue] = useState<QueueEntry[]>([]);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [launched, setLaunched] = useState<Set<string>>(new Set());
-  const [bulkBusy, setBulkBusy] = useState(false);
+  // Client-side ordering of every essay id. The ungraded section renders the
+  // ungraded subsequence of this list and drag-and-drop reorders it in place;
+  // that order is the sequence "Grade all" fires runs in.
+  const [order, setOrder] = useState<string[]>([]);
+  const [batchBusy, setBatchBusy] = useState(false);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const dragIdRef = useRef<string | null>(null);
+  // Set by "Cancel grading" so the sequential grade-all loop stops before
+  // starting the next essay (the in-flight run is cancelled separately).
+  const cancelBatchRef = useRef(false);
   const [text, setText] = useState("");
   const [provider, setProvider] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -49,6 +56,17 @@ export function AssignmentPage() {
     if (!assignment) return;
     api.get<Student[]>(`/api/students?course_id=${assignment.course_id}`).then(setStudents);
   }, [assignment]);
+
+  // Keep `order` in sync with the essays that exist: preserve the current order,
+  // append any newly-added essays at the end, and drop any that were deleted.
+  useEffect(() => {
+    setOrder((prev) => {
+      const ids = essays.map((e) => e.id);
+      const kept = prev.filter((id) => ids.includes(id));
+      const added = ids.filter((id) => !kept.includes(id));
+      return [...kept, ...added];
+    });
+  }, [essays]);
 
   function refreshQueue() {
     if (!assignmentId) return;
@@ -156,71 +174,87 @@ export function AssignmentPage() {
     }
   }
 
-  function toggleSelected(essayId: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(essayId)) next.delete(essayId);
-      else next.add(essayId);
+  async function deleteEssay(id: string) {
+    if (!confirm("Delete this essay? This permanently deletes its grading history. This cannot be undone.")) return;
+    try {
+      await api.del(`/api/essays/${id}`);
+      refresh();
+      refreshQueue();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to delete essay");
+    }
+  }
+
+  function statusOf(essayId: string): QueueEntry["status"] {
+    return queue.find((q) => q.essay_id === essayId)?.status ?? null;
+  }
+  function entryOf(essayId: string): QueueEntry | undefined {
+    return queue.find((q) => q.essay_id === essayId);
+  }
+  // "Graded" means the latest assessment completed. Anything else — never
+  // graded, running, failed, cancelled, or being re-graded right now — sits in
+  // the ungraded queue.
+  const isGraded = (id: string) => statusOf(id) === "complete";
+  const isRunning = (id: string) => statusOf(id) === "running" || statusOf(id) === "pending";
+
+  const ungradedIds = order.filter((id) => !isGraded(id));
+  const gradedIds = order.filter((id) => isGraded(id));
+  const gradeableIds = ungradedIds.filter((id) => !isRunning(id));
+  const gradingInProgress = busy !== null || batchBusy;
+  const anyActive = batchBusy || queue.some((q) => q.status === "running" || q.status === "pending");
+
+  // Drag-and-drop reorder of the ungraded queue: move the dragged essay to just
+  // before the row it was dropped on, within the master `order` list.
+  function handleDrop(targetId: string) {
+    const src = dragIdRef.current;
+    dragIdRef.current = null;
+    setDragOverId(null);
+    if (!src || src === targetId) return;
+    setOrder((prev) => {
+      const next = prev.filter((id) => id !== src);
+      const idx = next.indexOf(targetId);
+      if (idx === -1) return prev;
+      next.splice(idx, 0, src);
       return next;
     });
   }
 
-  function selectAllUngraded() {
-    const ungraded = queue
-      .filter((q) => q.status === null || q.status === "failed" || q.status === "cancelled")
-      .map((q) => q.essay_id);
-    setSelected(new Set(ungraded));
-  }
-
-  // Staging (checking a box / "Select all ungraded") only ever touches
-  // `selected` — nothing is sent to the backend until "Start grading" below
-  // is clicked. `launched` tracks ids from the most recent bulk-grade call so
-  // the queue panel can keep showing them as grading/graded/failed even
-  // after `selected` is cleared for the next staging round.
-  function queueRowState(essayId: string): "staged" | "grading" | "graded" | "failed" | "cancelled" {
-    if (launched.has(essayId)) {
-      const entry = queue.find((q) => q.essay_id === essayId);
-      if (entry?.status === "complete") return "graded";
-      if (entry?.status === "failed") return "failed";
-      if (entry?.status === "cancelled") return "cancelled";
-      return "grading";
-    }
-    return "staged";
-  }
-
-  // Sequential, not concurrent: loops the same single-essay grade() (POST +
-  // live SSE terminal) one essay at a time, so the queue still shows real
-  // terminal output per essay instead of firing them all via bulk-grade with
-  // no visibility. grade() already catches its own errors, so one failure
-  // doesn't stop the rest of the queue from running.
-  async function startGrading() {
-    if (!assignmentId || selected.size === 0) return;
-    const ids = Array.from(selected);
-    setLaunched((prev) => new Set([...prev, ...ids]));
-    setSelected(new Set());
-    setBulkBusy(true);
+  // Grade every ungraded essay in queue order, one at a time (each with its own
+  // live terminal). Snapshot the ids up front so reorders/new essays mid-run
+  // don't change the batch. "Cancel grading" stops the loop between essays.
+  async function gradeAll() {
+    const ids = gradeableIds;
+    if (ids.length === 0) return;
+    cancelBatchRef.current = false;
+    setBatchBusy(true);
     try {
       for (const id of ids) {
+        if (cancelBatchRef.current) break;
         await grade(id);
       }
     } finally {
-      setBulkBusy(false);
+      setBatchBusy(false);
+      cancelBatchRef.current = false;
+      refreshQueue();
     }
   }
 
-  // Dismiss staged-but-not-started items and finished ones from the panel —
-  // never hides a batch that's still actively grading.
-  function clearQueuePanel() {
-    setSelected(new Set());
-    setLaunched((prev) => {
-      const next = new Set(prev);
-      for (const id of prev) {
-        const entry = queue.find((q) => q.essay_id === id);
-        if (!entry || entry.status === "complete" || entry.status === "failed" || entry.status === "cancelled")
-          next.delete(id);
-      }
-      return next;
-    });
+  // Cancel the run happening now and halt the batch. Prefer the assessment the
+  // live terminal is showing; fall back to whatever the queue reports running.
+  async function cancelGrading() {
+    cancelBatchRef.current = true;
+    if (terminalAssessmentId && terminalStatus === "running") {
+      await cancel(terminalAssessmentId);
+      return;
+    }
+    const running = queue.find((q) => q.status === "running" || q.status === "pending");
+    if (running?.latest_assessment_id) await cancel(running.latest_assessment_id);
+  }
+
+  function studentName(essayId: string): string {
+    const essay = essays.find((e) => e.id === essayId);
+    const student = essay ? students.find((s) => s.id === essay.student_id) : undefined;
+    return student ? student.display_name : "Unlinked essay";
   }
 
   return (
@@ -361,226 +395,208 @@ export function AssignmentPage() {
         </div>
       )}
 
-      {essays.length > 0 && (
-        <div className="flex items-center gap-2 mb-3">
-          <button
-            onClick={selectAllUngraded}
-            className="px-3 py-1 border border-zinc-300 dark:border-white/10 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-medium hover:bg-black/[0.03] dark:hover:bg-white/5"
-          >
-            Select all ungraded
-          </button>
-          <button
-            onClick={() => setSelected(new Set())}
-            disabled={selected.size === 0}
-            className="px-3 py-1 border border-zinc-300 dark:border-white/10 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-medium hover:bg-black/[0.03] dark:hover:bg-white/5 disabled:opacity-50"
-          >
-            Clear selection
-          </button>
+      {/* ── Ungraded queue ─────────────────────────────────────────────── */}
+      <section className="mb-8">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+            Ungraded queue ({ungradedIds.length})
+          </h2>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={gradeAll}
+              disabled={gradingInProgress || gradeableIds.length === 0}
+              className="px-3 py-1 bg-green-600 hover:bg-green-500 dark:bg-green-500 dark:hover:bg-green-400 text-white rounded-lg text-xs font-medium disabled:opacity-50"
+            >
+              {batchBusy ? "Grading…" : `Grade all (${gradeableIds.length})`}
+            </button>
+            {anyActive && (
+              <button
+                onClick={cancelGrading}
+                className="px-3 py-1 border border-red-300 dark:border-red-500/30 text-red-600 dark:text-red-400 rounded-lg text-xs font-medium hover:bg-red-500/10"
+              >
+                Cancel grading
+              </button>
+            )}
+          </div>
         </div>
-      )}
 
-      {(selected.size > 0 || launched.size > 0) && (() => {
-        const rowIds = Array.from(new Set([...selected, ...launched]));
-        const stagedCount = rowIds.filter((id) => queueRowState(id) === "staged").length;
-        const runningCount = rowIds.filter((id) => queueRowState(id) === "grading").length;
-        const doneCount = rowIds.filter((id) => {
-          const s = queueRowState(id);
-          return s === "graded" || s === "failed" || s === "cancelled";
-        }).length;
-        return (
-          <div className="mb-6 border border-amber-500/30 rounded-2xl overflow-hidden">
-            <div className="flex items-center justify-between bg-amber-500/15 px-3 py-1.5 border-b border-amber-500/30">
-              <span className="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400">
-                Grading queue — {stagedCount} staged, {runningCount} grading, {doneCount} done
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  disabled={bulkBusy || stagedCount === 0}
-                  onClick={startGrading}
-                  className="px-2 py-0.5 bg-green-600 hover:bg-green-500 text-white rounded-lg text-xs font-medium disabled:opacity-50"
-                >
-                  {bulkBusy ? "Starting…" : `Start grading (${stagedCount})`}
-                </button>
-                <button
-                  onClick={clearQueuePanel}
-                  className="px-2 py-0.5 border border-amber-500/30 text-amber-700 dark:text-amber-400 rounded-lg text-xs"
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
-            <ul className="divide-y divide-zinc-200 dark:divide-white/5">
-              {rowIds.map((id) => {
+        {ungradedIds.length === 0 ? (
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">No ungraded essays.</p>
+        ) : (
+          <>
+            <ul className="space-y-2">
+              {ungradedIds.map((id) => {
                 const essay = essays.find((e) => e.id === id);
-                const student = essay ? students.find((s) => s.id === essay.student_id) : undefined;
-                const state = queueRowState(id);
+                if (!essay) return null;
+                const status = statusOf(id);
+                const entry = entryOf(id);
+                const running = isRunning(id);
                 return (
-                  <li key={id} className="flex items-center justify-between px-3 py-1.5 text-xs">
-                    <span className="text-zinc-700 dark:text-zinc-300">
-                      {student ? student.display_name : "Unlinked essay"}
-                    </span>
-                    <span className="flex items-center gap-2">
+                  <li
+                    key={id}
+                    draggable={!gradingInProgress}
+                    onDragStart={() => {
+                      dragIdRef.current = id;
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      if (dragOverId !== id) setDragOverId(id);
+                    }}
+                    onDrop={() => handleDrop(id)}
+                    onDragEnd={() => {
+                      dragIdRef.current = null;
+                      setDragOverId(null);
+                    }}
+                    className={`bg-surface-light dark:bg-surface-dark border rounded-2xl p-4 ${
+                      gradingInProgress ? "" : "cursor-move"
+                    } ${
+                      dragOverId === id
+                        ? "border-blue-500 dark:border-blue-400"
+                        : "border-zinc-200 dark:border-transparent"
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
                       <span
-                        className={
-                          state === "staged"
-                            ? "text-zinc-500 dark:text-zinc-400"
-                            : state === "grading"
-                              ? "text-blue-700 dark:text-blue-400"
-                              : state === "graded"
-                                ? "text-green-700 dark:text-green-400"
-                                : state === "cancelled"
-                                  ? "text-zinc-500 dark:text-zinc-400"
-                                  : "text-pink-700 dark:text-pink-400"
-                        }
+                        className="mt-0.5 text-zinc-400 dark:text-zinc-500 select-none"
+                        aria-hidden="true"
+                        title="Drag to reorder"
                       >
-                        {state === "grading" ? "grading…" : state}
+                        ⠿
                       </span>
-                      {state === "grading" && (() => {
-                        const aid = queue.find((q) => q.essay_id === id)?.latest_assessment_id;
-                        return aid ? (
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400">{studentName(id)}</p>
+                          {status === null && (
+                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-zinc-500/15 text-zinc-600 dark:text-zinc-400">
+                              ungraded
+                            </span>
+                          )}
+                          {running && (
+                            <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-blue-500/15 text-blue-700 dark:text-blue-400">
+                              grading…
+                            </span>
+                          )}
+                          {status === "failed" && (
+                            <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-pink-500/15 text-pink-700 dark:text-pink-400">
+                              failed
+                            </span>
+                          )}
+                          {status === "cancelled" && (
+                            <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-zinc-500/15 text-zinc-600 dark:text-zinc-400">
+                              cancelled
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-zinc-700 dark:text-zinc-300 line-clamp-2 mb-2">{essay.text}</p>
+                        <div className="flex gap-2">
                           <button
-                            onClick={() => cancel(aid)}
-                            className="text-red-600 dark:text-red-400 hover:underline"
+                            disabled={gradingInProgress || running}
+                            onClick={() => grade(id)}
+                            className="px-3 py-1 bg-green-600 hover:bg-green-500 dark:bg-green-500 dark:hover:bg-green-400 text-white rounded-lg text-xs font-medium disabled:opacity-50"
                           >
-                            cancel
+                            {busy === id ? "Grading…" : "Grade"}
                           </button>
-                        ) : null;
-                      })()}
-                      {state === "staged" && (
-                        <button
-                          onClick={() => setSelected((prev) => {
-                            const next = new Set(prev);
-                            next.delete(id);
-                            return next;
-                          })}
-                          className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
-                          aria-label="Remove from queue"
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </span>
+                          {running && entry?.latest_assessment_id && (
+                            <button
+                              onClick={() => cancel(entry.latest_assessment_id!)}
+                              className="px-3 py-1 border border-red-300 dark:border-red-500/30 text-red-600 dark:text-red-400 rounded-lg text-xs font-medium hover:bg-red-500/10"
+                            >
+                              Cancel
+                            </button>
+                          )}
+                          {entry?.latest_assessment_id && (
+                            <button
+                              onClick={() => navigate(`/assessments/${entry.latest_assessment_id}`)}
+                              className="px-3 py-1 border border-zinc-300 dark:border-white/10 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-medium hover:bg-black/[0.03] dark:hover:bg-white/5"
+                            >
+                              View latest results
+                            </button>
+                          )}
+                          <button
+                            onClick={() => deleteEssay(id)}
+                            className="px-3 py-1 border border-red-300 dark:border-red-500/30 text-red-600 dark:text-red-400 rounded-lg text-xs font-medium hover:bg-red-500/10"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </li>
                 );
               })}
             </ul>
-          </div>
-        );
-      })()}
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2">
+              Drag rows to set the order essays are graded in.
+            </p>
+          </>
+        )}
+      </section>
 
-      <ul className="space-y-2">
-        {essays.map((e) => {
-          const student = students.find((s) => s.id === e.student_id);
-          const entry = queue.find((q) => q.essay_id === e.id);
-          return (
-          <li key={e.id} className="bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-4">
-            <div className="flex items-start gap-2 mb-1">
-              <input
-                type="checkbox"
-                checked={selected.has(e.id)}
-                onChange={() => toggleSelected(e.id)}
-                className="mt-0.5"
-              />
-              <div className="flex-1">
-                <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {student ? student.display_name : "Unlinked essay"}
-                  </p>
-                  {(!entry || entry.status === null) && (
-                    <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-zinc-500/15 text-zinc-600 dark:text-zinc-400">
-                      ungraded
-                    </span>
-                  )}
-                  {(entry?.status === "running" || entry?.status === "pending") && (
-                    <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-blue-500/15 text-blue-700 dark:text-blue-400">
-                      grading…
-                    </span>
-                  )}
-                  {entry?.status === "complete" && (
+      {/* ── Graded ─────────────────────────────────────────────────────── */}
+      <section>
+        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-2">
+          Graded ({gradedIds.length})
+        </h2>
+        {gradedIds.length === 0 ? (
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">No graded essays yet.</p>
+        ) : (
+          <ul className="space-y-2">
+            {gradedIds.map((id) => {
+              const essay = essays.find((e) => e.id === id);
+              if (!essay) return null;
+              const entry = entryOf(id);
+              return (
+                <li
+                  key={id}
+                  className="bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-4"
+                >
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">{studentName(id)}</p>
                     <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-green-500/15 text-green-700 dark:text-green-400">
                       graded
                     </span>
-                  )}
-                  {entry?.status === "failed" && (
-                    <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-pink-500/15 text-pink-700 dark:text-pink-400">
-                      failed
-                    </span>
-                  )}
-                  {entry?.status === "cancelled" && (
-                    <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-zinc-500/15 text-zinc-600 dark:text-zinc-400">
-                      cancelled
-                    </span>
-                  )}
-                  {entry?.exceeds_threshold && (
-                    <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400">
-                      divergent
-                    </span>
-                  )}
-                  {entry?.high_spread && (
-                    <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-400">
-                      high spread
-                    </span>
-                  )}
-                </div>
-                <p className="text-sm text-zinc-700 dark:text-zinc-300 line-clamp-2 mb-2">{e.text}</p>
-                <div className="flex gap-2">
-                  <button
-                    disabled={busy === e.id}
-                    onClick={() => grade(e.id)}
-                    className="px-3 py-1 bg-green-600 hover:bg-green-500 dark:bg-green-500 dark:hover:bg-green-400 text-white rounded-lg text-xs font-medium disabled:opacity-50"
-                  >
-                    {busy === e.id ? "Grading…" : "Grade"}
-                  </button>
-                  {(entry?.status === "running" || entry?.status === "pending") && entry?.latest_assessment_id && (
+                    {entry?.exceeds_threshold && (
+                      <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400">
+                        divergent
+                      </span>
+                    )}
+                    {entry?.high_spread && (
+                      <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-400">
+                        high spread
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-zinc-700 dark:text-zinc-300 line-clamp-2 mb-2">{essay.text}</p>
+                  <div className="flex gap-2">
                     <button
-                      onClick={() => cancel(entry.latest_assessment_id!)}
+                      disabled={gradingInProgress}
+                      onClick={() => grade(id)}
+                      className="px-3 py-1 bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-lg text-xs font-medium disabled:opacity-50"
+                    >
+                      {busy === id ? "Regrading…" : "Regrade"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (entry?.latest_assessment_id) navigate(`/assessments/${entry.latest_assessment_id}`);
+                        else setError("No assessments yet for this essay.");
+                      }}
+                      className="px-3 py-1 border border-zinc-300 dark:border-white/10 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-medium hover:bg-black/[0.03] dark:hover:bg-white/5"
+                    >
+                      View results
+                    </button>
+                    <button
+                      onClick={() => deleteEssay(id)}
                       className="px-3 py-1 border border-red-300 dark:border-red-500/30 text-red-600 dark:text-red-400 rounded-lg text-xs font-medium hover:bg-red-500/10"
                     >
-                      Cancel
+                      Delete
                     </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      if (entry?.latest_assessment_id) navigate(`/assessments/${entry.latest_assessment_id}`);
-                      else setError("No assessments yet for this essay.");
-                    }}
-                    className="px-3 py-1 border border-zinc-300 dark:border-white/10 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-medium hover:bg-black/[0.03] dark:hover:bg-white/5"
-                  >
-                    View latest results
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!confirm("Delete this essay? This permanently deletes its grading history. This cannot be undone.")) return;
-                      try {
-                        await api.del(`/api/essays/${e.id}`);
-                        setSelected((prev) => {
-                          const next = new Set(prev);
-                          next.delete(e.id);
-                          return next;
-                        });
-                        setLaunched((prev) => {
-                          const next = new Set(prev);
-                          next.delete(e.id);
-                          return next;
-                        });
-                        refresh();
-                        refreshQueue();
-                      } catch (err) {
-                        setError(err instanceof ApiError ? err.message : "Failed to delete essay");
-                      }
-                    }}
-                    className="px-3 py-1 border border-red-300 dark:border-red-500/30 text-red-600 dark:text-red-400 rounded-lg text-xs font-medium hover:bg-red-500/10"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            </div>
-          </li>
-          );
-        })}
-        {essays.length === 0 && <li className="text-zinc-500 dark:text-zinc-400">No essays added this session yet.</li>}
-      </ul>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }
