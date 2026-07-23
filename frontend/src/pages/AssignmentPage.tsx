@@ -163,23 +163,21 @@ export function AssignmentPage() {
     return "staged";
   }
 
+  // Sequential, not concurrent: loops the same single-essay grade() (POST +
+  // live SSE terminal) one essay at a time, so the queue still shows real
+  // terminal output per essay instead of firing them all via bulk-grade with
+  // no visibility. grade() already catches its own errors, so one failure
+  // doesn't stop the rest of the queue from running.
   async function startGrading() {
     if (!assignmentId || selected.size === 0) return;
+    const ids = Array.from(selected);
+    setLaunched((prev) => new Set([...prev, ...ids]));
+    setSelected(new Set());
     setBulkBusy(true);
-    setError(null);
     try {
-      const byok = provider ? { provider, api_key: apiKey || null, model: model || null } : undefined;
-      const ids = Array.from(selected);
-      const res = await api.post<{ results: { essay_id: string; status: string }[] }>(
-        `/api/assignments/${assignmentId}/bulk-grade`,
-        { essay_ids: ids, byok },
-      );
-      const started = res.results.filter((r) => r.status === "started").map((r) => r.essay_id);
-      setLaunched((prev) => new Set([...prev, ...started]));
-      setSelected(new Set());
-      refreshQueue();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Bulk grading failed");
+      for (const id of ids) {
+        await grade(id);
+      }
     } finally {
       setBulkBusy(false);
     }
