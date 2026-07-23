@@ -452,7 +452,7 @@ def get_assignment_breakdown(assignment_id: str, user: CurrentUser = Depends(get
             raise HTTPException(404, "Assignment not found")
         _assert_course_owned(conn, assignment["course_id"], instructor_id)
 
-        essays = conn.execute("SELECT id FROM essays WHERE assignment_id = ?", (assignment_id,)).fetchall()
+        essays = conn.execute("SELECT id, student_id FROM essays WHERE assignment_id = ?", (assignment_id,)).fetchall()
         n_essays = len(essays)
         n_graded_essays = 0
         criterion_stats: dict[str, dict] = {}
@@ -474,8 +474,15 @@ def get_assignment_breakdown(assignment_id: str, user: CurrentUser = Depends(get
                 out = _criterion_output(conn, latest["id"], cid)
                 if out["output_score"] is None:
                     continue
-                stats = criterion_stats.setdefault(cid, {"scores": [], "n_divergent": 0, "n_high_spread": 0})
+                stats = criterion_stats.setdefault(
+                    cid, {"scores": [], "n_divergent": 0, "n_high_spread": 0, "flagged": []}
+                )
                 stats["scores"].append(out["output_score"])
+                if out["exceeds_threshold"] or out["high_spread"]:
+                    stats["flagged"].append({
+                        "essay_id": essay["id"], "assessment_id": latest["id"], "student_id": essay["student_id"],
+                        "exceeds_threshold": out["exceeds_threshold"], "high_spread": out["high_spread"],
+                    })
                 if out["exceeds_threshold"]:
                     stats["n_divergent"] += 1
                 if out["high_spread"]:
@@ -490,6 +497,7 @@ def get_assignment_breakdown(assignment_id: str, user: CurrentUser = Depends(get
             "max_score": max(s["scores"]),
             "n_divergent": s["n_divergent"],
             "n_high_spread": s["n_high_spread"],
+            "flagged": s["flagged"],
         }
         for cid, s in criterion_stats.items()
     ]

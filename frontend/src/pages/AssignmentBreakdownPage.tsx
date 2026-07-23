@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../lib/api";
-import type { Assignment, AssignmentBreakdown, Rubric } from "../lib/types";
+import type { Assignment, AssignmentBreakdown, Rubric, Student } from "../lib/types";
 
 export function AssignmentBreakdownPage() {
   const { assignmentId } = useParams<{ assignmentId: string }>();
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [rubric, setRubric] = useState<Rubric | null>(null);
   const [breakdown, setBreakdown] = useState<AssignmentBreakdown | null>(null);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [expandedCriterion, setExpandedCriterion] = useState<string | null>(null);
 
   useEffect(() => {
     if (!assignmentId) return;
@@ -18,7 +20,13 @@ export function AssignmentBreakdownPage() {
   useEffect(() => {
     if (!assignment) return;
     api.get<Rubric>(`/api/rubrics/${assignment.rubric_id}/${assignment.rubric_version}`).then(setRubric);
+    api.get<Student[]>(`/api/students?course_id=${assignment.course_id}`).then(setStudents);
   }, [assignment]);
+
+  function studentName(studentId: string | null): string {
+    const student = studentId ? students.find((s) => s.id === studentId) : undefined;
+    return student ? student.display_name : "Unlinked essay";
+  }
 
   if (!breakdown || !rubric) return <p className="p-6 text-zinc-500 dark:text-zinc-400">Loading…</p>;
 
@@ -59,18 +67,51 @@ export function AssignmentBreakdownPage() {
                       )}
                     </div>
                     {stats && (stats.n_divergent > 0 || stats.n_high_spread > 0) && (
-                      <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedCriterion((cur) => (cur === rc.criterionId ? null : rc.criterionId))
+                        }
+                        className="flex gap-2"
+                      >
                         {stats.n_divergent > 0 && (
-                          <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400">
+                          <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 hover:bg-amber-500/25">
                             {stats.n_divergent} divergent
                           </span>
                         )}
                         {stats.n_high_spread > 0 && (
-                          <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-400">
+                          <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-400 hover:bg-purple-500/25">
                             {stats.n_high_spread} high spread
                           </span>
                         )}
-                      </div>
+                      </button>
+                    )}
+                    {stats && expandedCriterion === rc.criterionId && (
+                      <ul className="mt-2 space-y-1.5 border-t border-zinc-200 dark:border-white/5 pt-2">
+                        {stats.flagged.map((f) => (
+                          <li key={f.essay_id} className="flex items-center justify-between text-xs">
+                            <span className="text-zinc-600 dark:text-zinc-400">{studentName(f.student_id)}</span>
+                            <span className="flex items-center gap-2">
+                              {f.exceeds_threshold && (
+                                <span className="px-2 py-0.5 font-medium rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400">
+                                  divergent
+                                </span>
+                              )}
+                              {f.high_spread && (
+                                <span className="px-2 py-0.5 font-medium rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-400">
+                                  high spread
+                                </span>
+                              )}
+                              <Link
+                                to={`/assessments/${f.assessment_id}`}
+                                className="text-blue-600 dark:text-blue-400 hover:underline"
+                              >
+                                View →
+                              </Link>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
                     )}
                   </li>
                 );

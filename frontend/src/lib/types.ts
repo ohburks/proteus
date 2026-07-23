@@ -44,6 +44,14 @@ export interface Essay {
   text: string;
 }
 
+export interface FlaggedEssay {
+  essay_id: string;
+  assessment_id: string;
+  student_id: string | null;
+  exceeds_threshold: boolean;
+  high_spread: boolean;
+}
+
 export interface CriterionBreakdown {
   criterion_id: string;
   n_graded: number;
@@ -52,6 +60,7 @@ export interface CriterionBreakdown {
   max_score: number;
   n_divergent: number;
   n_high_spread: number;
+  flagged: FlaggedEssay[];
 }
 
 export interface AssignmentBreakdown {
