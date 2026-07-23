@@ -86,6 +86,11 @@ def _run_graded_pass(
     precedent_ids = [p["id"] for p in precedent_pool]
     user_prompt = build_user_prompt(essay_text)
     failed_quotes: list[str] = []
+    # D1: a real numeric score with zero cited evidence used to sail straight
+    # through here (an empty evidence list has no bad quotes to catch), so it
+    # never got a correction retry the way an unverifiable quote does. Route
+    # it through the same retry mechanism instead of accepting it silently.
+    needs_evidence = False
 
     for attempt in range(MAX_EVIDENCE_CORRECTION_ATTEMPTS):
         prompt = user_prompt
@@ -98,15 +103,25 @@ def _run_graded_pass(
                 "from the essay, or dropped if no such quote exists:\n"
                 + "\n".join(f"- {q!r}" for q in failed_quotes)
             )
+        elif needs_evidence:
+            if emit:
+                emit("correcting: score given with no cited evidence…")
+            prompt += (
+                "\n\n[CORRECTION REQUIRED]\nYou gave a numeric score with no cited "
+                "evidence. Either cite at least one verbatim quote from the essay that "
+                "supports this score, or change the score to \"no-evidence\" if none "
+                "exists."
+            )
         raw = client.complete(system_prompt, prompt, emit=emit)
         parsed = _parse_response(raw)
 
         evidence_items = [Evidence(quote=e["quote"], reasoning=e["reasoning"]) for e in parsed.get("evidence", [])]
         bad = [e.quote for e in evidence_items if not verify_quote(e.quote, essay_text)]
+        raw_score = parsed.get("score")
+        score = None if raw_score == "no-evidence" else int(raw_score)
+        unsupported = score is not None and not evidence_items
 
-        if not bad:
-            raw_score = parsed.get("score")
-            score = None if raw_score == "no-evidence" else int(raw_score)
+        if not bad and not unsupported:
             return PassResult(
                 score=score,
                 anchor_matched=int(parsed["anchorMatched"]),
@@ -117,9 +132,11 @@ def _run_graded_pass(
                 precedent_ids=precedent_ids,
             )
         failed_quotes = bad
+        needs_evidence = unsupported and not bad
 
-    # Every pass produced at least one unverifiable quote — fall back to
-    # no-evidence rather than persist an ungrounded claim (§3.5).
+    # Every pass either had an unverifiable quote or an unsupported score
+    # after all correction attempts — fall back to no-evidence rather than
+    # persist an ungrounded claim (§3.5).
     return PassResult(
         score=None,
         anchor_matched=0,
