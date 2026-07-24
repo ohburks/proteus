@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, ApiError, downloadFile } from "../lib/api";
-import type { Assignment, Student } from "../lib/types";
+import type { Assignment, Course, Student } from "../lib/types";
 
 interface RubricSummary {
   rubric_id: string;
@@ -10,8 +10,58 @@ interface RubricSummary {
   notes: string;
 }
 
+type MenuItem = { label: string; onClick: () => void; danger?: boolean; disabled?: boolean };
+
+// Row overflow menu (shared shape with AssignmentPage): collapses a row's
+// secondary/destructive actions behind a single "⋯". A full-screen
+// transparent backdrop closes it on any outside click.
+function OverflowMenu({ items }: { items: MenuItem[] }) {
+  const [open, setOpen] = useState(false);
+  if (items.length === 0) return null;
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-label="More actions"
+        className="px-2 py-1.5 rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-black/5 dark:hover:bg-white/10 leading-none"
+      >
+        ⋯
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-1 z-40 min-w-[11rem] overflow-hidden rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-surface-dark shadow-lg py-1">
+            {items.map((it, i) => (
+              <button
+                key={i}
+                type="button"
+                disabled={it.disabled}
+                onClick={() => {
+                  setOpen(false);
+                  it.onClick();
+                }}
+                className={`block w-full px-3 py-1.5 text-left text-xs font-medium disabled:opacity-40 ${
+                  it.danger
+                    ? "text-red-600 dark:text-red-400 hover:bg-red-500/10"
+                    : "text-zinc-700 dark:text-zinc-300 hover:bg-black/[0.04] dark:hover:bg-white/5"
+                }`}
+              >
+                {it.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+type Tab = "assignments" | "students" | "profile";
+
 export function CoursePage() {
   const { courseId } = useParams<{ courseId: string }>();
+  const [courseName, setCourseName] = useState<string | null>(null);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [rubrics, setRubrics] = useState<RubricSummary[]>([]);
@@ -30,12 +80,23 @@ export function CoursePage() {
   const [rubricVersionPin, setRubricVersionPin] = useState("");
   const [profileSaved, setProfileSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>("assignments");
+  const [showNewAssignment, setShowNewAssignment] = useState(false);
+  const [showAddStudent, setShowAddStudent] = useState(false);
 
   function refresh() {
     if (!courseId) return;
     api.get<Assignment[]>(`/api/assignments?course_id=${courseId}`).then(setAssignments);
     api.get<Student[]>(`/api/students?course_id=${courseId}`).then(setStudents);
   }
+
+  // The course name isn't returned by any single-course endpoint, so pull the
+  // list and pick this one out — just for the header title.
+  useEffect(() => {
+    api.get<Course[]>("/api/courses").then((cs) => {
+      setCourseName(cs.find((c) => c.id === courseId)?.name ?? null);
+    });
+  }, [courseId]);
 
   useEffect(() => {
     api.get<RubricSummary[]>("/api/rubrics").then((rs) => {
@@ -99,9 +160,20 @@ export function CoursePage() {
       setFormatExpectations("");
       setCriterionEmphasisNotes("");
       setCommonPitfalls("");
+      setShowNewAssignment(false);
       refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to create assignment");
+    }
+  }
+
+  async function deleteAssignment(a: Assignment) {
+    if (!confirm(`Delete assignment "${a.name}"? This permanently deletes all its essays and grading history. This cannot be undone.`)) return;
+    try {
+      await api.del(`/api/assignments/${a.id}`);
+      refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to delete assignment");
     }
   }
 
@@ -120,6 +192,7 @@ export function CoursePage() {
       });
       setStudentName("");
       setStudentExternalRef("");
+      setShowAddStudent(false);
       refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to add student");
@@ -150,220 +223,292 @@ export function CoursePage() {
     }
   }
 
+  async function removeStudent(s: Student) {
+    if (!confirm(`Remove student "${s.display_name}"? Their essays will be unlinked, not deleted.`)) return;
+    try {
+      await api.del(`/api/students/${s.id}`);
+      refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to remove student");
+    }
+  }
+
+  async function exportCsv() {
+    try {
+      await downloadFile(`/api/courses/${courseId}/export.csv`, "course_scores.csv");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to export CSV");
+    }
+  }
+
+  const inputClass =
+    "w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100 text-sm";
+  const cardClass =
+    "bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-5";
+  const rowClass =
+    "bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-4";
+  const titleClass = "text-sm font-semibold text-zinc-900 dark:text-zinc-100";
+  const helpClass = "text-xs text-zinc-500 dark:text-zinc-400";
+  const primaryBtn =
+    "px-4 py-2 bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-lg text-sm font-medium";
+  const chipClass = (active: boolean) =>
+    `inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+      active
+        ? "border-blue-500/50 bg-blue-500/10 text-blue-700 dark:text-blue-300"
+        : "border-zinc-200 dark:border-white/10 text-zinc-600 dark:text-zinc-300 hover:bg-black/[0.03] dark:hover:bg-white/5"
+    }`;
+  const tabClass = (active: boolean) =>
+    `px-1 pb-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+      active
+        ? "border-blue-500 text-zinc-900 dark:text-zinc-100"
+        : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
+    }`;
+
   return (
-    <div className="max-w-3xl mx-auto px-6 py-8 bg-app-light dark:bg-app-dark min-h-[calc(100vh-3.5rem)]">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">Assignments</h1>
-        <button
-          onClick={async () => {
-            try {
-              await downloadFile(`/api/courses/${courseId}/export.csv`, "course_scores.csv");
-            } catch (err) {
-              setError(err instanceof ApiError ? err.message : "Failed to export CSV");
-            }
-          }}
-          className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-        >
-          Export CSV
-        </button>
-      </div>
-
-      <form onSubmit={createAssignment} className="mb-4 bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-5 space-y-2">
-        <input
-          className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
-          placeholder="Assignment name"
-          value={assignmentName}
-          onChange={(e) => setAssignmentName(e.target.value)}
-        />
-        <textarea
-          className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
-          placeholder="Assignment prompt text (fed to both grading paths)"
-          value={promptText}
-          onChange={(e) => setPromptText(e.target.value)}
-        />
-        <textarea
-          className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
-          placeholder="Format expectations (e.g. cite at least two sources) — fed to both grading paths"
-          value={formatExpectations}
-          onChange={(e) => setFormatExpectations(e.target.value)}
-        />
-        <textarea
-          className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
-          placeholder="Criterion emphasis notes — fed to both grading paths"
-          value={criterionEmphasisNotes}
-          onChange={(e) => setCriterionEmphasisNotes(e.target.value)}
-        />
-        <textarea
-          className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
-          placeholder="Common pitfalls (e.g. students keep confusing claim vs. counterclaim)"
-          value={commonPitfalls}
-          onChange={(e) => setCommonPitfalls(e.target.value)}
-        />
-        <select
-          className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
-          value={rubricKey}
-          onChange={(e) => setRubricKey(e.target.value)}
-        >
-          {rubrics.map((r) => (
-            <option key={`${r.rubric_id}::${r.version}`} value={`${r.rubric_id}::${r.version}`}>
-              {r.rubric_id} v{r.version}
-            </option>
-          ))}
-        </select>
-        <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-lg text-sm font-medium">
-          Add assignment
-        </button>
-      </form>
-
-      {error && <p className="text-sm text-red-600 dark:text-red-400 mb-4">{error}</p>}
-
-      <ul className="divide-y divide-zinc-200 dark:divide-white/5 bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl overflow-hidden mb-8">
-        {assignments.map((a) => (
-          <li key={a.id} className="flex items-center justify-between px-4 py-3 hover:bg-black/[0.03] dark:hover:bg-white/5">
-            <Link to={`/assignments/${a.id}`} className="flex-1 text-zinc-800 dark:text-zinc-200">
-              {a.name} <span className="text-xs text-zinc-400 dark:text-zinc-500">({a.rubric_id} v{a.rubric_version})</span>
-            </Link>
-            <button
-              onClick={async () => {
-                if (!confirm(`Delete assignment "${a.name}"? This permanently deletes all its essays and grading history. This cannot be undone.`)) return;
-                try {
-                  await api.del(`/api/assignments/${a.id}`);
-                  refresh();
-                } catch (err) {
-                  setError(err instanceof ApiError ? err.message : "Failed to delete assignment");
-                }
-              }}
-              className="ml-3 px-2 py-1 text-xs text-red-600 dark:text-red-400 hover:bg-red-500/10 rounded-lg"
-            >
-              Delete
-            </button>
-          </li>
-        ))}
-        {assignments.length === 0 && <li className="px-4 py-3 text-zinc-500 dark:text-zinc-400">No assignments yet.</li>}
-      </ul>
-
-      <section className="bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-5 mb-8">
-        <h2 className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-3">Course profile</h2>
-        <form onSubmit={saveCourseProfile} className="space-y-2">
-          <input
-            className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
-            placeholder="Cohort level (e.g. 11th grade honors)"
-            value={cohortLevel}
-            onChange={(e) => setCohortLevel(e.target.value)}
-          />
-          <textarea
-            className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
-            placeholder="Curriculum texts (one per line)"
-            value={curriculumTexts}
-            onChange={(e) => setCurriculumTexts(e.target.value)}
-          />
-          <input
-            className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
-            placeholder="Rubric version pin (optional)"
-            value={rubricVersionPin}
-            onChange={(e) => setRubricVersionPin(e.target.value)}
-          />
-          {profileSaved && <p className="text-sm text-green-600 dark:text-green-400">Saved.</p>}
-          <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-lg text-sm font-medium">
-            Save
+    <div className="min-h-[calc(100vh-3.5rem)] bg-app-light dark:bg-app-dark">
+      <header className="sticky top-0 z-20 bg-app-light/85 dark:bg-app-dark/85 backdrop-blur border-b border-zinc-200 dark:border-white/5">
+        <div className="max-w-3xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+              {courseName ?? "Course"}
+            </h1>
+            <p className="text-xs text-zinc-400 dark:text-zinc-500">
+              {assignments.length} assignment{assignments.length === 1 ? "" : "s"} · {students.length} student
+              {students.length === 1 ? "" : "s"}
+            </p>
+          </div>
+          <button
+            onClick={exportCsv}
+            className="px-3 py-1.5 rounded-lg text-sm text-zinc-600 dark:text-zinc-300 hover:bg-black/5 dark:hover:bg-white/10 shrink-0"
+          >
+            Export CSV
           </button>
-        </form>
-      </section>
+        </div>
+      </header>
 
-      <h2 className="text-lg font-semibold text-purple-600 dark:text-purple-400 mb-3">Students</h2>
-      <form onSubmit={createStudent} className="flex gap-2 mb-3">
-        <input
-          className="flex-1 px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-surface-dark text-zinc-900 dark:text-zinc-100"
-          placeholder="Student name"
-          value={studentName}
-          onChange={(e) => setStudentName(e.target.value)}
-        />
-        <input
-          className="w-40 px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-surface-dark text-zinc-900 dark:text-zinc-100"
-          placeholder="External ref (optional)"
-          value={studentExternalRef}
-          onChange={(e) => setStudentExternalRef(e.target.value)}
-        />
-        <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-lg text-sm font-medium">
-          Add student
-        </button>
-      </form>
-      <ul className="divide-y divide-zinc-200 dark:divide-white/5 bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl overflow-hidden">
-        {students.map((s) => (
-          <li key={s.id} className="flex items-center justify-between px-4 py-3">
-            <div>
-              <p className="text-zinc-800 dark:text-zinc-200 font-medium">
-                <Link to={`/students/${s.id}/history`} className="hover:underline">
-                  {s.display_name}
-                </Link>
-                {s.status === "archived" && (
-                  <span className="ml-2 px-2 py-0.5 text-xs font-medium rounded-full bg-zinc-500/15 text-zinc-600 dark:text-zinc-400">
-                    archived
-                  </span>
-                )}
-              </p>
-              {editingId === s.id ? (
-                <div className="flex items-center gap-1.5 mt-1">
-                  <input
-                    className="px-2 py-1 text-xs border border-zinc-300 dark:border-white/10 rounded bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
-                    placeholder="External ref"
-                    value={editExternalRef}
-                    onChange={(e) => setEditExternalRef(e.target.value)}
-                    autoFocus
-                  />
-                  <button onClick={() => saveExternalRef(s)} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
-                    Save
-                  </button>
-                  <button onClick={() => setEditingId(null)} className="text-xs text-zinc-500 dark:text-zinc-400 hover:underline">
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                <p className="text-xs text-zinc-400 dark:text-zinc-500">
-                  {s.external_ref ? `Ref: ${s.external_ref}` : "No external ref"}{" "}
-                  <button
-                    onClick={() => {
-                      setEditingId(s.id);
-                      setEditExternalRef(s.external_ref ?? "");
-                    }}
-                    className="text-blue-600 dark:text-blue-400 hover:underline"
-                  >
-                    Edit
-                  </button>
-                </p>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => toggleStudentStatus(s)}
-                className={
-                  s.status === "archived"
-                    ? "px-3 py-1 border border-zinc-300 dark:border-white/10 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-medium hover:bg-black/[0.03] dark:hover:bg-white/5"
-                    : "px-3 py-1 border border-amber-300 dark:border-amber-500/30 text-amber-700 dark:text-amber-400 rounded-lg text-xs font-medium hover:bg-amber-500/10"
-                }
-              >
-                {s.status === "archived" ? "Reactivate" : "Archive"}
-              </button>
-              <button
-                onClick={async () => {
-                  if (!confirm(`Remove student "${s.display_name}"? Their essays will be unlinked, not deleted.`)) return;
-                  try {
-                    await api.del(`/api/students/${s.id}`);
-                    refresh();
-                  } catch (err) {
-                    setError(err instanceof ApiError ? err.message : "Failed to remove student");
-                  }
-                }}
-                className="text-zinc-400 hover:text-red-600 dark:hover:text-red-400"
-                aria-label={`Remove ${s.display_name}`}
-              >
-                ✕
+      <div className="max-w-3xl mx-auto px-6 py-6">
+        <div className="flex items-center gap-5 border-b border-zinc-200 dark:border-white/10 mb-4">
+          <button onClick={() => setActiveTab("assignments")} className={tabClass(activeTab === "assignments")}>
+            Assignments ({assignments.length})
+          </button>
+          <button onClick={() => setActiveTab("students")} className={tabClass(activeTab === "students")}>
+            Students ({students.length})
+          </button>
+          <button onClick={() => setActiveTab("profile")} className={tabClass(activeTab === "profile")}>
+            Course profile
+          </button>
+        </div>
+
+        {error && <p className="text-sm text-red-600 dark:text-red-400 mb-4">{error}</p>}
+
+        {/* ── Assignments ────────────────────────────────────────────────── */}
+        {activeTab === "assignments" && (
+          <section>
+            <div className="mb-4">
+              <button onClick={() => setShowNewAssignment((v) => !v)} className={chipClass(showNewAssignment)}>
+                <span className="text-base leading-none">＋</span> New assignment
               </button>
             </div>
-          </li>
-        ))}
-        {students.length === 0 && <li className="px-4 py-3 text-zinc-500 dark:text-zinc-400">No students yet.</li>}
-      </ul>
+
+            {showNewAssignment && (
+              <form onSubmit={createAssignment} className={`${cardClass} space-y-2 mb-4`}>
+                <input
+                  className={inputClass}
+                  placeholder="Assignment name"
+                  value={assignmentName}
+                  onChange={(e) => setAssignmentName(e.target.value)}
+                />
+                <textarea
+                  className={inputClass}
+                  placeholder="Assignment prompt text (fed to both grading paths)"
+                  value={promptText}
+                  onChange={(e) => setPromptText(e.target.value)}
+                />
+                <textarea
+                  className={inputClass}
+                  placeholder="Format expectations (e.g. cite at least two sources) — fed to both grading paths"
+                  value={formatExpectations}
+                  onChange={(e) => setFormatExpectations(e.target.value)}
+                />
+                <textarea
+                  className={inputClass}
+                  placeholder="Criterion emphasis notes — fed to both grading paths"
+                  value={criterionEmphasisNotes}
+                  onChange={(e) => setCriterionEmphasisNotes(e.target.value)}
+                />
+                <textarea
+                  className={inputClass}
+                  placeholder="Common pitfalls (e.g. students keep confusing claim vs. counterclaim)"
+                  value={commonPitfalls}
+                  onChange={(e) => setCommonPitfalls(e.target.value)}
+                />
+                <select
+                  className={inputClass}
+                  value={rubricKey}
+                  onChange={(e) => setRubricKey(e.target.value)}
+                >
+                  {rubrics.map((r) => (
+                    <option key={`${r.rubric_id}::${r.version}`} value={`${r.rubric_id}::${r.version}`}>
+                      {r.rubric_id} v{r.version}
+                    </option>
+                  ))}
+                </select>
+                <button className={primaryBtn}>Add assignment</button>
+              </form>
+            )}
+
+            {assignments.length === 0 ? (
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">No assignments yet.</p>
+            ) : (
+              <ul className="space-y-2">
+                {assignments.map((a) => (
+                  <li key={a.id} className={`${rowClass} flex items-center justify-between gap-2`}>
+                    <Link
+                      to={`/assignments/${a.id}`}
+                      className="flex-1 min-w-0 text-zinc-800 dark:text-zinc-200 hover:underline"
+                    >
+                      {a.name}{" "}
+                      <span className="text-xs text-zinc-400 dark:text-zinc-500">
+                        ({a.rubric_id} v{a.rubric_version})
+                      </span>
+                    </Link>
+                    <OverflowMenu items={[{ label: "Delete", onClick: () => deleteAssignment(a), danger: true }]} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
+
+        {/* ── Students ───────────────────────────────────────────────────── */}
+        {activeTab === "students" && (
+          <section>
+            <div className="mb-4">
+              <button onClick={() => setShowAddStudent((v) => !v)} className={chipClass(showAddStudent)}>
+                <span className="text-base leading-none">＋</span> Add student
+              </button>
+            </div>
+
+            {showAddStudent && (
+              <form onSubmit={createStudent} className={`${cardClass} flex gap-2 mb-4`}>
+                <input
+                  className={`${inputClass} flex-1`}
+                  placeholder="Student name"
+                  value={studentName}
+                  onChange={(e) => setStudentName(e.target.value)}
+                />
+                <input
+                  className="w-40 px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100 text-sm"
+                  placeholder="External ref (optional)"
+                  value={studentExternalRef}
+                  onChange={(e) => setStudentExternalRef(e.target.value)}
+                />
+                <button className={`${primaryBtn} shrink-0`}>Add</button>
+              </form>
+            )}
+
+            {students.length === 0 ? (
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">No students yet.</p>
+            ) : (
+              <ul className="space-y-2">
+                {students.map((s) => (
+                  <li key={s.id} className={rowClass}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-zinc-800 dark:text-zinc-200 font-medium">
+                          <Link to={`/students/${s.id}/history`} className="hover:underline">
+                            {s.display_name}
+                          </Link>
+                          {s.status === "archived" && (
+                            <span className="ml-2 px-2 py-0.5 text-xs font-medium rounded-full bg-zinc-500/15 text-zinc-600 dark:text-zinc-400">
+                              archived
+                            </span>
+                          )}
+                        </p>
+                        {editingId === s.id ? (
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <input
+                              className="px-2 py-1 text-xs border border-zinc-300 dark:border-white/10 rounded bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
+                              placeholder="External ref"
+                              value={editExternalRef}
+                              onChange={(e) => setEditExternalRef(e.target.value)}
+                              autoFocus
+                            />
+                            <button onClick={() => saveExternalRef(s)} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                              Save
+                            </button>
+                            <button onClick={() => setEditingId(null)} className="text-xs text-zinc-500 dark:text-zinc-400 hover:underline">
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-zinc-400 dark:text-zinc-500">
+                            {s.external_ref ? `Ref: ${s.external_ref}` : "No external ref"}{" "}
+                            <button
+                              onClick={() => {
+                                setEditingId(s.id);
+                                setEditExternalRef(s.external_ref ?? "");
+                              }}
+                              className="text-blue-600 dark:text-blue-400 hover:underline"
+                            >
+                              Edit
+                            </button>
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => toggleStudentStatus(s)}
+                          className={
+                            s.status === "archived"
+                              ? "px-3 py-1.5 border border-zinc-300 dark:border-white/10 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-medium hover:bg-black/[0.03] dark:hover:bg-white/5"
+                              : "px-3 py-1.5 border border-amber-300 dark:border-amber-500/30 text-amber-700 dark:text-amber-400 rounded-lg text-xs font-medium hover:bg-amber-500/10"
+                          }
+                        >
+                          {s.status === "archived" ? "Reactivate" : "Archive"}
+                        </button>
+                        <OverflowMenu items={[{ label: "Remove", onClick: () => removeStudent(s), danger: true }]} />
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
+
+        {/* ── Course profile ─────────────────────────────────────────────── */}
+        {activeTab === "profile" && (
+          <section className={cardClass}>
+            <h2 className={titleClass}>Course profile</h2>
+            <p className={`${helpClass} mt-1 mb-4`}>
+              Course-level context fed to the personalized grading path for every assignment in this course.
+            </p>
+            <form onSubmit={saveCourseProfile} className="space-y-2">
+              <input
+                className={inputClass}
+                placeholder="Cohort level (e.g. 11th grade honors)"
+                value={cohortLevel}
+                onChange={(e) => setCohortLevel(e.target.value)}
+              />
+              <textarea
+                className={inputClass}
+                placeholder="Curriculum texts (one per line)"
+                value={curriculumTexts}
+                onChange={(e) => setCurriculumTexts(e.target.value)}
+              />
+              <input
+                className={inputClass}
+                placeholder="Rubric version pin (optional)"
+                value={rubricVersionPin}
+                onChange={(e) => setRubricVersionPin(e.target.value)}
+              />
+              {profileSaved && <p className="text-sm text-green-600 dark:text-green-400">Saved.</p>}
+              <button className={primaryBtn}>Save</button>
+            </form>
+          </section>
+        )}
+      </div>
     </div>
   );
 }
