@@ -2,7 +2,19 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, ApiError, downloadFile, streamLines } from "../lib/api";
 import type { Assignment, Essay, QueueEntry, Student } from "../lib/types";
-import { Chip, OverflowMenu, PageHeader, Tabs, headerBtn, inputClass, selectClass } from "../components/ui";
+import {
+  Chip,
+  OverflowMenu,
+  PageHeader,
+  Tabs,
+  headerBtn,
+  helpClass,
+  inputClass,
+  labelClass,
+  primaryBtn,
+  selectClass,
+  titleClass,
+} from "../components/ui";
 
 type UngradedFilter = "all" | "never" | "running" | "failed" | "cancelled";
 
@@ -381,6 +393,8 @@ export function AssignmentPage() {
     <div className="min-h-[calc(100vh-3.5rem)] bg-app-light dark:bg-app-dark">
       <PageHeader
         title={assignment?.name ?? "Essays"}
+        backTo={assignment ? `/courses/${assignment.course_id}` : undefined}
+        backLabel="Back to course"
         subtitle={assignment ? `${assignment.rubric_id} v${assignment.rubric_version}` : undefined}
         right={
           <>
@@ -481,36 +495,68 @@ export function AssignmentPage() {
         {openPanel === "details" && (
           <form
             onSubmit={saveAssignmentDetails}
-            className="mb-4 bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-5 space-y-2"
+            className="mb-4 bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-5"
           >
-            <textarea
-              className={inputClass}
-              placeholder="Assignment prompt text (fed to both grading paths)"
-              value={detailsPromptText}
-              onChange={(e) => setDetailsPromptText(e.target.value)}
-            />
-            <textarea
-              className={inputClass}
-              placeholder="Format expectations — fed to both grading paths"
-              value={detailsFormatExpectations}
-              onChange={(e) => setDetailsFormatExpectations(e.target.value)}
-            />
-            <textarea
-              className={inputClass}
-              placeholder="Criterion emphasis notes — fed to both grading paths"
-              value={detailsCriterionEmphasis}
-              onChange={(e) => setDetailsCriterionEmphasis(e.target.value)}
-            />
-            <textarea
-              className={inputClass}
-              placeholder="Common pitfalls"
-              value={detailsCommonPitfalls}
-              onChange={(e) => setDetailsCommonPitfalls(e.target.value)}
-            />
-            {detailsSaved && <p className="text-sm text-green-600 dark:text-green-400">Saved.</p>}
-            <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-lg text-sm font-medium">
-              Save
-            </button>
+            <h2 className={titleClass}>Assignment details</h2>
+            <p className={`${helpClass} mt-1 mb-4`}>
+              Shared assignment context used by both grading paths.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="assignment-prompt" className={labelClass}>
+                  Assignment prompt
+                </label>
+                <textarea
+                  id="assignment-prompt"
+                  className={inputClass}
+                  rows={4}
+                  placeholder="What students were asked to write"
+                  value={detailsPromptText}
+                  onChange={(e) => setDetailsPromptText(e.target.value)}
+                />
+              </div>
+              <div>
+                <label htmlFor="assignment-format-expectations" className={labelClass}>
+                  Format expectations
+                </label>
+                <textarea
+                  id="assignment-format-expectations"
+                  className={inputClass}
+                  rows={3}
+                  placeholder="e.g. Cite at least two sources"
+                  value={detailsFormatExpectations}
+                  onChange={(e) => setDetailsFormatExpectations(e.target.value)}
+                />
+              </div>
+              <div>
+                <label htmlFor="assignment-criterion-emphasis" className={labelClass}>
+                  Criterion emphasis
+                </label>
+                <textarea
+                  id="assignment-criterion-emphasis"
+                  className={inputClass}
+                  rows={3}
+                  placeholder="Criteria that deserve extra attention"
+                  value={detailsCriterionEmphasis}
+                  onChange={(e) => setDetailsCriterionEmphasis(e.target.value)}
+                />
+              </div>
+              <div>
+                <label htmlFor="assignment-common-pitfalls" className={labelClass}>
+                  Common pitfalls
+                </label>
+                <textarea
+                  id="assignment-common-pitfalls"
+                  className={inputClass}
+                  rows={3}
+                  placeholder="Recurring issues to watch for"
+                  value={detailsCommonPitfalls}
+                  onChange={(e) => setDetailsCommonPitfalls(e.target.value)}
+                />
+              </div>
+              {detailsSaved && <p className="text-sm text-green-600 dark:text-green-400">Saved.</p>}
+              <button className={primaryBtn}>Save details</button>
+            </div>
           </form>
         )}
 

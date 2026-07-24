@@ -11,6 +11,7 @@ import {
   headerBtn,
   helpClass,
   inputClass,
+  labelClass,
   primaryBtn,
   rowClass,
   titleClass,
@@ -211,6 +212,8 @@ export function CoursePage() {
     <div className="min-h-[calc(100vh-3.5rem)] bg-app-light dark:bg-app-dark">
       <PageHeader
         title={courseName ?? "Course"}
+        backTo="/"
+        backLabel="Back to courses"
         subtitle={`${assignments.length} assignment${assignments.length === 1 ? "" : "s"} · ${students.length} student${
           students.length === 1 ? "" : "s"
         }`}
@@ -418,25 +421,44 @@ export function CoursePage() {
             <p className={`${helpClass} mt-1 mb-4`}>
               Course-level context fed to the personalized grading path for every assignment in this course.
             </p>
-            <form onSubmit={saveCourseProfile} className="space-y-2">
-              <input
-                className={inputClass}
-                placeholder="Cohort level (e.g. 11th grade honors)"
-                value={cohortLevel}
-                onChange={(e) => setCohortLevel(e.target.value)}
-              />
-              <textarea
-                className={inputClass}
-                placeholder="Curriculum texts (one per line)"
-                value={curriculumTexts}
-                onChange={(e) => setCurriculumTexts(e.target.value)}
-              />
-              <input
-                className={inputClass}
-                placeholder="Rubric version pin (optional)"
-                value={rubricVersionPin}
-                onChange={(e) => setRubricVersionPin(e.target.value)}
-              />
+            <form onSubmit={saveCourseProfile} className="space-y-4">
+              <div>
+                <label htmlFor="course-cohort-level" className={labelClass}>
+                  Cohort level
+                </label>
+                <input
+                  id="course-cohort-level"
+                  className={inputClass}
+                  placeholder="e.g. 11th grade honors"
+                  value={cohortLevel}
+                  onChange={(e) => setCohortLevel(e.target.value)}
+                />
+              </div>
+              <div>
+                <label htmlFor="course-curriculum-texts" className={labelClass}>
+                  Curriculum texts
+                </label>
+                <textarea
+                  id="course-curriculum-texts"
+                  className={inputClass}
+                  rows={4}
+                  placeholder="One title per line"
+                  value={curriculumTexts}
+                  onChange={(e) => setCurriculumTexts(e.target.value)}
+                />
+              </div>
+              <div>
+                <label htmlFor="course-rubric-version" className={labelClass}>
+                  Rubric version pin <span className="font-normal">(optional)</span>
+                </label>
+                <input
+                  id="course-rubric-version"
+                  className={inputClass}
+                  placeholder="e.g. 1.0"
+                  value={rubricVersionPin}
+                  onChange={(e) => setRubricVersionPin(e.target.value)}
+                />
+              </div>
               {profileSaved && <p className="text-sm text-green-600 dark:text-green-400">Saved.</p>}
               <button className={primaryBtn}>Save</button>
             </form>

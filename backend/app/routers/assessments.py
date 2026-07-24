@@ -333,8 +333,11 @@ def get_assessment(assessment_id: str, user: CurrentUser = Depends(get_current_u
             {"criterion_id": cid, **_criterion_output(conn, assessment_id, cid)}
             for cid in criteria_ids
         ]
+        essay = conn.execute(
+            "SELECT assignment_id FROM essays WHERE id = ?", (assessment["essay_id"],)
+        ).fetchone()
     return {
-        "id": assessment["id"], "status": assessment["status"],
+        "id": assessment["id"], "assignment_id": essay["assignment_id"], "status": assessment["status"],
         "rubric_id": assessment["rubric_id"], "rubric_version": assessment["rubric_version"],
         "criteria": results,
     }

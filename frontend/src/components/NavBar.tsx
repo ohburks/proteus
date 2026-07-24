@@ -7,6 +7,11 @@ export function NavBar() {
   const { preference, setPreference } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
+  const coursesActive =
+    location.pathname === "/" ||
+    ["/courses/", "/assignments/", "/assessments/", "/students/"].some((prefix) =>
+      location.pathname.startsWith(prefix),
+    );
 
   function navLinkClass(active: boolean) {
     return `text-sm px-3 py-1.5 rounded-full transition-colors ${
@@ -22,7 +27,7 @@ export function NavBar() {
         <Link to="/" className="font-semibold text-zinc-900 dark:text-zinc-100 mr-4">
           Proteus <span className="text-blue-600 dark:text-blue-400">(Dual RAG Grading)</span>
         </Link>
-        <Link to="/" className={navLinkClass(location.pathname === "/")}>
+        <Link to="/" className={navLinkClass(coursesActive)}>
           Courses
         </Link>
         {role && (
@@ -33,6 +38,14 @@ export function NavBar() {
         {role && (
           <Link to="/settings" className={navLinkClass(location.pathname === "/settings")}>
             Settings
+          </Link>
+        )}
+        {role === "admin" && (
+          <Link
+            to="/admin/accounts"
+            className={navLinkClass(location.pathname === "/admin/accounts")}
+          >
+            Accounts
           </Link>
         )}
       </div>

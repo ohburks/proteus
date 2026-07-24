@@ -64,6 +64,8 @@ export function StudentHistoryPage() {
     <div className="min-h-[calc(100vh-3.5rem)] bg-app-light dark:bg-app-dark">
       <PageHeader
         title={student.display_name}
+        backTo={student.course_id ? `/courses/${student.course_id}` : "/"}
+        backLabel={student.course_id ? "Back to course" : "Back to courses"}
         subtitle={student.external_ref ? `Ref: ${student.external_ref}` : "No external ref"}
         right={
           student.status === "archived" ? (

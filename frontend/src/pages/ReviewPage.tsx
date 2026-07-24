@@ -165,7 +165,11 @@ export function ReviewPage() {
   if (!data) {
     return (
       <div className="min-h-[calc(100vh-3.5rem)] bg-app-light dark:bg-app-dark">
-        <PageHeader title={criterionId ?? "Review"} />
+        <PageHeader
+          title={criterionId ?? "Review"}
+          backTo={`/assessments/${assessmentId}`}
+          backLabel="Back to assessment results"
+        />
         <p className="max-w-3xl mx-auto px-6 py-8 text-sm text-zinc-500 dark:text-zinc-400">Loading…</p>
       </div>
     );
@@ -177,6 +181,8 @@ export function ReviewPage() {
     <div className="min-h-[calc(100vh-3.5rem)] bg-app-light dark:bg-app-dark">
       <PageHeader
         title={criterionId ?? "Review"}
+        backTo={`/assessments/${assessmentId}`}
+        backLabel="Back to assessment results"
         right={
           data.divergence ? (
             <span

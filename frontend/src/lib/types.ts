@@ -87,7 +87,13 @@ export interface StudentHistoryEntry {
 }
 
 export interface StudentHistory {
-  student: { id: string; display_name: string; external_ref: string | null; status: string };
+  student: {
+    id: string;
+    course_id: string | null;
+    display_name: string;
+    external_ref: string | null;
+    status: string;
+  };
   history: StudentHistoryEntry[];
 }
 
@@ -155,6 +161,7 @@ export interface AssessmentCriterionSummary {
 
 export interface AssessmentDetail {
   id: string;
+  assignment_id: string;
   status: string;
   rubric_id: string;
   rubric_version: string;

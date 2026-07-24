@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import type { Assignment, AssignmentBreakdown, Rubric, Student } from "../lib/types";
-import { PageHeader, headerBtn } from "../components/ui";
+import { PageHeader } from "../components/ui";
 
 export function AssignmentBreakdownPage() {
   const { assignmentId } = useParams<{ assignmentId: string }>();
@@ -32,7 +32,11 @@ export function AssignmentBreakdownPage() {
   if (!breakdown || !rubric) {
     return (
       <div className="min-h-[calc(100vh-3.5rem)] bg-app-light dark:bg-app-dark">
-        <PageHeader title="Class breakdown" />
+        <PageHeader
+          title="Class breakdown"
+          backTo={`/assignments/${assignmentId}`}
+          backLabel="Back to assignment"
+        />
         <p className="max-w-3xl mx-auto px-6 py-8 text-sm text-zinc-500 dark:text-zinc-400">Loading…</p>
       </div>
     );
@@ -45,12 +49,9 @@ export function AssignmentBreakdownPage() {
     <div className="min-h-[calc(100vh-3.5rem)] bg-app-light dark:bg-app-dark">
       <PageHeader
         title="Class breakdown"
+        backTo={`/assignments/${assignmentId}`}
+        backLabel="Back to assignment"
         subtitle={`${breakdown.n_graded_essays} of ${breakdown.n_essays} essays graded`}
-        right={
-          <Link to={`/assignments/${assignmentId}`} className={headerBtn}>
-            ← Back to essays
-          </Link>
-        }
       />
       <div className="max-w-3xl mx-auto px-6 py-6">
       {dimensionOrder.map((dimension) => (

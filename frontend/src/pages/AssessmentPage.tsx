@@ -91,7 +91,12 @@ export function AssessmentPage() {
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)] bg-app-light dark:bg-app-dark">
-      <PageHeader title="Assessment results" subtitle={`Status: ${detail.status}`} />
+      <PageHeader
+        title="Assessment results"
+        backTo={`/assignments/${detail.assignment_id}`}
+        backLabel="Back to assignment"
+        subtitle={`Status: ${detail.status}`}
+      />
       <div className="max-w-3xl mx-auto px-6 py-6">
         {!rubric ? (
           <ul className="divide-y divide-zinc-200 dark:divide-white/5 bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl overflow-hidden">

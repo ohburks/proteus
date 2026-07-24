@@ -306,7 +306,8 @@ def get_student_history(student_id: str, user: CurrentUser = Depends(get_current
 
     return {
         "student": {
-            "id": student["id"], "display_name": student["display_name"],
+            "id": student["id"], "course_id": student["course_id"],
+            "display_name": student["display_name"],
             "external_ref": student["external_ref"], "status": student["status"],
         },
         "history": history,

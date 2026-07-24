@@ -3,6 +3,7 @@ import { api, ApiError } from "../lib/api";
 import type { PersonalizedExcerpt, Rubric } from "../lib/types";
 import {
   Chip,
+  OverflowMenu,
   PageHeader,
   Tabs,
   cardClass,
@@ -425,12 +426,15 @@ export function SettingsPage() {
                         score {ex.score} · anchor {ex.anchor_matched} · {ex.source} — {ex.rationale}
                       </p>
                     </div>
-                    <button
-                      onClick={() => deleteExcerpt(ex.id)}
-                      className="text-xs text-red-600 dark:text-red-400 hover:bg-red-500/10 px-2 py-1 rounded-lg shrink-0"
-                    >
-                      Delete
-                    </button>
+                    <OverflowMenu
+                      items={[
+                        {
+                          label: "Delete excerpt",
+                          onClick: () => deleteExcerpt(ex.id),
+                          danger: true,
+                        },
+                      ]}
+                    />
                   </li>
                 ))}
                 {excerpts.length === 0 && (
