@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, ApiError, downloadFile, streamLines } from "../lib/api";
+import { api, ApiError, downloadFile, streamLines, uploadFile } from "../lib/api";
 import type { Assignment, Essay, QueueEntry, Student } from "../lib/types";
 import {
   Chip,
@@ -39,6 +39,8 @@ export function AssignmentPage() {
   // starting the next essay (the in-flight run is cancelled separately).
   const cancelBatchRef = useRef(false);
   const [text, setText] = useState("");
+  const [importingDocument, setImportingDocument] = useState(false);
+  const [importedDocument, setImportedDocument] = useState<string | null>(null);
   const [provider, setProvider] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("");
@@ -203,11 +205,36 @@ export function AssignmentPage() {
     try {
       await api.post<Essay>("/api/essays", { assignment_id: assignmentId, student_id: studentId, text });
       setText("");
+      setImportedDocument(null);
       setStudentId("");
       setOpenPanel(null);
       refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to add essay");
+    }
+  }
+
+  async function importDocument(file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    if (file.size > 15 * 1024 * 1024) {
+      setError("Documents are limited to 15 MB.");
+      return;
+    }
+    setImportingDocument(true);
+    try {
+      const result = await uploadFile<{
+        text: string;
+        filename: string;
+        file_type: "pdf" | "doc" | "docx";
+        character_count: number;
+      }>("/api/essays/import-text", file);
+      setText(result.text);
+      setImportedDocument(result.filename);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to import document");
+    } finally {
+      setImportingDocument(false);
     }
   }
 
@@ -449,14 +476,50 @@ export function AssignmentPage() {
               ))}
             </select>
             <textarea
+              aria-label="Essay text"
               className={`${inputClass} h-32`}
-              placeholder="Paste essay text"
+              placeholder="Paste essay text or import a document"
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => {
+                setText(e.target.value);
+                setImportedDocument(null);
+              }}
             />
-            <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-lg text-sm font-medium">
-              Add essay
-            </button>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <label
+                  className={`cursor-pointer rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5 ${
+                    importingDocument ? "pointer-events-none opacity-50" : ""
+                  }`}
+                >
+                  <input
+                    className="sr-only"
+                    type="file"
+                    accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    disabled={importingDocument}
+                    onChange={(event) => {
+                      void importDocument(event.target.files?.[0]);
+                      event.target.value = "";
+                    }}
+                  />
+                  {importingDocument ? "Importing…" : "Import PDF or Word file"}
+                </label>
+                {importedDocument && (
+                  <span className="max-w-56 truncate text-xs text-green-700 dark:text-green-400">
+                    Imported {importedDocument}
+                  </span>
+                )}
+              </div>
+              <button
+                disabled={importingDocument}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-lg text-sm font-medium disabled:opacity-50"
+              >
+                Add essay
+              </button>
+            </div>
+            <p className={helpClass}>
+              PDF, DOC, or DOCX up to 15 MB. Imported text remains editable before you add the essay.
+            </p>
           </form>
         )}
 

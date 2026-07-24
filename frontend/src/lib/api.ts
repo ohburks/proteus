@@ -57,6 +57,27 @@ export const api = {
   del: <T,>(path: string) => request<T>("DELETE", path),
 };
 
+export async function uploadFile<T>(path: string, file: File): Promise<T> {
+  const form = new FormData();
+  form.append("file", file);
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(path, { method: "POST", headers, body: form });
+  if (!res.ok) {
+    const body = await res.text().catch(() => res.statusText);
+    let message = body;
+    try {
+      const parsed = JSON.parse(body);
+      if (typeof parsed?.detail === "string") message = parsed.detail;
+    } catch {
+      // Keep a non-JSON error response as-is.
+    }
+    throw new ApiError(res.status, message);
+  }
+  return (await res.json()) as T;
+}
+
 /**
  * Download a file from an authenticated endpoint. Bearer-token auth (not
  * cookies) means a plain `<a href>` can't carry the Authorization header —

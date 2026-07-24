@@ -5,6 +5,7 @@ pydantic>=2.7
 # Do not expose the vulnerable standalone `chroma run` REST server.
 chromadb==1.5.9
 python-multipart>=0.0.9
+pypdf==6.14.2
 bcrypt>=4.1
 pyjwt>=2.8
 openai>=1.30

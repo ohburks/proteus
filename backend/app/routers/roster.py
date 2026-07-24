@@ -5,13 +5,15 @@ import io
 import json
 import uuid
 from datetime import UTC, datetime
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.audit import record_audit_event
 from app.auth import CurrentUser, get_current_user
 from app.db import get_connection
+from app.document_import import DocumentImportError, MAX_UPLOAD_BYTES, extract_document_text
 from app.llm.key_resolution import KeyResolutionError, resolve_provider_config
 from app.llm.providers import build_client
 from app.repositories.excerpts import delete_personalized_excerpt
@@ -539,6 +541,34 @@ def create_essay(body: EssayCreate, user: CurrentUser = Depends(get_current_user
         )
         conn.commit()
     return {"id": essay_id, "assignment_id": body.assignment_id, "student_id": body.student_id, "text": body.text}
+
+
+@router.post("/essays/import-text")
+async def import_essay_text(
+    file: UploadFile = File(...),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Extract an upload into the editable essay field without persisting it."""
+    filename = Path(file.filename or "").name
+    try:
+        data = await file.read(MAX_UPLOAD_BYTES + 1)
+    finally:
+        await file.close()
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            413,
+            f"Documents are limited to {MAX_UPLOAD_BYTES // (1024 * 1024)} MB.",
+        )
+    try:
+        text, file_type = extract_document_text(filename, data)
+    except DocumentImportError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return {
+        "text": text,
+        "filename": filename,
+        "file_type": file_type,
+        "character_count": len(text),
+    }
 
 
 @router.delete("/essays/{essay_id}")
