@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+from app.audit import record_audit_event
 from app.auth import CurrentUser, get_current_user
 from app.db import get_connection, write_with_retry
 from app.grading import cancellation, progress
@@ -156,7 +157,11 @@ def validate_byok(body: BYOKConfig, user: CurrentUser = Depends(get_current_user
 
 
 @router.post("")
-def start_assessment(body: GradeRequest, user: CurrentUser = Depends(get_current_user)):
+def start_assessment(
+    body: GradeRequest,
+    request: Request,
+    user: CurrentUser = Depends(get_current_user),
+):
     instructor_id = user.scoped_instructor_id()
     byok = body.byok
     # A missing/misconfigured provider (no BYOK given and no server default set)
@@ -193,11 +198,30 @@ def start_assessment(body: GradeRequest, user: CurrentUser = Depends(get_current
         assignment_dict = dict(assignment)
 
     assessment_id = _launch_assessment(essay, assignment_dict, criteria_rows_dicts, config, client, instructor_id)
+    record_audit_event(
+        action="grading.started",
+        outcome="success",
+        request=request,
+        actor=user,
+        target_type="assessment",
+        target_id=assessment_id,
+        metadata={
+            "essay_id": essay["id"],
+            "assignment_id": assignment["id"],
+            "provider": config.provider,
+            "model": config.model,
+            "criteria_count": len(criteria_rows_dicts),
+        },
+    )
     return {"id": assessment_id, "status": "running"}
 
 
 @router.post("/{assessment_id}/cancel")
-def cancel_assessment(assessment_id: str, user: CurrentUser = Depends(get_current_user)):
+def cancel_assessment(
+    assessment_id: str,
+    request: Request,
+    user: CurrentUser = Depends(get_current_user),
+):
     """Request cancellation of an in-progress grading run.
 
     Only signals the run's in-memory flag; the grading thread owns the terminal
@@ -217,6 +241,15 @@ def cancel_assessment(assessment_id: str, user: CurrentUser = Depends(get_curren
             raise HTTPException(409, f"Assessment is not in progress (status: {assessment['status']})")
     cancellation.request(assessment_id)
     progress.emit(assessment_id, "Cancellation requested — stopping after the current criterion…")
+    record_audit_event(
+        action="grading.cancel_requested",
+        outcome="success",
+        request=request,
+        actor=user,
+        target_type="assessment",
+        target_id=assessment_id,
+        metadata={"previous_status": assessment["status"]},
+    )
     return {"id": assessment_id, "status": "cancelling"}
 
 

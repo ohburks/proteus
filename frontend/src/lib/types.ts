@@ -14,6 +14,29 @@ export interface Account {
   created_at: string;
 }
 
+export interface AuditEvent {
+  id: string;
+  occurred_at: string;
+  actor_user_id: string | null;
+  actor_username: string | null;
+  actor_role: string | null;
+  instructor_id: string | null;
+  action: string;
+  outcome: "success" | "failure" | "denied";
+  target_type: string | null;
+  target_id: string | null;
+  ip_address: string | null;
+  metadata: Record<string, unknown>;
+}
+
+export interface AuditEventPage {
+  items: AuditEvent[];
+  total: number;
+  limit: number;
+  offset: number;
+  actions: string[];
+}
+
 export interface Course {
   id: string;
   instructor_id: string;

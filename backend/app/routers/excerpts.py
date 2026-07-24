@@ -1,6 +1,7 @@
 """Manual curation of the personalized corpus (design doc §3.5 entry path)."""
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
+from app.audit import record_audit_event
 from app.auth import CurrentUser, get_current_user
 from app.db import get_connection
 from app.grading.evidence import EvidenceVerificationError
@@ -65,7 +66,7 @@ def list_personalized_excerpts(
 
 
 @router.delete("/{excerpt_id}")
-def delete_excerpt(excerpt_id: str, user: CurrentUser = Depends(get_current_user)):
+def delete_excerpt(excerpt_id: str, request: Request, user: CurrentUser = Depends(get_current_user)):
     instructor_id = user.scoped_instructor_id()
     with get_connection() as conn:
         row = conn.execute("SELECT * FROM personalized_excerpts_src WHERE id = ?", (excerpt_id,)).fetchone()
@@ -75,4 +76,18 @@ def delete_excerpt(excerpt_id: str, user: CurrentUser = Depends(get_current_user
             raise HTTPException(403, "Not your excerpt")
         delete_personalized_excerpt(conn, excerpt_id)
         conn.commit()
+    record_audit_event(
+        action="excerpt.deleted",
+        outcome="success",
+        request=request,
+        actor=user,
+        target_type="personalized_excerpt",
+        target_id=excerpt_id,
+        metadata={
+            "rubric_id": row["rubric_id"],
+            "criterion_id": row["criterion_id"],
+            "course_id": row["course_id"],
+            "assignment_id": row["assignment_id"],
+        },
+    )
     return {"status": "ok"}

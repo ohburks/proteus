@@ -6,9 +6,10 @@ import json
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 
+from app.audit import record_audit_event
 from app.auth import CurrentUser, get_current_user
 from app.db import get_connection
 from app.llm.key_resolution import KeyResolutionError, resolve_provider_config
@@ -48,10 +49,10 @@ def list_courses(user: CurrentUser = Depends(get_current_user)):
 
 
 @router.delete("/courses/{course_id}")
-def delete_course(course_id: str, user: CurrentUser = Depends(get_current_user)):
+def delete_course(course_id: str, request: Request, user: CurrentUser = Depends(get_current_user)):
     instructor_id = user.scoped_instructor_id()
     with get_connection() as conn:
-        _assert_course_owned(conn, course_id, instructor_id)
+        course = _assert_course_owned(conn, course_id, instructor_id)
 
         assignment_ids = [r["id"] for r in conn.execute(
             "SELECT id FROM assignments WHERE course_id = ?", (course_id,)
@@ -68,6 +69,15 @@ def delete_course(course_id: str, user: CurrentUser = Depends(get_current_user))
         conn.execute("DELETE FROM students WHERE course_id = ?", (course_id,))
         conn.execute("DELETE FROM courses WHERE id = ?", (course_id,))
         conn.commit()
+    record_audit_event(
+        action="course.deleted",
+        outcome="success",
+        request=request,
+        actor=user,
+        target_type="course",
+        target_id=course_id,
+        metadata={"name": course["name"], "assignment_count": len(assignment_ids)},
+    )
     return {"status": "ok"}
 
 
@@ -187,7 +197,7 @@ def get_assignment(assignment_id: str, user: CurrentUser = Depends(get_current_u
 
 
 @router.delete("/assignments/{assignment_id}")
-def delete_assignment(assignment_id: str, user: CurrentUser = Depends(get_current_user)):
+def delete_assignment(assignment_id: str, request: Request, user: CurrentUser = Depends(get_current_user)):
     instructor_id = user.scoped_instructor_id()
     with get_connection() as conn:
         assignment = conn.execute("SELECT * FROM assignments WHERE id = ?", (assignment_id,)).fetchone()
@@ -199,6 +209,15 @@ def delete_assignment(assignment_id: str, user: CurrentUser = Depends(get_curren
                 raise HTTPException(409, "Grading is still in progress for an essay in this assignment")
         _delete_assignment_cascade(conn, assignment_id)
         conn.commit()
+    record_audit_event(
+        action="assignment.deleted",
+        outcome="success",
+        request=request,
+        actor=user,
+        target_type="assignment",
+        target_id=assignment_id,
+        metadata={"name": assignment["name"], "course_id": assignment["course_id"]},
+    )
     return {"status": "ok"}
 
 
@@ -315,7 +334,7 @@ def get_student_history(student_id: str, user: CurrentUser = Depends(get_current
 
 
 @router.delete("/students/{student_id}")
-def delete_student(student_id: str, user: CurrentUser = Depends(get_current_user)):
+def delete_student(student_id: str, request: Request, user: CurrentUser = Depends(get_current_user)):
     instructor_id = user.scoped_instructor_id()
     with get_connection() as conn:
         student = conn.execute("SELECT * FROM students WHERE id = ?", (student_id,)).fetchone()
@@ -332,6 +351,15 @@ def delete_student(student_id: str, user: CurrentUser = Depends(get_current_user
         conn.execute("UPDATE assessments SET student_id = NULL WHERE student_id = ?", (student_id,))
         conn.execute("DELETE FROM students WHERE id = ?", (student_id,))
         conn.commit()
+    record_audit_event(
+        action="student.deleted",
+        outcome="success",
+        request=request,
+        actor=user,
+        target_type="student",
+        target_id=student_id,
+        metadata={"display_name": student["display_name"], "course_id": student["course_id"]},
+    )
     return {"status": "ok"}
 
 
@@ -379,7 +407,7 @@ def create_essay(body: EssayCreate, user: CurrentUser = Depends(get_current_user
 
 
 @router.delete("/essays/{essay_id}")
-def delete_essay(essay_id: str, user: CurrentUser = Depends(get_current_user)):
+def delete_essay(essay_id: str, request: Request, user: CurrentUser = Depends(get_current_user)):
     instructor_id = user.scoped_instructor_id()
     with get_connection() as conn:
         essay = conn.execute("SELECT * FROM essays WHERE id = ?", (essay_id,)).fetchone()
@@ -391,11 +419,28 @@ def delete_essay(essay_id: str, user: CurrentUser = Depends(get_current_user)):
             raise HTTPException(409, "Grading is still in progress for this essay")
         _delete_essay_cascade(conn, essay_id)
         conn.commit()
+    record_audit_event(
+        action="essay.deleted",
+        outcome="success",
+        request=request,
+        actor=user,
+        target_type="essay",
+        target_id=essay_id,
+        metadata={
+            "assignment_id": essay["assignment_id"],
+            "student_id": essay["student_id"],
+        },
+    )
     return {"status": "ok"}
 
 
 @router.post("/assignments/{assignment_id}/bulk-grade")
-def bulk_grade(assignment_id: str, body: BulkGradeRequest, user: CurrentUser = Depends(get_current_user)):
+def bulk_grade(
+    assignment_id: str,
+    body: BulkGradeRequest,
+    request: Request,
+    user: CurrentUser = Depends(get_current_user),
+):
     instructor_id = user.scoped_instructor_id()
     byok = body.byok
     try:
@@ -443,6 +488,22 @@ def bulk_grade(assignment_id: str, body: BulkGradeRequest, user: CurrentUser = D
             assessment_id = _launch_assessment(essay, assignment_dict, criteria_rows_dicts, config, client, instructor_id)
             results.append({"essay_id": essay_id, "status": "started", "assessment_id": assessment_id})
 
+    record_audit_event(
+        action="grading.bulk_started",
+        outcome="success",
+        request=request,
+        actor=user,
+        target_type="assignment",
+        target_id=assignment_id,
+        metadata={
+            "provider": config.provider,
+            "model": config.model,
+            "requested_count": len(body.essay_ids),
+            "started_count": sum(r["status"] == "started" for r in results),
+            "skipped_count": sum(r["status"] == "skipped" for r in results),
+            "error_count": sum(r["status"] == "error" for r in results),
+        },
+    )
     return {"results": results}
 
 
@@ -598,7 +659,11 @@ def _essay_csv_row(conn, essay, students_by_id: dict) -> dict:
 
 
 @router.get("/assignments/{assignment_id}/export.csv")
-def export_assignment_csv(assignment_id: str, user: CurrentUser = Depends(get_current_user)):
+def export_assignment_csv(
+    assignment_id: str,
+    request: Request,
+    user: CurrentUser = Depends(get_current_user),
+):
     instructor_id = user.scoped_instructor_id()
     with get_connection() as conn:
         assignment = conn.execute("SELECT * FROM assignments WHERE id = ?", (assignment_id,)).fetchone()
@@ -612,12 +677,21 @@ def export_assignment_csv(assignment_id: str, user: CurrentUser = Depends(get_cu
             ).fetchall()
         }
         rows = [_essay_csv_row(conn, e, students_by_id) for e in essays]
+    record_audit_event(
+        action="export.assignment_csv",
+        outcome="success",
+        request=request,
+        actor=user,
+        target_type="assignment",
+        target_id=assignment_id,
+        metadata={"name": assignment["name"], "row_count": len(rows)},
+    )
     fieldnames = ["student_name", "external_ref", "status", "avg_score", "n_criteria", "n_divergent", "n_high_spread"]
     return _csv_response(rows, fieldnames, f"{assignment['name']}_scores.csv")
 
 
 @router.get("/courses/{course_id}/export.csv")
-def export_course_csv(course_id: str, user: CurrentUser = Depends(get_current_user)):
+def export_course_csv(course_id: str, request: Request, user: CurrentUser = Depends(get_current_user)):
     instructor_id = user.scoped_instructor_id()
     with get_connection() as conn:
         _assert_course_owned(conn, course_id, instructor_id)
@@ -632,6 +706,15 @@ def export_course_csv(course_id: str, user: CurrentUser = Depends(get_current_us
                 row = _essay_csv_row(conn, e, students_by_id)
                 row["assignment_name"] = a["name"]
                 rows.append(row)
+    record_audit_event(
+        action="export.course_csv",
+        outcome="success",
+        request=request,
+        actor=user,
+        target_type="course",
+        target_id=course_id,
+        metadata={"assignment_count": len(assignments), "row_count": len(rows)},
+    )
     fieldnames = [
         "assignment_name", "student_name", "external_ref", "status",
         "avg_score", "n_criteria", "n_divergent", "n_high_spread",

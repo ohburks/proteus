@@ -118,10 +118,11 @@ def create_token(user_id: str, role: str, instructor_id: str | None) -> str:
 
 
 class CurrentUser:
-    def __init__(self, user_id: str, role: str, instructor_id: str | None):
+    def __init__(self, user_id: str, role: str, instructor_id: str | None, username: str | None = None):
         self.user_id = user_id
         self.role = role
         self.instructor_id = instructor_id
+        self.username = username
 
     def scoped_instructor_id(self, requested: str | None = None) -> str:
         """Admins may act on behalf of any instructor_id they specify;
@@ -143,10 +144,12 @@ def get_current_user(creds: HTTPAuthorizationCredentials = Depends(_bearer)) -> 
     # (e.g. a compromised or revoked account), rather than staying valid for the
     # rest of its 12h TTL. Cheap primary-key lookup.
     with get_connection() as conn:
-        row = conn.execute("SELECT is_active FROM users WHERE id = ?", (payload["sub"],)).fetchone()
+        row = conn.execute(
+            "SELECT username, is_active FROM users WHERE id = ?", (payload["sub"],)
+        ).fetchone()
     if row is None or not row["is_active"]:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Account is deactivated or no longer exists")
-    return CurrentUser(payload["sub"], payload["role"], payload.get("instructor_id"))
+    return CurrentUser(payload["sub"], payload["role"], payload.get("instructor_id"), row["username"])
 
 
 def require_admin(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:

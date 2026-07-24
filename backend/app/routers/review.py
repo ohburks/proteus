@@ -2,8 +2,9 @@
 import json
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
+from app.audit import record_audit_event
 from app.auth import CurrentUser, get_current_user
 from app.db import get_connection
 from app.repositories.excerpts import insert_personalized_excerpt
@@ -172,7 +173,11 @@ def _write_override_and_precedent(
 
 @router.post("/override")
 def override_score(
-    assessment_id: str, criterion_id: str, body: OverrideRequest, user: CurrentUser = Depends(get_current_user)
+    assessment_id: str,
+    criterion_id: str,
+    body: OverrideRequest,
+    request: Request,
+    user: CurrentUser = Depends(get_current_user),
 ):
     instructor_id = user.scoped_instructor_id()
     with get_connection() as conn:
@@ -183,11 +188,25 @@ def override_score(
             user.user_id, evidence, personalized["anchor_matched"] if personalized else None,
         )
         conn.commit()
+    record_audit_event(
+        action="grade.override",
+        outcome="success",
+        request=request,
+        actor=user,
+        target_type="assessment_criterion",
+        target_id=f"{assessment_id}:{criterion_id}",
+        metadata={"assessment_id": assessment_id, "criterion_id": criterion_id, "new_score": body.new_score},
+    )
     return {"status": "ok"}
 
 
 @router.post("/adopt-exemplar")
-def adopt_exemplar(assessment_id: str, criterion_id: str, user: CurrentUser = Depends(get_current_user)):
+def adopt_exemplar(
+    assessment_id: str,
+    criterion_id: str,
+    request: Request,
+    user: CurrentUser = Depends(get_current_user),
+):
     instructor_id = user.scoped_instructor_id()
     with get_connection() as conn:
         assessment, _, exemplar, _, _, _, _, essay = _load_context(conn, assessment_id, criterion_id, instructor_id)
@@ -205,4 +224,17 @@ def adopt_exemplar(assessment_id: str, criterion_id: str, user: CurrentUser = De
             user.user_id, evidence, exemplar["anchor_matched"],
         )
         conn.commit()
+    record_audit_event(
+        action="grade.exemplar_adopted",
+        outcome="success",
+        request=request,
+        actor=user,
+        target_type="assessment_criterion",
+        target_id=f"{assessment_id}:{criterion_id}",
+        metadata={
+            "assessment_id": assessment_id,
+            "criterion_id": criterion_id,
+            "new_score": adopted_score,
+        },
+    )
     return {"status": "ok"}

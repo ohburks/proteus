@@ -6,12 +6,13 @@ from fastapi.staticfiles import StaticFiles
 
 from app.auth import assert_secure_jwt_secret
 from app.db import init_db, reconcile_interrupted_assessments
-from app.routers import accounts, assessments, auth, excerpts, review, roster, rubrics, settings
+from app.routers import accounts, assessments, audit, auth, excerpts, review, roster, rubrics, settings
 
 app = FastAPI(title="Proteus (Dual RAG Grading)")
 
 app.include_router(auth.router)
 app.include_router(accounts.router)
+app.include_router(audit.router)
 app.include_router(rubrics.router)
 app.include_router(roster.router)
 app.include_router(assessments.router)

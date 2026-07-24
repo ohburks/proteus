@@ -12,6 +12,7 @@ import { SettingsPage } from "./pages/Settings";
 import { AccountsPage } from "./pages/AccountsPage";
 import { LibraryPage } from "./pages/LibraryPage";
 import { StudentHistoryPage } from "./pages/StudentHistoryPage";
+import { AuditLogPage } from "./pages/AuditLogPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { token } = useAuth();
@@ -110,6 +111,14 @@ export default function App() {
           element={
             <RequireAdmin>
               <AccountsPage />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/admin/audit"
+          element={
+            <RequireAdmin>
+              <AuditLogPage />
             </RequireAdmin>
           }
         />

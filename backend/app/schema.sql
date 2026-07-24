@@ -14,6 +14,30 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TEXT NOT NULL
 );
 
+-- Append-only security audit trail. Actor fields are snapshots rather than
+-- foreign keys so deactivation or future account deletion never erases who
+-- performed a historical action.
+CREATE TABLE IF NOT EXISTS audit_events (
+  id TEXT PRIMARY KEY,
+  occurred_at TEXT NOT NULL,
+  actor_user_id TEXT,
+  actor_username TEXT,
+  actor_role TEXT,
+  instructor_id TEXT,
+  action TEXT NOT NULL,
+  outcome TEXT NOT NULL CHECK (outcome IN ('success','failure','denied')),
+  target_type TEXT,
+  target_id TEXT,
+  ip_address TEXT,
+  metadata_json TEXT NOT NULL DEFAULT '{}'
+);
+CREATE INDEX IF NOT EXISTS idx_audit_events_occurred_at
+  ON audit_events (occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_events_action_outcome
+  ON audit_events (action, outcome, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_events_actor
+  ON audit_events (actor_user_id, occurred_at DESC);
+
 CREATE TABLE IF NOT EXISTS rubrics (
   rubric_id TEXT NOT NULL,
   version TEXT NOT NULL,

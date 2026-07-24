@@ -2,8 +2,9 @@
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
+from app.audit import record_audit_event
 from app.auth import CurrentUser, hash_password, require_admin
 from app.db import get_connection
 from app.schemas import AccountCreate, AccountStatusUpdate
@@ -16,7 +17,7 @@ def _now() -> str:
 
 
 @router.post("")
-def create_account(body: AccountCreate, admin: CurrentUser = Depends(require_admin)):
+def create_account(body: AccountCreate, request: Request, admin: CurrentUser = Depends(require_admin)):
     if not body.username.strip() or not body.password.strip():
         raise HTTPException(400, "Username and password are required")
     with get_connection() as conn:
@@ -30,6 +31,15 @@ def create_account(body: AccountCreate, admin: CurrentUser = Depends(require_adm
             (user_id, body.username, hash_password(body.password), body.role, instructor_id, 1, _now()),
         )
         conn.commit()
+    record_audit_event(
+        action="account.created",
+        outcome="success",
+        request=request,
+        actor=admin,
+        target_type="account",
+        target_id=user_id,
+        metadata={"username": body.username, "role": body.role},
+    )
     return {"id": user_id, "username": body.username, "role": body.role, "instructor_id": instructor_id, "is_active": True}
 
 
@@ -43,12 +53,34 @@ def list_accounts(admin: CurrentUser = Depends(require_admin)):
 
 
 @router.put("/{user_id}/status")
-def set_account_status(user_id: str, body: AccountStatusUpdate, admin: CurrentUser = Depends(require_admin)):
+def set_account_status(
+    user_id: str,
+    body: AccountStatusUpdate,
+    request: Request,
+    admin: CurrentUser = Depends(require_admin),
+):
     if not body.is_active and user_id == admin.user_id:
         raise HTTPException(400, "Cannot deactivate your own account")
     with get_connection() as conn:
-        if conn.execute("SELECT 1 FROM users WHERE id = ?", (user_id,)).fetchone() is None:
+        account = conn.execute(
+            "SELECT username, role, is_active FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+        if account is None:
             raise HTTPException(404, "Account not found")
         conn.execute("UPDATE users SET is_active = ? WHERE id = ?", (int(body.is_active), user_id))
         conn.commit()
+    record_audit_event(
+        action="account.status_changed",
+        outcome="success",
+        request=request,
+        actor=admin,
+        target_type="account",
+        target_id=user_id,
+        metadata={
+            "username": account["username"],
+            "role": account["role"],
+            "from_active": bool(account["is_active"]),
+            "to_active": body.is_active,
+        },
+    )
     return {"status": "ok"}

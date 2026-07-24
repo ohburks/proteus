@@ -48,6 +48,14 @@ export function NavBar() {
             Accounts
           </Link>
         )}
+        {role === "admin" && (
+          <Link
+            to="/admin/audit"
+            className={navLinkClass(location.pathname === "/admin/audit")}
+          >
+            Audit
+          </Link>
+        )}
       </div>
       <div className="flex items-center gap-3">
         <select
