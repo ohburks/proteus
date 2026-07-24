@@ -5,6 +5,8 @@ corpus/settings. admin: sees all instructors; used for setup/seeding/oversight.
 """
 import logging
 import os
+import threading
+import time
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -51,6 +53,58 @@ def hash_password(password: str) -> str:
 
 def verify_password(password: str, password_hash: str) -> bool:
     return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+
+
+# A real bcrypt hash to check against when the username doesn't exist, so login
+# spends the same time whether or not the account is real — otherwise the
+# presence/absence of the bcrypt call is a timing oracle for valid usernames.
+DUMMY_PASSWORD_HASH = hash_password("proteus-no-such-account")
+
+
+class LoginThrottle:
+    """In-memory per-key failed-login limiter for /login (brute-force brake).
+
+    Keyed by client IP by the caller — deliberately not by username, so a third
+    party can't lock a real account out (account-lockout DoS). Single-worker
+    deployment (see db.reconcile_interrupted_assessments), so process-local
+    state is authoritative here; a multi-instance deploy should also rate-limit
+    at the edge. A successful login resets the key."""
+
+    def __init__(self, max_fails: int = 10, window_s: float = 300.0):
+        self._max = max_fails
+        self._window = window_s
+        self._lock = threading.Lock()
+        self._fails: dict[str, list[float]] = {}
+
+    def _recent(self, key: str, now: float) -> list[float]:
+        recent = [t for t in self._fails.get(key, ()) if now - t < self._window]
+        if recent:
+            self._fails[key] = recent
+        else:
+            self._fails.pop(key, None)
+        return recent
+
+    def check(self, key: str) -> None:
+        with self._lock:
+            if len(self._recent(key, time.monotonic())) >= self._max:
+                raise HTTPException(
+                    status.HTTP_429_TOO_MANY_REQUESTS,
+                    "Too many failed login attempts. Try again later.",
+                )
+
+    def record_failure(self, key: str) -> None:
+        with self._lock:
+            now = time.monotonic()
+            recent = self._recent(key, now)
+            recent.append(now)
+            self._fails[key] = recent
+
+    def reset(self, key: str) -> None:
+        with self._lock:
+            self._fails.pop(key, None)
+
+
+login_throttle = LoginThrottle()
 
 
 def create_token(user_id: str, role: str, instructor_id: str | None) -> str:

@@ -14,6 +14,15 @@ router = APIRouter(prefix="/api/personalized-excerpts", tags=["excerpts"])
 def create_personalized_excerpt(body: PersonalizedExcerptCreate, user: CurrentUser = Depends(get_current_user)):
     instructor_id = user.scoped_instructor_id()
     with get_connection() as conn:
+        if body.course_id:
+            # Validate course ownership independently of assignment_id: a bare
+            # course_id (no assignment) was previously stored unchecked, letting
+            # a caller tag an excerpt with another instructor's course_id.
+            course = conn.execute("SELECT * FROM courses WHERE id = ?", (body.course_id,)).fetchone()
+            if course is None:
+                raise HTTPException(404, "Course not found")
+            if course["instructor_id"] != instructor_id:
+                raise HTTPException(403, "Not your course")
         if body.assignment_id:
             assignment = conn.execute("SELECT * FROM assignments WHERE id = ?", (body.assignment_id,)).fetchone()
             if assignment is None:
@@ -21,6 +30,10 @@ def create_personalized_excerpt(body: PersonalizedExcerptCreate, user: CurrentUs
             course = conn.execute("SELECT * FROM courses WHERE id = ?", (assignment["course_id"],)).fetchone()
             if course["instructor_id"] != instructor_id:
                 raise HTTPException(403, "Not your assignment")
+            # If both are supplied they must be consistent, otherwise the excerpt
+            # would be filed under a course the assignment doesn't belong to.
+            if body.course_id and body.course_id != assignment["course_id"]:
+                raise HTTPException(400, "assignment_id does not belong to course_id")
         try:
             excerpt_id = insert_personalized_excerpt(
                 conn,
