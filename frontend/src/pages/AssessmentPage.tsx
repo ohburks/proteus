@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import type { AssessmentCriterionSummary, AssessmentDetail, Rubric } from "../lib/types";
@@ -62,6 +62,10 @@ export function AssessmentPage() {
   const { assessmentId } = useParams<{ assessmentId: string }>();
   const [detail, setDetail] = useState<AssessmentDetail | null>(null);
   const [rubric, setRubric] = useState<Rubric | null>(null);
+  const dimensionByCriterion = useMemo(
+    () => new Map(rubric?.criteria.map((criterion) => [criterion.criterionId, criterion.dimension]) ?? []),
+    [rubric],
+  );
 
   useEffect(() => {
     if (!assessmentId) return;
@@ -87,7 +91,7 @@ export function AssessmentPage() {
   // dimension (e.g. "Claims (W1a)") once the rubric has loaded, in the
   // rubric's own criteria order — falls back to a flat list until then.
   const dimensionOrder = rubric ? [...new Set(rubric.criteria.map((rc) => rc.dimension))] : [];
-  const dimensionOf = (cid: string) => rubric?.criteria.find((rc) => rc.criterionId === cid)?.dimension;
+  const dimensionOf = (cid: string) => dimensionByCriterion.get(cid);
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)] bg-app-light dark:bg-app-dark">

@@ -6,8 +6,8 @@ import json
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 
 from app.audit import record_audit_event
 from app.auth import CurrentUser, get_current_user
@@ -15,7 +15,7 @@ from app.db import get_connection
 from app.llm.key_resolution import KeyResolutionError, resolve_provider_config
 from app.llm.providers import build_client
 from app.repositories.excerpts import delete_personalized_excerpt
-from app.routers.assessments import _criterion_output, _grading_error_detail, _launch_assessment
+from app.routers.assessments import _grading_error_detail, _launch_assessment
 from app.schemas import AssignmentCreate, BulkGradeRequest, CourseCreate, EssayCreate, StudentCreate, StudentUpdate
 
 router = APIRouter(prefix="/api", tags=["roster"])
@@ -39,13 +39,31 @@ def create_course(body: CourseCreate, user: CurrentUser = Depends(get_current_us
 
 
 @router.get("/courses")
-def list_courses(user: CurrentUser = Depends(get_current_user)):
+def list_courses(
+    user: CurrentUser = Depends(get_current_user),
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+):
     with get_connection() as conn:
         if user.role == "admin":
-            rows = conn.execute("SELECT * FROM courses").fetchall()
+            rows = conn.execute(
+                "SELECT * FROM courses ORDER BY created_at DESC, id LIMIT ? OFFSET ?",
+                (limit, offset),
+            ).fetchall()
         else:
-            rows = conn.execute("SELECT * FROM courses WHERE instructor_id = ?", (user.instructor_id,)).fetchall()
+            rows = conn.execute(
+                "SELECT * FROM courses WHERE instructor_id = ? "
+                "ORDER BY created_at DESC, id LIMIT ? OFFSET ?",
+                (user.instructor_id, limit, offset),
+            ).fetchall()
     return [dict(r) for r in rows]
+
+
+@router.get("/courses/{course_id}")
+def get_course(course_id: str, user: CurrentUser = Depends(get_current_user)):
+    with get_connection() as conn:
+        row = _assert_course_owned(conn, course_id, user.scoped_instructor_id())
+    return dict(row)
 
 
 @router.delete("/courses/{course_id}")
@@ -179,10 +197,19 @@ def create_assignment(body: AssignmentCreate, user: CurrentUser = Depends(get_cu
 
 
 @router.get("/assignments")
-def list_assignments(course_id: str, user: CurrentUser = Depends(get_current_user)):
+def list_assignments(
+    course_id: str,
+    user: CurrentUser = Depends(get_current_user),
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+):
     with get_connection() as conn:
         _assert_course_owned(conn, course_id, user.scoped_instructor_id())
-        rows = conn.execute("SELECT * FROM assignments WHERE course_id = ?", (course_id,)).fetchall()
+        rows = conn.execute(
+            "SELECT * FROM assignments WHERE course_id = ? "
+            "ORDER BY created_at DESC, id LIMIT ? OFFSET ?",
+            (course_id, limit, offset),
+        ).fetchall()
     return [dict(r) for r in rows]
 
 
@@ -239,15 +266,26 @@ def create_student(body: StudentCreate, user: CurrentUser = Depends(get_current_
 
 
 @router.get("/students")
-def list_students(user: CurrentUser = Depends(get_current_user), course_id: str | None = None):
+def list_students(
+    user: CurrentUser = Depends(get_current_user),
+    course_id: str | None = None,
+    limit: int = Query(500, ge=1, le=2000),
+    offset: int = Query(0, ge=0),
+):
     instructor_id = user.scoped_instructor_id()
     with get_connection() as conn:
         if course_id:
             rows = conn.execute(
-                "SELECT * FROM students WHERE instructor_id = ? AND course_id = ?", (instructor_id, course_id)
+                "SELECT * FROM students WHERE instructor_id = ? AND course_id = ? "
+                "ORDER BY created_at, id LIMIT ? OFFSET ?",
+                (instructor_id, course_id, limit, offset),
             ).fetchall()
         else:
-            rows = conn.execute("SELECT * FROM students WHERE instructor_id = ?", (instructor_id,)).fetchall()
+            rows = conn.execute(
+                "SELECT * FROM students WHERE instructor_id = ? "
+                "ORDER BY created_at, id LIMIT ? OFFSET ?",
+                (instructor_id, limit, offset),
+            ).fetchall()
     return [dict(r) for r in rows]
 
 
@@ -268,39 +306,129 @@ def update_student(student_id: str, body: StudentUpdate, user: CurrentUser = Dep
     return {"status": "ok"}
 
 
-def _essay_grade_summary(conn, essay_id: str) -> dict:
-    latest = conn.execute(
-        "SELECT * FROM assessments WHERE essay_id = ? ORDER BY created_at DESC LIMIT 1", (essay_id,)
-    ).fetchone()
-    summary = {
-        "assessment_id": latest["id"] if latest else None,
-        "status": latest["status"] if latest else None,
-        "avg_score": None, "n_criteria": 0, "n_divergent": 0, "n_high_spread": 0, "needs_review": False,
+def _latest_criterion_rows(conn, essay_ids: list[str]):
+    """One set-based read for latest-assessment criterion output across essays."""
+    if not essay_ids:
+        return []
+    return conn.execute(
+        """WITH requested AS (
+             SELECT value AS essay_id FROM json_each(?)
+           ),
+           ranked AS (
+             SELECT a.*,
+                    ROW_NUMBER() OVER (
+                      PARTITION BY a.essay_id ORDER BY a.created_at DESC, a.id DESC
+                    ) AS rn
+             FROM assessments a
+             JOIN requested r ON r.essay_id = a.essay_id
+           ),
+           latest AS (
+             SELECT * FROM ranked WHERE rn = 1
+           )
+           SELECT
+             r.essay_id,
+             l.id AS assessment_id,
+             l.status,
+             p.criterion_id,
+             COALESCE(o.new_score, p.score) AS output_score,
+             CASE WHEN o.assessment_id IS NOT NULL THEN 'override' ELSE 'personalized' END AS output_source,
+             COALESCE(d.exceeds_threshold, 0) AS exceeds_threshold,
+             CASE WHEN COALESCE(p.high_spread, 0) = 1 OR COALESCE(x.high_spread, 0) = 1
+                  THEN 1 ELSE 0 END AS high_spread,
+             CASE WHEN c.referenceability = 'weak' THEN 1 ELSE 0 END AS weak_referenceability,
+             CASE WHEN p.assessment_id IS NOT NULL
+                        AND p.is_no_evidence = 0
+                        AND json_array_length(p.evidence_json) = 0
+                  THEN 1 ELSE 0 END AS unsupported_evidence
+           FROM requested r
+           LEFT JOIN latest l ON l.essay_id = r.essay_id
+           LEFT JOIN score_aggregates p
+             ON p.assessment_id = l.id AND p.path = 'personalized'
+           LEFT JOIN score_aggregates x
+             ON x.assessment_id = l.id
+            AND x.criterion_id = p.criterion_id
+            AND x.path = 'exemplar'
+           LEFT JOIN score_overrides o
+             ON o.assessment_id = l.id AND o.criterion_id = p.criterion_id
+           LEFT JOIN divergence_records d
+             ON d.assessment_id = l.id AND d.criterion_id = p.criterion_id
+           LEFT JOIN criteria c
+             ON c.rubric_id = l.rubric_id
+            AND c.rubric_version = l.rubric_version
+            AND c.criterion_id = p.criterion_id
+           ORDER BY r.essay_id, p.criterion_id""",
+        (json.dumps(essay_ids),),
+    ).fetchall()
+
+
+def _criterion_out_from_row(row) -> dict:
+    reasons = []
+    if row["exceeds_threshold"]:
+        reasons.append("divergent")
+    if row["high_spread"]:
+        reasons.append("high_spread")
+    if row["weak_referenceability"]:
+        reasons.append("weak_referenceability")
+    if row["unsupported_evidence"]:
+        reasons.append("unsupported_evidence")
+    return {
+        "output_score": row["output_score"],
+        "output_source": row["output_source"],
+        "exceeds_threshold": bool(row["exceeds_threshold"]),
+        "high_spread": bool(row["high_spread"]),
+        "needs_review": bool(reasons),
+        "review_reasons": reasons,
     }
-    if latest and latest["status"] == "complete":
-        criteria_ids = [r["criterion_id"] for r in conn.execute(
-            "SELECT DISTINCT criterion_id FROM score_aggregates WHERE assessment_id = ?", (latest["id"],)
-        ).fetchall()]
-        scores = []
-        for cid in criteria_ids:
-            out = _criterion_output(conn, latest["id"], cid)
-            if out["needs_review"]:
-                summary["needs_review"] = True
-            if out["output_score"] is None:
-                continue
-            scores.append(out["output_score"])
-            if out["exceeds_threshold"]:
-                summary["n_divergent"] += 1
-            if out["high_spread"]:
-                summary["n_high_spread"] += 1
+
+
+def _essay_grade_summaries(conn, essay_ids: list[str]) -> dict[str, dict]:
+    summaries = {
+        essay_id: {
+            "assessment_id": None,
+            "status": None,
+            "avg_score": None,
+            "n_criteria": 0,
+            "n_divergent": 0,
+            "n_high_spread": 0,
+            "needs_review": False,
+        }
+        for essay_id in essay_ids
+    }
+    scores_by_essay: dict[str, list[float]] = {essay_id: [] for essay_id in essay_ids}
+    for row in _latest_criterion_rows(conn, essay_ids):
+        summary = summaries[row["essay_id"]]
+        summary["assessment_id"] = row["assessment_id"]
+        summary["status"] = row["status"]
+        if row["status"] != "complete" or row["criterion_id"] is None:
+            continue
+        out = _criterion_out_from_row(row)
+        summary["needs_review"] = summary["needs_review"] or out["needs_review"]
+        if out["output_score"] is None:
+            continue
+        scores_by_essay[row["essay_id"]].append(out["output_score"])
+        if out["exceeds_threshold"]:
+            summary["n_divergent"] += 1
+        if out["high_spread"]:
+            summary["n_high_spread"] += 1
+
+    for essay_id, scores in scores_by_essay.items():
         if scores:
-            summary["avg_score"] = sum(scores) / len(scores)
-            summary["n_criteria"] = len(scores)
-    return summary
+            summaries[essay_id]["avg_score"] = sum(scores) / len(scores)
+            summaries[essay_id]["n_criteria"] = len(scores)
+    return summaries
+
+
+def _essay_grade_summary(conn, essay_id: str) -> dict:
+    return _essay_grade_summaries(conn, [essay_id])[essay_id]
 
 
 @router.get("/students/{student_id}/history")
-def get_student_history(student_id: str, user: CurrentUser = Depends(get_current_user)):
+def get_student_history(
+    student_id: str,
+    user: CurrentUser = Depends(get_current_user),
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+):
     instructor_id = user.scoped_instructor_id()
     with get_connection() as conn:
         student = conn.execute("SELECT * FROM students WHERE id = ?", (student_id,)).fetchone()
@@ -310,13 +438,14 @@ def get_student_history(student_id: str, user: CurrentUser = Depends(get_current
         essays = conn.execute(
             "SELECT e.id AS essay_id, e.assignment_id, e.created_at, a.name AS assignment_name "
             "FROM essays e JOIN assignments a ON e.assignment_id = a.id "
-            "WHERE e.student_id = ? ORDER BY e.created_at",
-            (student_id,),
+            "WHERE e.student_id = ? ORDER BY e.created_at DESC, e.id DESC LIMIT ? OFFSET ?",
+            (student_id, limit, offset),
         ).fetchall()
 
+        summaries = _essay_grade_summaries(conn, [e["essay_id"] for e in essays])
         history = []
         for e in essays:
-            summary = _essay_grade_summary(conn, e["essay_id"])
+            summary = summaries[e["essay_id"]]
             history.append({
                 "essay_id": e["essay_id"], "assignment_id": e["assignment_id"],
                 "assignment_name": e["assignment_name"], "created_at": e["created_at"],
@@ -364,24 +493,30 @@ def delete_student(student_id: str, request: Request, user: CurrentUser = Depend
 
 
 @router.get("/essays")
-def list_essays(assignment_id: str, user: CurrentUser = Depends(get_current_user)):
+def list_essays(
+    assignment_id: str,
+    user: CurrentUser = Depends(get_current_user),
+    limit: int = Query(500, ge=1, le=2000),
+    offset: int = Query(0, ge=0),
+):
     with get_connection() as conn:
         assignment = conn.execute("SELECT * FROM assignments WHERE id = ?", (assignment_id,)).fetchone()
         if assignment is None:
             raise HTTPException(404, "Assignment not found")
         _assert_course_owned(conn, assignment["course_id"], user.scoped_instructor_id())
-        rows = conn.execute("SELECT * FROM essays WHERE assignment_id = ?", (assignment_id,)).fetchall()
-    # The list view only renders a short preview, so send a truncated `text`
-    # instead of every essay's full body (which can be many KB each). Grading
-    # re-reads the full text from the DB by id, so nothing downstream needs it.
-    _PREVIEW_LEN = 280
-    out = []
-    for r in rows:
-        d = dict(r)
-        text = d.get("text") or ""
-        d["text"] = text[:_PREVIEW_LEN] + "…" if len(text) > _PREVIEW_LEN else text
-        out.append(d)
-    return out
+        rows = conn.execute(
+            """SELECT id, assignment_id, student_id, created_at,
+                      CASE WHEN length(text) > 280
+                           THEN substr(text, 1, 280) || '…'
+                           ELSE text END AS text
+               FROM essays
+               WHERE assignment_id = ?
+               ORDER BY created_at, id LIMIT ? OFFSET ?""",
+            (assignment_id, limit, offset),
+        ).fetchall()
+    # Grading re-reads the full text by id; list views never transfer it out of
+    # SQLite, which keeps a large class page proportional to preview size.
+    return [dict(row) for row in rows]
 
 
 @router.post("/essays")
@@ -469,20 +604,39 @@ def bulk_grade(
             raise HTTPException(400, "Rubric has no criteria loaded")
         criteria_rows_dicts = [dict(c) for c in criteria_rows]
         assignment_dict = dict(assignment)
+        essay_rows = conn.execute(
+            """WITH requested AS (
+                 SELECT value AS essay_id FROM json_each(?)
+               ),
+               ranked AS (
+                 SELECT a.essay_id, a.status,
+                        ROW_NUMBER() OVER (
+                          PARTITION BY a.essay_id ORDER BY a.created_at DESC, a.id DESC
+                        ) AS rn
+                 FROM assessments a
+                 JOIN requested r ON r.essay_id = a.essay_id
+               )
+               SELECT e.*, ranked.status AS latest_status
+               FROM requested r
+               LEFT JOIN essays e ON e.id = r.essay_id
+               LEFT JOIN ranked ON ranked.essay_id = r.essay_id AND ranked.rn = 1""",
+            (json.dumps(body.essay_ids),),
+        ).fetchall()
+        essays_by_id = {
+            row["essay_id"]: row
+            for row in essay_rows
+            if row["id"] is not None
+        }
 
         for essay_id in body.essay_ids:
-            essay = conn.execute("SELECT * FROM essays WHERE id = ?", (essay_id,)).fetchone()
+            essay = essays_by_id.get(essay_id)
             if essay is None:
                 results.append({"essay_id": essay_id, "status": "error", "detail": "Essay not found"})
                 continue
             if essay["assignment_id"] != assignment_id:
                 results.append({"essay_id": essay_id, "status": "error", "detail": "Essay does not belong to this assignment"})
                 continue
-            latest = conn.execute(
-                "SELECT status FROM assessments WHERE essay_id = ? ORDER BY created_at DESC LIMIT 1",
-                (essay_id,),
-            ).fetchone()
-            if latest is not None and latest["status"] in ("running", "pending"):
+            if essay["latest_status"] in ("running", "pending"):
                 results.append({"essay_id": essay_id, "status": "skipped", "detail": "Already in progress"})
                 continue
             assessment_id = _launch_assessment(essay, assignment_dict, criteria_rows_dicts, config, client, instructor_id)
@@ -516,50 +670,67 @@ def get_queue(assignment_id: str, user: CurrentUser = Depends(get_current_user))
             raise HTTPException(404, "Assignment not found")
         _assert_course_owned(conn, assignment["course_id"], instructor_id)
 
-        essays = conn.execute("SELECT * FROM essays WHERE assignment_id = ?", (assignment_id,)).fetchall()
-        entries = []
-        for essay in essays:
-            latest = conn.execute(
-                "SELECT * FROM assessments WHERE essay_id = ? ORDER BY created_at DESC LIMIT 1",
-                (essay["id"],),
-            ).fetchone()
-            if latest is None:
-                entries.append({
-                    "essay_id": essay["id"], "student_id": essay["student_id"],
-                    "latest_assessment_id": None, "status": None,
-                    "exceeds_threshold": False, "high_spread": False, "needs_review": False,
-                })
-                continue
-            exceeds = conn.execute(
-                "SELECT 1 FROM divergence_records WHERE assessment_id = ? AND exceeds_threshold = 1 LIMIT 1",
-                (latest["id"],),
-            ).fetchone() is not None
-            high_spread = conn.execute(
-                "SELECT 1 FROM score_aggregates WHERE assessment_id = ? AND high_spread = 1 LIMIT 1",
-                (latest["id"],),
-            ).fetchone() is not None
-            # Cheap EXISTS-style approximation of _criterion_output's
-            # needs_review (B3) — this endpoint is polled every 2s while
-            # grading is active, so it deliberately avoids the full
-            # per-criterion loop the breakdown/assessment endpoints use.
-            weak_ref_present = conn.execute(
-                """SELECT 1 FROM score_aggregates sa
-                   JOIN criteria c ON c.rubric_id = ? AND c.rubric_version = ? AND c.criterion_id = sa.criterion_id
-                   WHERE sa.assessment_id = ? AND sa.path = 'personalized' AND c.referenceability = 'weak' LIMIT 1""",
-                (assignment["rubric_id"], assignment["rubric_version"], latest["id"]),
-            ).fetchone() is not None
-            unsupported_evidence_present = conn.execute(
-                """SELECT 1 FROM score_aggregates WHERE assessment_id = ? AND path = 'personalized'
-                   AND is_no_evidence = 0 AND json_array_length(evidence_json) = 0 LIMIT 1""",
-                (latest["id"],),
-            ).fetchone() is not None
-            entries.append({
-                "essay_id": essay["id"], "student_id": essay["student_id"],
-                "latest_assessment_id": latest["id"], "status": latest["status"],
-                "exceeds_threshold": exceeds, "high_spread": high_spread,
-                "needs_review": exceeds or high_spread or weak_ref_present or unsupported_evidence_present,
-            })
-    return entries
+        rows = conn.execute(
+            """WITH ranked AS (
+                 SELECT a.*,
+                        ROW_NUMBER() OVER (
+                          PARTITION BY a.essay_id ORDER BY a.created_at DESC, a.id DESC
+                        ) AS rn
+                 FROM assessments a
+                 JOIN essays e ON e.id = a.essay_id
+                 WHERE e.assignment_id = ?
+               ),
+               latest AS (
+                 SELECT * FROM ranked WHERE rn = 1
+               ),
+               signals AS (
+                 SELECT
+                   l.id AS assessment_id,
+                   MAX(COALESCE(d.exceeds_threshold, 0)) AS exceeds_threshold,
+                   MAX(COALESCE(sa.high_spread, 0)) AS high_spread,
+                   MAX(CASE WHEN c.referenceability = 'weak' THEN 1 ELSE 0 END) AS weak_referenceability,
+                   MAX(CASE WHEN sa.path = 'personalized'
+                                 AND sa.is_no_evidence = 0
+                                 AND json_array_length(sa.evidence_json) = 0
+                            THEN 1 ELSE 0 END) AS unsupported_evidence
+                 FROM latest l
+                 LEFT JOIN score_aggregates sa ON sa.assessment_id = l.id
+                 LEFT JOIN divergence_records d
+                   ON d.assessment_id = l.id AND d.criterion_id = sa.criterion_id
+                 LEFT JOIN criteria c
+                   ON c.rubric_id = l.rubric_id
+                  AND c.rubric_version = l.rubric_version
+                  AND c.criterion_id = sa.criterion_id
+                 GROUP BY l.id
+               )
+               SELECT
+                 e.id AS essay_id,
+                 e.student_id,
+                 l.id AS latest_assessment_id,
+                 l.status,
+                 COALESCE(s.exceeds_threshold, 0) AS exceeds_threshold,
+                 COALESCE(s.high_spread, 0) AS high_spread,
+                 CASE WHEN COALESCE(s.exceeds_threshold, 0) = 1
+                           OR COALESCE(s.high_spread, 0) = 1
+                           OR COALESCE(s.weak_referenceability, 0) = 1
+                           OR COALESCE(s.unsupported_evidence, 0) = 1
+                      THEN 1 ELSE 0 END AS needs_review
+               FROM essays e
+               LEFT JOIN latest l ON l.essay_id = e.id
+               LEFT JOIN signals s ON s.assessment_id = l.id
+               WHERE e.assignment_id = ?
+               ORDER BY e.created_at, e.id""",
+            (assignment_id, assignment_id),
+        ).fetchall()
+    return [
+        {
+            **dict(row),
+            "exceeds_threshold": bool(row["exceeds_threshold"]),
+            "high_spread": bool(row["high_spread"]),
+            "needs_review": bool(row["needs_review"]),
+        }
+        for row in rows
+    ]
 
 
 @router.get("/assignments/{assignment_id}/breakdown")
@@ -573,47 +744,42 @@ def get_assignment_breakdown(assignment_id: str, user: CurrentUser = Depends(get
 
         essays = conn.execute("SELECT id, student_id FROM essays WHERE assignment_id = ?", (assignment_id,)).fetchall()
         n_essays = len(essays)
-        n_graded_essays = 0
+        essay_by_id = {essay["id"]: essay for essay in essays}
+        criterion_rows = _latest_criterion_rows(conn, list(essay_by_id))
+        n_graded_essays = len({
+            row["essay_id"] for row in criterion_rows if row["status"] == "complete"
+        })
         criterion_stats: dict[str, dict] = {}
 
-        for essay in essays:
-            latest = conn.execute(
-                "SELECT * FROM assessments WHERE essay_id = ? ORDER BY created_at DESC LIMIT 1",
-                (essay["id"],),
-            ).fetchone()
-            if latest is None or latest["status"] != "complete":
+        for row in criterion_rows:
+            if row["status"] != "complete" or row["criterion_id"] is None:
                 continue
-            n_graded_essays += 1
-            criteria_ids = [
-                r["criterion_id"] for r in conn.execute(
-                    "SELECT DISTINCT criterion_id FROM score_aggregates WHERE assessment_id = ?", (latest["id"],)
-                ).fetchall()
-            ]
-            for cid in criteria_ids:
-                out = _criterion_output(conn, latest["id"], cid)
-                if out["output_score"] is None:
-                    continue
-                stats = criterion_stats.setdefault(
-                    cid, {
-                        "scores": [], "n_divergent": 0, "n_high_spread": 0,
-                        "n_weak_referenceability": 0, "n_unsupported_evidence": 0, "flagged": [],
-                    }
-                )
-                stats["scores"].append(out["output_score"])
-                if out["needs_review"]:
-                    stats["flagged"].append({
-                        "essay_id": essay["id"], "assessment_id": latest["id"], "student_id": essay["student_id"],
-                        "exceeds_threshold": out["exceeds_threshold"], "high_spread": out["high_spread"],
-                        "review_reasons": out["review_reasons"],
-                    })
-                if out["exceeds_threshold"]:
-                    stats["n_divergent"] += 1
-                if out["high_spread"]:
-                    stats["n_high_spread"] += 1
-                if "weak_referenceability" in out["review_reasons"]:
-                    stats["n_weak_referenceability"] += 1
-                if "unsupported_evidence" in out["review_reasons"]:
-                    stats["n_unsupported_evidence"] += 1
+            out = _criterion_out_from_row(row)
+            if out["output_score"] is None:
+                continue
+            stats = criterion_stats.setdefault(
+                row["criterion_id"], {
+                    "scores": [], "n_divergent": 0, "n_high_spread": 0,
+                    "n_weak_referenceability": 0, "n_unsupported_evidence": 0, "flagged": [],
+                }
+            )
+            stats["scores"].append(out["output_score"])
+            if out["needs_review"]:
+                essay = essay_by_id[row["essay_id"]]
+                stats["flagged"].append({
+                    "essay_id": row["essay_id"], "assessment_id": row["assessment_id"],
+                    "student_id": essay["student_id"],
+                    "exceeds_threshold": out["exceeds_threshold"], "high_spread": out["high_spread"],
+                    "review_reasons": out["review_reasons"],
+                })
+            if out["exceeds_threshold"]:
+                stats["n_divergent"] += 1
+            if out["high_spread"]:
+                stats["n_high_spread"] += 1
+            if "weak_referenceability" in out["review_reasons"]:
+                stats["n_weak_referenceability"] += 1
+            if "unsupported_evidence" in out["review_reasons"]:
+                stats["n_unsupported_evidence"] += 1
 
     criteria = [
         {
@@ -633,29 +799,67 @@ def get_assignment_breakdown(assignment_id: str, user: CurrentUser = Depends(get
     return {"n_essays": n_essays, "n_graded_essays": n_graded_essays, "criteria": criteria}
 
 
-def _csv_response(rows: list[dict], fieldnames: list[str], filename: str) -> Response:
+def _csv_chunk(rows: list[dict], fieldnames: list[str], *, include_header: bool = False) -> str:
+    """Render a bounded CSV chunk instead of retaining the entire export."""
     buf = io.StringIO()
     writer = csv.DictWriter(buf, fieldnames=fieldnames)
-    writer.writeheader()
+    if include_header:
+        writer.writeheader()
     writer.writerows(rows)
-    return Response(
-        content=buf.getvalue(), media_type="text/csv",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
+    return buf.getvalue()
 
 
-def _essay_csv_row(conn, essay, students_by_id: dict) -> dict:
-    summary = _essay_grade_summary(conn, essay["id"])
-    student = students_by_id.get(essay["student_id"])
+def _essay_csv_row(essay, summary: dict) -> dict:
     return {
-        "student_name": student["display_name"] if student else "",
-        "external_ref": (student["external_ref"] if student else "") or "",
+        "student_name": essay["display_name"] or "",
+        "external_ref": essay["external_ref"] or "",
         "status": summary["status"] or "ungraded",
         "avg_score": f"{summary['avg_score']:.2f}" if summary["avg_score"] is not None else "",
         "n_criteria": summary["n_criteria"],
         "n_divergent": summary["n_divergent"],
         "n_high_spread": summary["n_high_spread"],
     }
+
+
+def _assignment_csv_stream(assignment_id: str, fieldnames: list[str]):
+    yield _csv_chunk([], fieldnames, include_header=True)
+    with get_connection() as conn:
+        cursor = conn.execute(
+            """SELECT e.id, s.display_name, s.external_ref
+               FROM essays e
+               LEFT JOIN students s ON s.id = e.student_id
+               WHERE e.assignment_id = ?
+               ORDER BY e.created_at, e.id""",
+            (assignment_id,),
+        )
+        while batch := cursor.fetchmany(200):
+            summaries = _essay_grade_summaries(conn, [essay["id"] for essay in batch])
+            yield _csv_chunk(
+                [_essay_csv_row(essay, summaries[essay["id"]]) for essay in batch],
+                fieldnames,
+            )
+
+
+def _course_csv_stream(course_id: str, fieldnames: list[str]):
+    yield _csv_chunk([], fieldnames, include_header=True)
+    with get_connection() as conn:
+        cursor = conn.execute(
+            """SELECT e.id, a.name AS assignment_name, s.display_name, s.external_ref
+               FROM essays e
+               JOIN assignments a ON a.id = e.assignment_id
+               LEFT JOIN students s ON s.id = e.student_id
+               WHERE a.course_id = ?
+               ORDER BY a.created_at, a.id, e.created_at, e.id""",
+            (course_id,),
+        )
+        while batch := cursor.fetchmany(200):
+            summaries = _essay_grade_summaries(conn, [essay["id"] for essay in batch])
+            rows = []
+            for essay in batch:
+                row = _essay_csv_row(essay, summaries[essay["id"]])
+                row["assignment_name"] = essay["assignment_name"]
+                rows.append(row)
+            yield _csv_chunk(rows, fieldnames)
 
 
 @router.get("/assignments/{assignment_id}/export.csv")
@@ -670,13 +874,9 @@ def export_assignment_csv(
         if assignment is None:
             raise HTTPException(404, "Assignment not found")
         _assert_course_owned(conn, assignment["course_id"], instructor_id)
-        essays = conn.execute("SELECT * FROM essays WHERE assignment_id = ?", (assignment_id,)).fetchall()
-        students_by_id = {
-            s["id"]: s for s in conn.execute(
-                "SELECT * FROM students WHERE course_id = ?", (assignment["course_id"],)
-            ).fetchall()
-        }
-        rows = [_essay_csv_row(conn, e, students_by_id) for e in essays]
+        row_count = conn.execute(
+            "SELECT COUNT(*) FROM essays WHERE assignment_id = ?", (assignment_id,)
+        ).fetchone()[0]
     record_audit_event(
         action="export.assignment_csv",
         outcome="success",
@@ -684,10 +884,14 @@ def export_assignment_csv(
         actor=user,
         target_type="assignment",
         target_id=assignment_id,
-        metadata={"name": assignment["name"], "row_count": len(rows)},
+        metadata={"name": assignment["name"], "row_count": row_count},
     )
     fieldnames = ["student_name", "external_ref", "status", "avg_score", "n_criteria", "n_divergent", "n_high_spread"]
-    return _csv_response(rows, fieldnames, f"{assignment['name']}_scores.csv")
+    return StreamingResponse(
+        _assignment_csv_stream(assignment_id, fieldnames),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{assignment["name"]}_scores.csv"'},
+    )
 
 
 @router.get("/courses/{course_id}/export.csv")
@@ -695,17 +899,13 @@ def export_course_csv(course_id: str, request: Request, user: CurrentUser = Depe
     instructor_id = user.scoped_instructor_id()
     with get_connection() as conn:
         _assert_course_owned(conn, course_id, instructor_id)
-        assignments = conn.execute("SELECT * FROM assignments WHERE course_id = ?", (course_id,)).fetchall()
-        students_by_id = {
-            s["id"]: s for s in conn.execute("SELECT * FROM students WHERE course_id = ?", (course_id,)).fetchall()
-        }
-        rows = []
-        for a in assignments:
-            essays = conn.execute("SELECT * FROM essays WHERE assignment_id = ?", (a["id"],)).fetchall()
-            for e in essays:
-                row = _essay_csv_row(conn, e, students_by_id)
-                row["assignment_name"] = a["name"]
-                rows.append(row)
+        counts = conn.execute(
+            """SELECT COUNT(DISTINCT a.id), COUNT(e.id)
+               FROM assignments a
+               LEFT JOIN essays e ON e.assignment_id = a.id
+               WHERE a.course_id = ?""",
+            (course_id,),
+        ).fetchone()
     record_audit_event(
         action="export.course_csv",
         outcome="success",
@@ -713,10 +913,14 @@ def export_course_csv(course_id: str, request: Request, user: CurrentUser = Depe
         actor=user,
         target_type="course",
         target_id=course_id,
-        metadata={"assignment_count": len(assignments), "row_count": len(rows)},
+        metadata={"assignment_count": counts[0], "row_count": counts[1]},
     )
     fieldnames = [
         "assignment_name", "student_name", "external_ref", "status",
         "avg_score", "n_criteria", "n_divergent", "n_high_spread",
     ]
-    return _csv_response(rows, fieldnames, "course_scores.csv")
+    return StreamingResponse(
+        _course_csv_stream(course_id, fieldnames),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="course_scores.csv"'},
+    )

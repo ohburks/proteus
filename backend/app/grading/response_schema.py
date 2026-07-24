@@ -31,3 +31,21 @@ class LLMGradingResponse(BaseModel):
         if isinstance(v, int) and not (0 <= v <= 5):
             raise ValueError('score must be between 0 and 5, or "no-evidence"')
         return v
+
+
+class LLMBatchCriterionResponse(LLMGradingResponse):
+    criterionId: str = Field(min_length=1)
+
+
+class LLMBatchGradingResponse(BaseModel):
+    results: list[LLMBatchCriterionResponse]
+
+    @field_validator("results")
+    @classmethod
+    def _criterion_ids_unique(
+        cls, values: list[LLMBatchCriterionResponse],
+    ) -> list[LLMBatchCriterionResponse]:
+        ids = [value.criterionId for value in values]
+        if len(ids) != len(set(ids)):
+            raise ValueError("criterionId values must be unique")
+        return values

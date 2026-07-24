@@ -5,14 +5,15 @@ import threading
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
+from app import chroma_store
 from app.audit import record_audit_event
 from app.auth import CurrentUser, get_current_user
 from app.db import get_connection, write_with_retry
 from app.grading import cancellation, progress
-from app.grading.engine import run_dual_path_for_criterion
+from app.grading.engine import criteria_batch_size, run_dual_path_for_criteria_batch
 from app.llm.key_resolution import KeyResolutionError, resolve_provider_config
 from app.llm.providers import build_client, check_api_key
 from app.schemas import BYOKConfig, GradeRequest
@@ -55,24 +56,31 @@ def _mark_cancelled(conn, assessment_id: str) -> None:
 def _run_assessment(assessment_id: str, client, criteria_rows_dicts, assignment_dict, essay_text, instructor_id):
     with get_connection() as conn:
         try:
-            for c in criteria_rows_dicts:
-                # Cancellation is checked between criteria (not mid-criterion): an
+            prepared_criteria = [
+                {
+                    "criterionId": row["criterion_id"],
+                    "statement": row["statement"],
+                    "anchors": json.loads(row["anchors_json"]),
+                }
+                for row in criteria_rows_dicts
+            ]
+            batch_size = criteria_batch_size()
+            query_embedding = chroma_store.embed_text(essay_text)
+            for start in range(0, len(prepared_criteria), batch_size):
+                # Cancellation is checked between batches (not mid-provider call): an
                 # in-flight LLM call can't be interrupted, but the loop stops before
-                # starting the next one. Completed criteria stay checkpointed.
+                # starting the next batch. Completed batches stay checkpointed.
                 if cancellation.is_cancelled(assessment_id):
                     _mark_cancelled(conn, assessment_id)
                     return
-                criterion = {
-                    "criterionId": c["criterion_id"],
-                    "statement": c["statement"],
-                    "anchors": json.loads(c["anchors_json"]),
-                }
-                run_dual_path_for_criterion(
+                run_dual_path_for_criteria_batch(
                     conn, client,
-                    assessment_id=assessment_id, criterion=criterion,
+                    assessment_id=assessment_id,
+                    criteria=prepared_criteria[start:start + batch_size],
                     rubric_id=assignment_dict["rubric_id"], rubric_version=assignment_dict["rubric_version"],
                     essay_text=essay_text, assignment_id=assignment_dict["id"],
                     instructor_id=instructor_id, course_id=assignment_dict["course_id"],
+                    query_embedding=query_embedding,
                     emit=lambda msg, aid=assessment_id: progress.emit(aid, msg),
                 )
             # A cancel that lands after the last criterion but before the complete
@@ -273,80 +281,98 @@ def stream_assessment_progress(assessment_id: str, request: Request, user: Curre
 
 
 @router.get("")
-def list_assessments(essay_id: str, user: CurrentUser = Depends(get_current_user)):
+def list_assessments(
+    essay_id: str,
+    user: CurrentUser = Depends(get_current_user),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+):
     instructor_id = user.scoped_instructor_id()
     with get_connection() as conn:
         rows = conn.execute(
-            "SELECT id, status, created_at FROM assessments WHERE essay_id = ? AND instructor_id = ? ORDER BY created_at DESC",
-            (essay_id, instructor_id),
+            "SELECT id, status, created_at FROM assessments "
+            "WHERE essay_id = ? AND instructor_id = ? "
+            "ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?",
+            (essay_id, instructor_id, limit, offset),
         ).fetchall()
     return [dict(r) for r in rows]
 
 
-def _criterion_output(conn, assessment_id: str, criterion_id: str) -> dict:
-    personalized = conn.execute(
-        "SELECT * FROM score_aggregates WHERE assessment_id = ? AND criterion_id = ? AND path = 'personalized'",
-        (assessment_id, criterion_id),
-    ).fetchone()
-    exemplar = conn.execute(
-        "SELECT * FROM score_aggregates WHERE assessment_id = ? AND criterion_id = ? AND path = 'exemplar'",
-        (assessment_id, criterion_id),
-    ).fetchone()
-    override = conn.execute(
-        "SELECT * FROM score_overrides WHERE assessment_id = ? AND criterion_id = ?", (assessment_id, criterion_id)
-    ).fetchone()
-    divergence = conn.execute(
-        "SELECT * FROM divergence_records WHERE assessment_id = ? AND criterion_id = ?", (assessment_id, criterion_id)
-    ).fetchone()
-    # A criterion can have one path's aggregate without the other: the engine
-    # persists exemplar before personalized, and a failure in between still
-    # commits the partial rows via the failed-status commit. Guard rather
-    # than 500 on such criteria.
-    if override:
-        output_score, output_source = override["new_score"], "override"
-    elif personalized:
-        output_score, output_source = personalized["score"], "personalized"
-    else:
-        output_score, output_source = None, "incomplete"
-
-    exceeds_threshold = bool(divergence["exceeds_threshold"]) if divergence else False
-    # High spread is an additive signal, separate from divergence: it flags a
-    # path that wasn't consistent with its own repeated passes, not
-    # disagreement between the two paths.
-    high_spread = bool(personalized and personalized["high_spread"]) or bool(exemplar and exemplar["high_spread"])
-
-    # needs_review (B3, soft flag — doesn't affect output_score or grading
-    # completion, purely a "an instructor should look at this" signal):
-    # weak-referenceability criteria are the rubric's own documented
-    # teacher-reserve routing (H3), and an evidence-empty score is D1's gap
-    # made visible instead of silently indistinguishable from a well-
-    # evidenced one.
-    assessment_row = conn.execute(
-        "SELECT rubric_id, rubric_version FROM assessments WHERE id = ?", (assessment_id,)
-    ).fetchone()
-    criterion_row = conn.execute(
-        "SELECT referenceability FROM criteria WHERE rubric_id = ? AND rubric_version = ? AND criterion_id = ?",
-        (assessment_row["rubric_id"], assessment_row["rubric_version"], criterion_id),
-    ).fetchone()
-    weak_referenceability = bool(criterion_row and criterion_row["referenceability"] == "weak")
-    unsupported_evidence = bool(
-        personalized and not personalized["is_no_evidence"] and json.loads(personalized["evidence_json"]) == []
-    )
-    review_reasons = [
-        reason for reason, present in [
-            ("divergent", exceeds_threshold), ("high_spread", high_spread),
-            ("weak_referenceability", weak_referenceability), ("unsupported_evidence", unsupported_evidence),
-        ] if present
-    ]
-
-    return {
-        "output_score": output_score,
-        "output_source": output_source,
-        "exceeds_threshold": exceeds_threshold,
-        "high_spread": high_spread,
-        "needs_review": bool(review_reasons),
-        "review_reasons": review_reasons,
-    }
+def _criterion_outputs(conn, assessment) -> list[dict]:
+    """Load every criterion output for an assessment in one joined query."""
+    rows = conn.execute(
+        """WITH criterion_ids AS (
+             SELECT DISTINCT criterion_id
+             FROM score_aggregates
+             WHERE assessment_id = ?
+           )
+           SELECT
+             ids.criterion_id,
+             p.score AS personalized_score,
+             p.is_no_evidence AS personalized_no_evidence,
+             p.evidence_json AS personalized_evidence_json,
+             p.high_spread AS personalized_high_spread,
+             x.high_spread AS exemplar_high_spread,
+             o.new_score AS override_score,
+             d.exceeds_threshold,
+             c.referenceability
+           FROM criterion_ids ids
+           LEFT JOIN score_aggregates p
+             ON p.assessment_id = ? AND p.criterion_id = ids.criterion_id AND p.path = 'personalized'
+           LEFT JOIN score_aggregates x
+             ON x.assessment_id = ? AND x.criterion_id = ids.criterion_id AND x.path = 'exemplar'
+           LEFT JOIN score_overrides o
+             ON o.assessment_id = ? AND o.criterion_id = ids.criterion_id
+           LEFT JOIN divergence_records d
+             ON d.assessment_id = ? AND d.criterion_id = ids.criterion_id
+           LEFT JOIN criteria c
+             ON c.rubric_id = ?
+            AND c.rubric_version = ?
+            AND c.criterion_id = ids.criterion_id
+           ORDER BY ids.criterion_id""",
+        (
+            assessment["id"],
+            assessment["id"],
+            assessment["id"],
+            assessment["id"],
+            assessment["id"],
+            assessment["rubric_id"],
+            assessment["rubric_version"],
+        ),
+    ).fetchall()
+    outputs = []
+    for row in rows:
+        if row["override_score"] is not None:
+            output_score, output_source = row["override_score"], "override"
+        elif row["personalized_score"] is not None or row["personalized_no_evidence"]:
+            output_score, output_source = row["personalized_score"], "personalized"
+        else:
+            output_score, output_source = None, "incomplete"
+        exceeds_threshold = bool(row["exceeds_threshold"])
+        high_spread = bool(row["personalized_high_spread"] or row["exemplar_high_spread"])
+        unsupported_evidence = bool(
+            row["personalized_evidence_json"]
+            and not row["personalized_no_evidence"]
+            and json.loads(row["personalized_evidence_json"]) == []
+        )
+        review_reasons = [
+            reason for reason, present in [
+                ("divergent", exceeds_threshold),
+                ("high_spread", high_spread),
+                ("weak_referenceability", row["referenceability"] == "weak"),
+                ("unsupported_evidence", unsupported_evidence),
+            ] if present
+        ]
+        outputs.append({
+            "criterion_id": row["criterion_id"],
+            "output_score": output_score,
+            "output_source": output_source,
+            "exceeds_threshold": exceeds_threshold,
+            "high_spread": high_spread,
+            "needs_review": bool(review_reasons),
+            "review_reasons": review_reasons,
+        })
+    return outputs
 
 
 @router.get("/{assessment_id}")
@@ -357,15 +383,7 @@ def get_assessment(assessment_id: str, user: CurrentUser = Depends(get_current_u
         if assessment is None or assessment["instructor_id"] != instructor_id:
             raise HTTPException(404, "Assessment not found")
 
-        criteria_ids = [
-            r["criterion_id"] for r in conn.execute(
-                "SELECT DISTINCT criterion_id FROM score_aggregates WHERE assessment_id = ?", (assessment_id,)
-            ).fetchall()
-        ]
-        results = [
-            {"criterion_id": cid, **_criterion_output(conn, assessment_id, cid)}
-            for cid in criteria_ids
-        ]
+        results = _criterion_outputs(conn, assessment)
         essay = conn.execute(
             "SELECT assignment_id FROM essays WHERE id = ?", (assessment["essay_id"],)
         ).fetchone()

@@ -57,12 +57,9 @@ export function CoursePage() {
     api.get<Student[]>(`/api/students?course_id=${courseId}`).then(setStudents);
   }
 
-  // The course name isn't returned by any single-course endpoint, so pull the
-  // list and pick this one out — just for the header title.
   useEffect(() => {
-    api.get<Course[]>("/api/courses").then((cs) => {
-      setCourseName(cs.find((c) => c.id === courseId)?.name ?? null);
-    });
+    if (!courseId) return;
+    api.get<Course>(`/api/courses/${courseId}`).then((course) => setCourseName(course.name));
   }, [courseId]);
 
   useEffect(() => {

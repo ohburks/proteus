@@ -2,7 +2,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.audit import record_audit_event
 from app.auth import CurrentUser, hash_password, require_admin
@@ -44,10 +44,16 @@ def create_account(body: AccountCreate, request: Request, admin: CurrentUser = D
 
 
 @router.get("")
-def list_accounts(admin: CurrentUser = Depends(require_admin)):
+def list_accounts(
+    admin: CurrentUser = Depends(require_admin),
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+):
     with get_connection() as conn:
         rows = conn.execute(
-            "SELECT id, username, role, instructor_id, is_active, created_at FROM users ORDER BY created_at"
+            "SELECT id, username, role, instructor_id, is_active, created_at "
+            "FROM users ORDER BY created_at, id LIMIT ? OFFSET ?",
+            (limit, offset),
         ).fetchall()
     return [{**dict(r), "is_active": bool(r["is_active"])} for r in rows]
 

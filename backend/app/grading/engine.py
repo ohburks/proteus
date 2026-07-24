@@ -31,6 +31,7 @@ from datetime import UTC, datetime
 
 from pydantic import ValidationError
 
+from app import chroma_store
 from app.db import write_with_retry
 from app.grading.aggregate import aggregate_passes
 from app.grading.divergence import compute_divergence
@@ -42,8 +43,8 @@ from app.grading.profiles import (
     resolve_both_paths_context,
     resolve_personalized_only_context,
 )
-from app.grading.prompt import build_system_prompt, build_user_prompt
-from app.grading.response_schema import LLMGradingResponse
+from app.grading.prompt import build_batch_system_prompt, build_system_prompt, build_user_prompt
+from app.grading.response_schema import LLMBatchGradingResponse, LLMGradingResponse
 from app.grading.retrieval import Scope, assemble_personalized_pool, query_exemplar_pool
 from app.llm.base import EmitFn, LLMClient
 from app.repositories.settings import (
@@ -62,12 +63,22 @@ MAX_EVIDENCE_CORRECTION_ATTEMPTS = 2
 # rename). Override via GRADING_N_PASSES below for real repeated-pass
 # stability checking when that's actually being evaluated.
 DEFAULT_N_GRADING_PASSES = 1
+DEFAULT_CRITERIA_BATCH_SIZE = 5
 
 
 def _n_grading_passes() -> int:
     # Tunable without a code change (design doc §7 multi-pass): override via
     # GRADING_N_PASSES in the server environment.
     return int(os.environ.get("GRADING_N_PASSES", str(DEFAULT_N_GRADING_PASSES)))
+
+
+def criteria_batch_size() -> int:
+    """Criteria per provider request; bounded to keep response JSON manageable."""
+    try:
+        configured = int(os.environ.get("GRADING_CRITERIA_BATCH_SIZE", str(DEFAULT_CRITERIA_BATCH_SIZE)))
+    except ValueError:
+        configured = DEFAULT_CRITERIA_BATCH_SIZE
+    return max(1, min(configured, 10))
 
 
 def _now() -> str:
@@ -188,6 +199,119 @@ def _run_multi_pass(
     return passes
 
 
+def _fallback_pass(precedent_ids: list[str]) -> PassResult:
+    return PassResult(
+        score=None,
+        anchor_matched=0,
+        evidence=[],
+        rationale="No verifiable evidence could be produced after correction passes.",
+        confidence=0.0,
+        precedent_referenced=[],
+        precedent_ids=precedent_ids,
+    )
+
+
+def _run_graded_batch_pass(
+    client: LLMClient,
+    system_prompt: str,
+    essay_text: str,
+    precedent_pools: dict[str, list[dict]],
+    emit: EmitFn | None = None,
+) -> dict[str, PassResult]:
+    """Grade a criterion batch in one provider call with per-result grounding.
+
+    Valid results survive while only missing or invalid criteria consume the
+    correction retry. That avoids discarding useful model work when a single
+    item in a batch contains a malformed quote.
+    """
+    expected_ids = list(precedent_pools)
+    expected_set = set(expected_ids)
+    precedent_ids = {
+        criterion_id: [item["id"] for item in pool]
+        for criterion_id, pool in precedent_pools.items()
+    }
+    accepted: dict[str, PassResult] = {}
+    correction = ""
+
+    for attempt in range(MAX_EVIDENCE_CORRECTION_ATTEMPTS):
+        prompt = build_user_prompt(essay_text) + correction
+        raw = client.complete(system_prompt, prompt, emit=emit)
+        try:
+            validated = LLMBatchGradingResponse.model_validate_json(raw)
+        except (ValueError, ValidationError) as exc:
+            if emit:
+                emit("correcting: batch response did not match the required schema…")
+            correction = (
+                "\n\n[CORRECTION REQUIRED]\nYour previous batch response was invalid: "
+                f"{exc}\nReturn the complete batch using the exact schema."
+            )
+            continue
+
+        returned = {item.criterionId: item for item in validated.results if item.criterionId in expected_set}
+        issues: list[str] = []
+        for criterion_id in expected_ids:
+            if criterion_id in accepted:
+                continue
+            item = returned.get(criterion_id)
+            if item is None:
+                issues.append(f"{criterion_id}: result missing")
+                continue
+            evidence_items = [Evidence(quote=e.quote, reasoning=e.reasoning) for e in item.evidence]
+            bad_quotes = [e.quote for e in evidence_items if not verify_quote(e.quote, essay_text)]
+            score = None if item.score == "no-evidence" else item.score
+            if bad_quotes:
+                issues.append(
+                    f"{criterion_id}: replace unverifiable quote(s): "
+                    + ", ".join(repr(quote) for quote in bad_quotes)
+                )
+                continue
+            if score is not None and not evidence_items:
+                issues.append(f"{criterion_id}: numeric score requires at least one verbatim essay quote")
+                continue
+            allowed_ids = precedent_ids[criterion_id]
+            verified_referenced = [pid for pid in item.precedent_referenced if pid in allowed_ids]
+            accepted[criterion_id] = PassResult(
+                score=score,
+                anchor_matched=item.anchorMatched,
+                evidence=evidence_items,
+                rationale=item.rationale,
+                confidence=item.selfConfidence,
+                precedent_referenced=verified_referenced,
+                precedent_ids=allowed_ids,
+            )
+
+        if len(accepted) == len(expected_ids):
+            return accepted
+        if emit:
+            emit(f"correcting {len(expected_ids) - len(accepted)} invalid batch result(s)…")
+        correction = (
+            "\n\n[CORRECTION REQUIRED]\nReturn the complete batch again. Fix these criteria:\n"
+            + "\n".join(f"- {issue}" for issue in issues)
+        )
+
+    for criterion_id in expected_ids:
+        accepted.setdefault(criterion_id, _fallback_pass(precedent_ids[criterion_id]))
+    return accepted
+
+
+def _run_batch_multi_pass(
+    client: LLMClient,
+    system_prompt: str,
+    essay_text: str,
+    precedent_pools: dict[str, list[dict]],
+    n: int,
+    emit: EmitFn | None = None,
+) -> dict[str, list[PassResult]]:
+    passes = {criterion_id: [] for criterion_id in precedent_pools}
+    for index in range(n):
+        if emit:
+            emit(f"sampling batched pass {index + 1}/{n}…")
+        results = _run_graded_batch_pass(client, system_prompt, essay_text, precedent_pools, emit=emit)
+        for criterion_id, result in results.items():
+            passes[criterion_id].append(result)
+    return passes
+
+
 def grade_criterion_exemplar(
     client: LLMClient, criterion: dict, rubric_id: str, rubric_version: str,
     essay_text: str, both_paths_ctx: BothPathsContext, n_passes: int, emit: EmitFn | None = None,
@@ -257,6 +381,133 @@ def _persist_aggregate(
             aggregate.spread, aggregate.confidence, int(high_spread), aggregate.n_passes, _now(),
         ),
     )
+
+
+def run_dual_path_for_criteria_batch(
+    conn: sqlite3.Connection,
+    client: LLMClient,
+    *,
+    assessment_id: str,
+    criteria: list[dict],
+    rubric_id: str,
+    rubric_version: str,
+    essay_text: str,
+    assignment_id: str,
+    instructor_id: str,
+    course_id: str | None,
+    query_embedding: list[float] | None = None,
+    emit: EmitFn | None = None,
+) -> None:
+    """Grade and checkpoint multiple criteria with two batched provider calls.
+
+    Retrieval and evidence validation remain criterion-scoped, while the long
+    essay body is transmitted once per path/pass for the whole batch.
+    """
+    if not criteria:
+        return
+    both_paths_ctx = resolve_both_paths_context(conn, assignment_id)
+    personalized_ctx = resolve_personalized_only_context(conn, instructor_id)
+    scope = Scope(instructor_id=instructor_id, course_id=course_id, assignment_id=assignment_id)
+    n_passes = _n_grading_passes()
+    if query_embedding is None:
+        query_embedding = chroma_store.embed_text(essay_text)
+
+    exemplar_pools = {
+        criterion["criterionId"]: query_exemplar_pool(
+            essay_text,
+            criterion["criterionId"],
+            rubric_id,
+            rubric_version,
+            query_embedding=query_embedding,
+        )
+        for criterion in criteria
+    }
+    personalized_pools = {}
+    for criterion in criteria:
+        criterion_id = criterion["criterionId"]
+        k = lookup_pool_threshold(conn, instructor_id, rubric_id, criterion_id)
+        personalized_pools[criterion_id] = assemble_personalized_pool(
+            essay_text,
+            scope,
+            criterion_id,
+            rubric_id,
+            k=k,
+            query_embedding=query_embedding,
+        )
+
+    ids = ", ".join(criterion["criterionId"] for criterion in criteria)
+    if emit:
+        emit(f"Criteria {ids}: grading exemplar path as one batch ({n_passes} passes)…")
+    exemplar_prompt = build_batch_system_prompt(
+        path="exemplar",
+        criteria=criteria,
+        rubric_id=rubric_id,
+        both_paths_ctx=both_paths_ctx,
+        personalized_only_ctx=None,
+        precedent_pools=exemplar_pools,
+    )
+    exemplar_passes = _run_batch_multi_pass(
+        client, exemplar_prompt, essay_text, exemplar_pools, n_passes, emit=emit
+    )
+    exemplar_results = {
+        criterion_id: aggregate_passes(passes)
+        for criterion_id, passes in exemplar_passes.items()
+    }
+
+    if emit:
+        emit(f"Criteria {ids}: grading personalized path as one batch ({n_passes} passes)…")
+    personalized_prompt = build_batch_system_prompt(
+        path="personalized",
+        criteria=criteria,
+        rubric_id=rubric_id,
+        both_paths_ctx=both_paths_ctx,
+        personalized_only_ctx=personalized_ctx,
+        precedent_pools=personalized_pools,
+    )
+    personalized_passes = _run_batch_multi_pass(
+        client, personalized_prompt, essay_text, personalized_pools, n_passes, emit=emit
+    )
+    personalized_results = {
+        criterion_id: aggregate_passes(passes)
+        for criterion_id, passes in personalized_passes.items()
+    }
+
+    def _persist_batch() -> None:
+        for criterion in criteria:
+            criterion_id = criterion["criterionId"]
+            result_e = exemplar_results[criterion_id]
+            result_p = personalized_results[criterion_id]
+            spread_threshold = lookup_spread_threshold(conn, instructor_id, rubric_id, criterion_id)
+            threshold = lookup_divergence_threshold(conn, instructor_id, rubric_id, criterion_id)
+            divergence = compute_divergence(result_e, result_p, threshold)
+
+            _persist_passes(conn, assessment_id, criterion_id, "exemplar", result_e.passes)
+            _persist_aggregate(
+                conn, assessment_id, criterion_id, "exemplar", result_e, spread_threshold
+            )
+            _persist_passes(conn, assessment_id, criterion_id, "personalized", result_p.passes)
+            _persist_aggregate(
+                conn, assessment_id, criterion_id, "personalized", result_p, spread_threshold
+            )
+            conn.execute(
+                """INSERT INTO divergence_records
+                   (assessment_id, criterion_id, score_diff, anchor_mismatch,
+                    no_evidence_asymmetry, exceeds_threshold, created_at)
+                   VALUES (?,?,?,?,?,?,?)""",
+                (
+                    assessment_id,
+                    criterion_id,
+                    divergence.score_diff,
+                    int(divergence.anchor_mismatch),
+                    int(divergence.no_evidence_asymmetry),
+                    int(divergence.exceeds_threshold),
+                    _now(),
+                ),
+            )
+
+    write_with_retry(conn, _persist_batch)
+    if emit:
+        emit(f"Criteria {ids}: batch checkpoint complete.")
 
 
 def run_dual_path_for_criterion(

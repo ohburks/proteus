@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, ApiError, downloadFile, streamLines } from "../lib/api";
 import type { Assignment, Essay, QueueEntry, Student } from "../lib/types";
@@ -62,6 +62,9 @@ export function AssignmentPage() {
   const [detailsCriterionEmphasis, setDetailsCriterionEmphasis] = useState("");
   const [detailsCommonPitfalls, setDetailsCommonPitfalls] = useState("");
   const [detailsSaved, setDetailsSaved] = useState(false);
+  const essayById = useMemo(() => new Map(essays.map((essay) => [essay.id, essay])), [essays]);
+  const studentById = useMemo(() => new Map(students.map((student) => [student.id, student])), [students]);
+  const queueByEssayId = useMemo(() => new Map(queue.map((entry) => [entry.essay_id, entry])), [queue]);
 
   useEffect(() => {
     terminalEndRef.current?.scrollIntoView({ block: "nearest" });
@@ -134,18 +137,22 @@ export function AssignmentPage() {
   useEffect(() => {
     setOrder((prev) => {
       const ids = essays.map((e) => e.id);
-      const kept = prev.filter((id) => ids.includes(id));
-      const added = ids.filter((id) => !kept.includes(id));
+      const idSet = new Set(ids);
+      const kept = prev.filter((id) => idSet.has(id));
+      const keptSet = new Set(kept);
+      const added = ids.filter((id) => !keptSet.has(id));
       return [...kept, ...added];
     });
   }, [essays]);
 
-  function refreshQueue() {
+  const refreshQueue = useCallback(() => {
     if (!assignmentId) return;
     api.get<QueueEntry[]>(`/api/assignments/${assignmentId}/queue`).then(setQueue);
-  }
+  }, [assignmentId]);
 
-  useEffect(refreshQueue, [assignmentId]);
+  useEffect(() => {
+    refreshQueue();
+  }, [refreshQueue]);
 
   // Poll the aggregate queue (not per-essay SSE) while anything is in
   // progress, so bulk grading doesn't require opening N live streams.
@@ -154,7 +161,7 @@ export function AssignmentPage() {
     if (!anyActive) return;
     const id = setInterval(refreshQueue, 2000);
     return () => clearInterval(id);
-  }, [queue]);
+  }, [queue, refreshQueue]);
 
   // Debounced live check of the BYOK key: waits for typing to settle, then
   // asks the backend to make a token-free authenticated call. The sequence
@@ -260,10 +267,10 @@ export function AssignmentPage() {
   }
 
   function statusOf(essayId: string): QueueEntry["status"] {
-    return queue.find((q) => q.essay_id === essayId)?.status ?? null;
+    return queueByEssayId.get(essayId)?.status ?? null;
   }
   function entryOf(essayId: string): QueueEntry | undefined {
-    return queue.find((q) => q.essay_id === essayId);
+    return queueByEssayId.get(essayId);
   }
   // "Graded" means the latest assessment completed. Anything else — never
   // graded, running, failed, cancelled, or being re-graded right now — sits in
@@ -346,8 +353,8 @@ export function AssignmentPage() {
   }
 
   function studentName(essayId: string): string {
-    const essay = essays.find((e) => e.id === essayId);
-    const student = essay ? students.find((s) => s.id === essay.student_id) : undefined;
+    const essay = essayById.get(essayId);
+    const student = essay?.student_id ? studentById.get(essay.student_id) : undefined;
     return student ? student.display_name : "Unlinked essay";
   }
 
@@ -632,7 +639,7 @@ export function AssignmentPage() {
               <>
                 <ul className="space-y-2">
                   {filteredUngradedIds.map((id) => {
-                    const essay = essays.find((e) => e.id === id);
+                    const essay = essayById.get(id);
                     if (!essay) return null;
                     const status = statusOf(id);
                     const entry = entryOf(id);
@@ -758,7 +765,7 @@ export function AssignmentPage() {
             ) : (
               <ul className="space-y-2">
                 {filteredGradedIds.map((id) => {
-                  const essay = essays.find((e) => e.id === id);
+                  const essay = essayById.get(id);
                   if (!essay) return null;
                   const entry = entryOf(id);
                   return (

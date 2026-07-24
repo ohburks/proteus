@@ -1,18 +1,44 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 import { NavBar } from "./components/NavBar";
-import { LoginPage } from "./pages/Login";
-import { DashboardPage } from "./pages/Dashboard";
-import { CoursePage } from "./pages/CoursePage";
-import { AssignmentPage } from "./pages/AssignmentPage";
-import { AssignmentBreakdownPage } from "./pages/AssignmentBreakdownPage";
-import { AssessmentPage } from "./pages/AssessmentPage";
-import { ReviewPage } from "./pages/ReviewPage";
-import { SettingsPage } from "./pages/Settings";
-import { AccountsPage } from "./pages/AccountsPage";
-import { LibraryPage } from "./pages/LibraryPage";
-import { StudentHistoryPage } from "./pages/StudentHistoryPage";
-import { AuditLogPage } from "./pages/AuditLogPage";
+
+const LoginPage = lazy(() => import("./pages/Login").then((module) => ({ default: module.LoginPage })));
+const DashboardPage = lazy(() =>
+  import("./pages/Dashboard").then((module) => ({ default: module.DashboardPage })),
+);
+const CoursePage = lazy(() =>
+  import("./pages/CoursePage").then((module) => ({ default: module.CoursePage })),
+);
+const AssignmentPage = lazy(() =>
+  import("./pages/AssignmentPage").then((module) => ({ default: module.AssignmentPage })),
+);
+const AssignmentBreakdownPage = lazy(() =>
+  import("./pages/AssignmentBreakdownPage").then((module) => ({
+    default: module.AssignmentBreakdownPage,
+  })),
+);
+const AssessmentPage = lazy(() =>
+  import("./pages/AssessmentPage").then((module) => ({ default: module.AssessmentPage })),
+);
+const ReviewPage = lazy(() =>
+  import("./pages/ReviewPage").then((module) => ({ default: module.ReviewPage })),
+);
+const SettingsPage = lazy(() =>
+  import("./pages/Settings").then((module) => ({ default: module.SettingsPage })),
+);
+const AccountsPage = lazy(() =>
+  import("./pages/AccountsPage").then((module) => ({ default: module.AccountsPage })),
+);
+const LibraryPage = lazy(() =>
+  import("./pages/LibraryPage").then((module) => ({ default: module.LibraryPage })),
+);
+const StudentHistoryPage = lazy(() =>
+  import("./pages/StudentHistoryPage").then((module) => ({ default: module.StudentHistoryPage })),
+);
+const AuditLogPage = lazy(() =>
+  import("./pages/AuditLogPage").then((module) => ({ default: module.AuditLogPage })),
+);
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { token } = useAuth();
@@ -32,7 +58,14 @@ export default function App() {
   return (
     <div className="min-h-screen bg-app-light dark:bg-app-dark">
       {token && <NavBar />}
-      <Routes>
+      <Suspense
+        fallback={
+          <div className="mx-auto max-w-5xl px-6 py-12 text-sm text-zinc-500 dark:text-zinc-400">
+            Loading…
+          </div>
+        }
+      >
+        <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route
           path="/"
@@ -122,7 +155,8 @@ export default function App() {
             </RequireAdmin>
           }
         />
-      </Routes>
+        </Routes>
+      </Suspense>
     </div>
   );
 }

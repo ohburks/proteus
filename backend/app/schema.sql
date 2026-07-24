@@ -107,6 +107,10 @@ CREATE TABLE IF NOT EXISTS personalized_excerpts_src (
 );
 CREATE INDEX IF NOT EXISTS idx_personalized_excerpts_scope
   ON personalized_excerpts_src (instructor_id, rubric_id, criterion_id, course_id, assignment_id);
+CREATE INDEX IF NOT EXISTS idx_personalized_excerpts_assignment
+  ON personalized_excerpts_src (assignment_id);
+CREATE INDEX IF NOT EXISTS idx_personalized_excerpts_course
+  ON personalized_excerpts_src (course_id);
 
 CREATE TABLE IF NOT EXISTS divergence_thresholds (
   instructor_id TEXT NOT NULL,
@@ -145,6 +149,8 @@ CREATE TABLE IF NOT EXISTS courses (
   name TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_courses_instructor
+  ON courses (instructor_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS assignments (
   id TEXT PRIMARY KEY,
@@ -154,6 +160,8 @@ CREATE TABLE IF NOT EXISTS assignments (
   rubric_version TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_assignments_course
+  ON assignments (course_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS students (
   id TEXT PRIMARY KEY,
@@ -164,6 +172,8 @@ CREATE TABLE IF NOT EXISTS students (
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','archived')),
   created_at TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_students_instructor_course
+  ON students (instructor_id, course_id, created_at);
 
 CREATE TABLE IF NOT EXISTS essays (
   id TEXT PRIMARY KEY,
@@ -172,6 +182,10 @@ CREATE TABLE IF NOT EXISTS essays (
   text TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_essays_assignment
+  ON essays (assignment_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_essays_student
+  ON essays (student_id, created_at);
 
 CREATE TABLE IF NOT EXISTS assessments (
   id TEXT PRIMARY KEY,
@@ -185,6 +199,12 @@ CREATE TABLE IF NOT EXISTS assessments (
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','running','complete','failed','cancelled')),
   created_at TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_assessments_essay_latest
+  ON assessments (essay_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_assessments_instructor_status
+  ON assessments (instructor_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_assessments_student
+  ON assessments (student_id);
 
 -- Every raw multi-pass sampling result (both paths persisted, always, one row
 -- per pass per path per criterion) — kept in full for auditability. The

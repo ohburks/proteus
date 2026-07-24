@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import type { Assignment, AssignmentBreakdown, Rubric, Student } from "../lib/types";
@@ -11,6 +11,7 @@ export function AssignmentBreakdownPage() {
   const [breakdown, setBreakdown] = useState<AssignmentBreakdown | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
   const [expandedCriterion, setExpandedCriterion] = useState<string | null>(null);
+  const studentById = useMemo(() => new Map(students.map((student) => [student.id, student])), [students]);
 
   useEffect(() => {
     if (!assignmentId) return;
@@ -25,7 +26,7 @@ export function AssignmentBreakdownPage() {
   }, [assignment]);
 
   function studentName(studentId: string | null): string {
-    const student = studentId ? students.find((s) => s.id === studentId) : undefined;
+    const student = studentId ? studentById.get(studentId) : undefined;
     return student ? student.display_name : "Unlinked essay";
   }
 

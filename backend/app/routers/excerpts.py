@@ -1,5 +1,5 @@
 """Manual curation of the personalized corpus (design doc §3.5 entry path)."""
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.audit import record_audit_event
 from app.auth import CurrentUser, get_current_user
@@ -52,15 +52,19 @@ def create_personalized_excerpt(body: PersonalizedExcerptCreate, user: CurrentUs
 
 @router.get("")
 def list_personalized_excerpts(
-    rubric_id: str, criterion_id: str, user: CurrentUser = Depends(get_current_user)
+    rubric_id: str,
+    criterion_id: str,
+    user: CurrentUser = Depends(get_current_user),
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
 ):
     instructor_id = user.scoped_instructor_id()
     with get_connection() as conn:
         rows = conn.execute(
             """SELECT * FROM personalized_excerpts_src
                WHERE instructor_id = ? AND rubric_id = ? AND criterion_id = ?
-               ORDER BY updated_at DESC""",
-            (instructor_id, rubric_id, criterion_id),
+               ORDER BY updated_at DESC, id DESC LIMIT ? OFFSET ?""",
+            (instructor_id, rubric_id, criterion_id, limit, offset),
         ).fetchall()
     return [dict(r) for r in rows]
 
