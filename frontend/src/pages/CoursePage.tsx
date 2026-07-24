@@ -2,59 +2,25 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, ApiError, downloadFile } from "../lib/api";
 import type { Assignment, Course, Student } from "../lib/types";
+import {
+  Chip,
+  OverflowMenu,
+  PageHeader,
+  Tabs,
+  cardClass,
+  headerBtn,
+  helpClass,
+  inputClass,
+  primaryBtn,
+  rowClass,
+  titleClass,
+} from "../components/ui";
 
 interface RubricSummary {
   rubric_id: string;
   version: string;
   genre: string;
   notes: string;
-}
-
-type MenuItem = { label: string; onClick: () => void; danger?: boolean; disabled?: boolean };
-
-// Row overflow menu (shared shape with AssignmentPage): collapses a row's
-// secondary/destructive actions behind a single "⋯". A full-screen
-// transparent backdrop closes it on any outside click.
-function OverflowMenu({ items }: { items: MenuItem[] }) {
-  const [open, setOpen] = useState(false);
-  if (items.length === 0) return null;
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-label="More actions"
-        className="px-2 py-1.5 rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-black/5 dark:hover:bg-white/10 leading-none"
-      >
-        ⋯
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-1 z-40 min-w-[11rem] overflow-hidden rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-surface-dark shadow-lg py-1">
-            {items.map((it, i) => (
-              <button
-                key={i}
-                type="button"
-                disabled={it.disabled}
-                onClick={() => {
-                  setOpen(false);
-                  it.onClick();
-                }}
-                className={`block w-full px-3 py-1.5 text-left text-xs font-medium disabled:opacity-40 ${
-                  it.danger
-                    ? "text-red-600 dark:text-red-400 hover:bg-red-500/10"
-                    : "text-zinc-700 dark:text-zinc-300 hover:bg-black/[0.04] dark:hover:bg-white/5"
-                }`}
-              >
-                {it.label}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
 }
 
 type Tab = "assignments" | "students" | "profile";
@@ -241,63 +207,31 @@ export function CoursePage() {
     }
   }
 
-  const inputClass =
-    "w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100 text-sm";
-  const cardClass =
-    "bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-5";
-  const rowClass =
-    "bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-4";
-  const titleClass = "text-sm font-semibold text-zinc-900 dark:text-zinc-100";
-  const helpClass = "text-xs text-zinc-500 dark:text-zinc-400";
-  const primaryBtn =
-    "px-4 py-2 bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-lg text-sm font-medium";
-  const chipClass = (active: boolean) =>
-    `inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-      active
-        ? "border-blue-500/50 bg-blue-500/10 text-blue-700 dark:text-blue-300"
-        : "border-zinc-200 dark:border-white/10 text-zinc-600 dark:text-zinc-300 hover:bg-black/[0.03] dark:hover:bg-white/5"
-    }`;
-  const tabClass = (active: boolean) =>
-    `px-1 pb-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-      active
-        ? "border-blue-500 text-zinc-900 dark:text-zinc-100"
-        : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
-    }`;
-
   return (
     <div className="min-h-[calc(100vh-3.5rem)] bg-app-light dark:bg-app-dark">
-      <header className="sticky top-0 z-20 bg-app-light/85 dark:bg-app-dark/85 backdrop-blur border-b border-zinc-200 dark:border-white/5">
-        <div className="max-w-3xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 truncate">
-              {courseName ?? "Course"}
-            </h1>
-            <p className="text-xs text-zinc-400 dark:text-zinc-500">
-              {assignments.length} assignment{assignments.length === 1 ? "" : "s"} · {students.length} student
-              {students.length === 1 ? "" : "s"}
-            </p>
-          </div>
-          <button
-            onClick={exportCsv}
-            className="px-3 py-1.5 rounded-lg text-sm text-zinc-600 dark:text-zinc-300 hover:bg-black/5 dark:hover:bg-white/10 shrink-0"
-          >
+      <PageHeader
+        title={courseName ?? "Course"}
+        subtitle={`${assignments.length} assignment${assignments.length === 1 ? "" : "s"} · ${students.length} student${
+          students.length === 1 ? "" : "s"
+        }`}
+        right={
+          <button onClick={exportCsv} className={headerBtn}>
             Export CSV
           </button>
-        </div>
-      </header>
+        }
+      />
 
       <div className="max-w-3xl mx-auto px-6 py-6">
-        <div className="flex items-center gap-5 border-b border-zinc-200 dark:border-white/10 mb-4">
-          <button onClick={() => setActiveTab("assignments")} className={tabClass(activeTab === "assignments")}>
-            Assignments ({assignments.length})
-          </button>
-          <button onClick={() => setActiveTab("students")} className={tabClass(activeTab === "students")}>
-            Students ({students.length})
-          </button>
-          <button onClick={() => setActiveTab("profile")} className={tabClass(activeTab === "profile")}>
-            Course profile
-          </button>
-        </div>
+        <Tabs
+          className="mb-4"
+          active={activeTab}
+          onChange={setActiveTab}
+          tabs={[
+            { key: "assignments", label: `Assignments (${assignments.length})` },
+            { key: "students", label: `Students (${students.length})` },
+            { key: "profile", label: "Course profile" },
+          ]}
+        />
 
         {error && <p className="text-sm text-red-600 dark:text-red-400 mb-4">{error}</p>}
 
@@ -305,9 +239,9 @@ export function CoursePage() {
         {activeTab === "assignments" && (
           <section>
             <div className="mb-4">
-              <button onClick={() => setShowNewAssignment((v) => !v)} className={chipClass(showNewAssignment)}>
+              <Chip active={showNewAssignment} onClick={() => setShowNewAssignment((v) => !v)}>
                 <span className="text-base leading-none">＋</span> New assignment
-              </button>
+              </Chip>
             </div>
 
             {showNewAssignment && (
@@ -384,9 +318,9 @@ export function CoursePage() {
         {activeTab === "students" && (
           <section>
             <div className="mb-4">
-              <button onClick={() => setShowAddStudent((v) => !v)} className={chipClass(showAddStudent)}>
+              <Chip active={showAddStudent} onClick={() => setShowAddStudent((v) => !v)}>
                 <span className="text-base leading-none">＋</span> Add student
-              </button>
+              </Chip>
             </div>
 
             {showAddStudent && (

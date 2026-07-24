@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import type { AssessmentCriterionSummary, AssessmentDetail, Rubric } from "../lib/types";
+import { PageHeader } from "../components/ui";
 
 function CriterionRow({ assessmentId, c }: { assessmentId: string; c: AssessmentCriterionSummary }) {
   return (
@@ -72,7 +73,14 @@ export function AssessmentPage() {
     api.get<Rubric>(`/api/rubrics/${detail.rubric_id}/${detail.rubric_version}`).then(setRubric);
   }, [detail]);
 
-  if (!detail) return <p className="p-6 text-zinc-500 dark:text-zinc-400">Loading…</p>;
+  if (!detail) {
+    return (
+      <div className="min-h-[calc(100vh-3.5rem)] bg-app-light dark:bg-app-dark">
+        <PageHeader title="Assessment results" />
+        <p className="max-w-3xl mx-auto px-6 py-8 text-sm text-zinc-500 dark:text-zinc-400">Loading…</p>
+      </div>
+    );
+  }
 
   // §16.3: every criterion is always listed; a divergence badge marks the
   // ones exceeding the instructor's threshold, nothing is hidden. Group by
@@ -82,34 +90,34 @@ export function AssessmentPage() {
   const dimensionOf = (cid: string) => rubric?.criteria.find((rc) => rc.criterionId === cid)?.dimension;
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-8 bg-app-light dark:bg-app-dark min-h-[calc(100vh-3.5rem)]">
-      <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-1">Assessment results</h1>
-      <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">Status: {detail.status}</p>
-
-      {!rubric ? (
-        <ul className="divide-y divide-zinc-200 dark:divide-white/5 bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl overflow-hidden">
-          {detail.criteria.map((c) => (
-            <CriterionRow key={c.criterion_id} assessmentId={assessmentId!} c={c} />
-          ))}
-        </ul>
-      ) : (
-        [...dimensionOrder, "Other"].map((dimension) => {
-          const rows = detail.criteria.filter((c) =>
-            dimension === "Other" ? dimensionOf(c.criterion_id) === undefined : dimensionOf(c.criterion_id) === dimension,
-          );
-          if (rows.length === 0) return null;
-          return (
-            <div key={dimension} className="mb-4">
-              <h2 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 mb-2">{dimension}</h2>
-              <ul className="divide-y divide-zinc-200 dark:divide-white/5 bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl overflow-hidden">
-                {rows.map((c) => (
-                  <CriterionRow key={c.criterion_id} assessmentId={assessmentId!} c={c} />
-                ))}
-              </ul>
-            </div>
-          );
-        })
-      )}
+    <div className="min-h-[calc(100vh-3.5rem)] bg-app-light dark:bg-app-dark">
+      <PageHeader title="Assessment results" subtitle={`Status: ${detail.status}`} />
+      <div className="max-w-3xl mx-auto px-6 py-6">
+        {!rubric ? (
+          <ul className="divide-y divide-zinc-200 dark:divide-white/5 bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl overflow-hidden">
+            {detail.criteria.map((c) => (
+              <CriterionRow key={c.criterion_id} assessmentId={assessmentId!} c={c} />
+            ))}
+          </ul>
+        ) : (
+          [...dimensionOrder, "Other"].map((dimension) => {
+            const rows = detail.criteria.filter((c) =>
+              dimension === "Other" ? dimensionOf(c.criterion_id) === undefined : dimensionOf(c.criterion_id) === dimension,
+            );
+            if (rows.length === 0) return null;
+            return (
+              <div key={dimension} className="mb-4">
+                <h2 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 mb-2">{dimension}</h2>
+                <ul className="divide-y divide-zinc-200 dark:divide-white/5 bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl overflow-hidden">
+                  {rows.map((c) => (
+                    <CriterionRow key={c.criterion_id} assessmentId={assessmentId!} c={c} />
+                  ))}
+                </ul>
+              </div>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }

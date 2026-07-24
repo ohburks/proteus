@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import type { Assignment, AssignmentBreakdown, Rubric, Student } from "../lib/types";
+import { PageHeader, headerBtn } from "../components/ui";
 
 export function AssignmentBreakdownPage() {
   const { assignmentId } = useParams<{ assignmentId: string }>();
@@ -28,21 +29,30 @@ export function AssignmentBreakdownPage() {
     return student ? student.display_name : "Unlinked essay";
   }
 
-  if (!breakdown || !rubric) return <p className="p-6 text-zinc-500 dark:text-zinc-400">Loading…</p>;
+  if (!breakdown || !rubric) {
+    return (
+      <div className="min-h-[calc(100vh-3.5rem)] bg-app-light dark:bg-app-dark">
+        <PageHeader title="Class breakdown" />
+        <p className="max-w-3xl mx-auto px-6 py-8 text-sm text-zinc-500 dark:text-zinc-400">Loading…</p>
+      </div>
+    );
+  }
 
   const byCriterion = new Map(breakdown.criteria.map((c) => [c.criterion_id, c]));
   const dimensionOrder = [...new Set(rubric.criteria.map((rc) => rc.dimension))];
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-8 bg-app-light dark:bg-app-dark min-h-[calc(100vh-3.5rem)]">
-      <Link to={`/assignments/${assignmentId}`} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
-        ← Back to essays
-      </Link>
-      <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mt-2 mb-1">Class breakdown</h1>
-      <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
-        {breakdown.n_graded_essays} of {breakdown.n_essays} essays graded
-      </p>
-
+    <div className="min-h-[calc(100vh-3.5rem)] bg-app-light dark:bg-app-dark">
+      <PageHeader
+        title="Class breakdown"
+        subtitle={`${breakdown.n_graded_essays} of ${breakdown.n_essays} essays graded`}
+        right={
+          <Link to={`/assignments/${assignmentId}`} className={headerBtn}>
+            ← Back to essays
+          </Link>
+        }
+      />
+      <div className="max-w-3xl mx-auto px-6 py-6">
       {dimensionOrder.map((dimension) => (
         <div key={dimension} className="mb-4">
           <h2 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 mb-2">{dimension}</h2>
@@ -139,6 +149,7 @@ export function AssignmentBreakdownPage() {
           </ul>
         </div>
       ))}
+      </div>
     </div>
   );
 }

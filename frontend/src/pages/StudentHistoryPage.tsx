@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import type { StudentHistory, StudentHistoryEntry } from "../lib/types";
+import { PageHeader, rowClass } from "../components/ui";
 
 function StatusBadge({ status }: { status: StudentHistoryEntry["status"] }) {
   if (status === null) {
@@ -48,34 +49,38 @@ export function StudentHistoryPage() {
     api.get<StudentHistory>(`/api/students/${studentId}/history`).then(setData);
   }, [studentId]);
 
-  if (!data) return <p className="p-6 text-zinc-500 dark:text-zinc-400">Loading…</p>;
+  if (!data) {
+    return (
+      <div className="min-h-[calc(100vh-3.5rem)] bg-app-light dark:bg-app-dark">
+        <PageHeader title="Student" />
+        <p className="max-w-3xl mx-auto px-6 py-8 text-sm text-zinc-500 dark:text-zinc-400">Loading…</p>
+      </div>
+    );
+  }
 
   const { student, history } = data;
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-8 bg-app-light dark:bg-app-dark min-h-[calc(100vh-3.5rem)]">
-      <div className="flex items-center gap-2 mb-1">
-        <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">{student.display_name}</h1>
-        {student.status === "archived" && (
-          <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-zinc-500/15 text-zinc-600 dark:text-zinc-400">
-            archived
-          </span>
-        )}
-      </div>
-      <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
-        {student.external_ref ? `Ref: ${student.external_ref}` : "No external ref"}
-      </p>
-
-      {history.length === 0 ? (
-        <p className="text-zinc-500 dark:text-zinc-400">No essays yet for this student.</p>
-      ) : (
-        <ul className="space-y-2">
-          {history.map((h) => (
-            <li
-              key={h.essay_id}
-              className="bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-4"
-            >
-              <div className="flex items-center justify-between mb-1">
+    <div className="min-h-[calc(100vh-3.5rem)] bg-app-light dark:bg-app-dark">
+      <PageHeader
+        title={student.display_name}
+        subtitle={student.external_ref ? `Ref: ${student.external_ref}` : "No external ref"}
+        right={
+          student.status === "archived" ? (
+            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-zinc-500/15 text-zinc-600 dark:text-zinc-400">
+              archived
+            </span>
+          ) : undefined
+        }
+      />
+      <div className="max-w-3xl mx-auto px-6 py-6">
+        {history.length === 0 ? (
+          <p className="text-zinc-500 dark:text-zinc-400">No essays yet for this student.</p>
+        ) : (
+          <ul className="space-y-2">
+            {history.map((h) => (
+              <li key={h.essay_id} className={rowClass}>
+                <div className="flex items-center justify-between mb-1">
                 <span className="text-zinc-800 dark:text-zinc-200 font-medium">{h.assignment_name}</span>
                 <span className="text-xs text-zinc-400 dark:text-zinc-500">
                   {new Date(h.created_at).toLocaleDateString()}
@@ -118,7 +123,8 @@ export function StudentHistoryPage() {
             </li>
           ))}
         </ul>
-      )}
+        )}
+      </div>
     </div>
   );
 }

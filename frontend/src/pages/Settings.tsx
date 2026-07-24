@@ -1,6 +1,19 @@
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../lib/api";
 import type { PersonalizedExcerpt, Rubric } from "../lib/types";
+import {
+  Chip,
+  PageHeader,
+  Tabs,
+  cardClass,
+  helpClass,
+  inputClass,
+  labelClass,
+  numberClass,
+  primaryBtn,
+  selectClass,
+  titleClass,
+} from "../components/ui";
 
 interface RubricSummary {
   rubric_id: string;
@@ -184,47 +197,24 @@ export function SettingsPage() {
     setTimeout(() => setSaved(null), 2000);
   }
 
-  const inputClass =
-    "w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100 text-sm";
-  const selectClass =
-    "px-2 py-1.5 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100 text-sm";
-  const numberClass =
-    "w-16 px-2 py-1 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100 text-sm";
-  const labelClass = "block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1";
-  const cardClass =
-    "bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-5";
-  const titleClass = "text-sm font-semibold text-zinc-900 dark:text-zinc-100";
-  const helpClass = "text-xs text-zinc-500 dark:text-zinc-400";
-  const primaryBtn =
-    "px-4 py-2 bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-lg text-sm font-medium";
-  const tabClass = (active: boolean) =>
-    `px-1 pb-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-      active
-        ? "border-blue-500 text-zinc-900 dark:text-zinc-100"
-        : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
-    }`;
-
   return (
     <div className="min-h-[calc(100vh-3.5rem)] bg-app-light dark:bg-app-dark">
-      <header className="sticky top-0 z-20 bg-app-light/85 dark:bg-app-dark/85 backdrop-blur border-b border-zinc-200 dark:border-white/5">
-        <div className="max-w-3xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
-          <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Settings</h1>
-          {saved && <span className="text-sm text-green-600 dark:text-green-400">{saved}</span>}
-        </div>
-      </header>
+      <PageHeader
+        title="Settings"
+        right={saved ? <span className="text-sm text-green-600 dark:text-green-400">{saved}</span> : undefined}
+      />
 
       <div className="max-w-3xl mx-auto px-6 py-6">
-        <div className="flex items-center gap-5 border-b border-zinc-200 dark:border-white/10 mb-6">
-          <button onClick={() => setActiveTab("profile")} className={tabClass(activeTab === "profile")}>
-            Profile
-          </button>
-          <button onClick={() => setActiveTab("criterion")} className={tabClass(activeTab === "criterion")}>
-            Criterion tuning
-          </button>
-          <button onClick={() => setActiveTab("insights")} className={tabClass(activeTab === "insights")}>
-            Insights
-          </button>
-        </div>
+        <Tabs
+          className="mb-6"
+          active={activeTab}
+          onChange={setActiveTab}
+          tabs={[
+            { key: "profile", label: "Profile" },
+            { key: "criterion", label: "Criterion tuning" },
+            { key: "insights", label: "Insights" },
+          ]}
+        />
 
         {/* ── Profile: instructor voice + LLM defaults, one save ──────────── */}
         {activeTab === "profile" && (
@@ -368,17 +358,9 @@ export function SettingsPage() {
             <section className={cardClass}>
               <div className="flex items-center justify-between gap-2 mb-1">
                 <h2 className={titleClass}>Personalized excerpts</h2>
-                <button
-                  type="button"
-                  onClick={() => setShowAddExcerpt((v) => !v)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-                    showAddExcerpt
-                      ? "border-blue-500/50 bg-blue-500/10 text-blue-700 dark:text-blue-300"
-                      : "border-zinc-200 dark:border-white/10 text-zinc-600 dark:text-zinc-300 hover:bg-black/[0.03] dark:hover:bg-white/5"
-                  }`}
-                >
+                <Chip active={showAddExcerpt} onClick={() => setShowAddExcerpt((v) => !v)}>
                   <span className="text-base leading-none">＋</span> Add excerpt
-                </button>
+                </Chip>
               </div>
               <p className={`${helpClass} mb-4`}>
                 Curated precedent for {criterionId || "…"} ({rubricKey.split("::")[0] || "…"}) — retrieved by the

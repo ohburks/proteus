@@ -2,56 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, ApiError, downloadFile, streamLines } from "../lib/api";
 import type { Assignment, Essay, QueueEntry, Student } from "../lib/types";
+import { Chip, OverflowMenu, PageHeader, Tabs, headerBtn, inputClass, selectClass } from "../components/ui";
 
 type UngradedFilter = "all" | "never" | "running" | "failed" | "cancelled";
-
-type MenuItem = { label: string; onClick: () => void; danger?: boolean; disabled?: boolean };
-
-// Row overflow menu: collapses the row's secondary actions (view/regrade/
-// delete) behind a single "⋯" so each row leads with one primary action
-// instead of a wall of equal-weight buttons. A full-screen transparent
-// backdrop closes it on any outside click.
-function OverflowMenu({ items }: { items: MenuItem[] }) {
-  const [open, setOpen] = useState(false);
-  if (items.length === 0) return null;
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-label="More actions"
-        className="px-2 py-1.5 rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-black/5 dark:hover:bg-white/10 leading-none"
-      >
-        ⋯
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-1 z-40 min-w-[11rem] overflow-hidden rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-surface-dark shadow-lg py-1">
-            {items.map((it, i) => (
-              <button
-                key={i}
-                type="button"
-                disabled={it.disabled}
-                onClick={() => {
-                  setOpen(false);
-                  it.onClick();
-                }}
-                className={`block w-full px-3 py-1.5 text-left text-xs font-medium disabled:opacity-40 ${
-                  it.danger
-                    ? "text-red-600 dark:text-red-400 hover:bg-red-500/10"
-                    : "text-zinc-700 dark:text-zinc-300 hover:bg-black/[0.04] dark:hover:bg-white/5"
-                }`}
-              >
-                {it.label}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
 
 export function AssignmentPage() {
   const { assignmentId } = useParams<{ assignmentId: string }>();
@@ -401,20 +354,6 @@ export function AssignmentPage() {
     setOpenPanel((cur) => (cur === panel ? null : panel));
   }
 
-  const inputClass =
-    "w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100 text-sm";
-  const chipClass = (active: boolean) =>
-    `inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-      active
-        ? "border-blue-500/50 bg-blue-500/10 text-blue-700 dark:text-blue-300"
-        : "border-zinc-200 dark:border-white/10 text-zinc-600 dark:text-zinc-300 hover:bg-black/[0.03] dark:hover:bg-white/5"
-    }`;
-  const tabClass = (active: boolean) =>
-    `px-1 pb-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-      active
-        ? "border-blue-500 text-zinc-900 dark:text-zinc-100"
-        : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
-    }`;
   const keyDot =
     keyStatus === "valid"
       ? "bg-green-500"
@@ -425,11 +364,7 @@ export function AssignmentPage() {
           : "";
 
   const providerSelect = (
-    <select
-      className="px-2 py-1.5 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100 text-sm"
-      value={provider}
-      onChange={(e) => setProvider(e.target.value)}
-    >
+    <select className={selectClass} value={provider} onChange={(e) => setProvider(e.target.value)}>
       <option value="">server default</option>
       <option value="openai">openai</option>
       <option value="anthropic">anthropic</option>
@@ -444,49 +379,34 @@ export function AssignmentPage() {
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)] bg-app-light dark:bg-app-dark">
-      {/* Sticky header: identity + page-level actions, out of the content flow */}
-      <header className="sticky top-0 z-20 bg-app-light/85 dark:bg-app-dark/85 backdrop-blur border-b border-zinc-200 dark:border-white/5">
-        <div className="max-w-3xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 truncate">
-              {assignment?.name ?? "Essays"}
-            </h1>
-            {assignment && (
-              <p className="text-xs text-zinc-400 dark:text-zinc-500">
-                {assignment.rubric_id} v{assignment.rubric_version}
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <Link
-              to={`/assignments/${assignmentId}/breakdown`}
-              className="px-3 py-1.5 rounded-lg text-sm text-zinc-600 dark:text-zinc-300 hover:bg-black/5 dark:hover:bg-white/10"
-            >
+      <PageHeader
+        title={assignment?.name ?? "Essays"}
+        subtitle={assignment ? `${assignment.rubric_id} v${assignment.rubric_version}` : undefined}
+        right={
+          <>
+            <Link to={`/assignments/${assignmentId}/breakdown`} className={headerBtn}>
               Class breakdown
             </Link>
-            <button
-              onClick={exportCsv}
-              className="px-3 py-1.5 rounded-lg text-sm text-zinc-600 dark:text-zinc-300 hover:bg-black/5 dark:hover:bg-white/10"
-            >
+            <button onClick={exportCsv} className={headerBtn}>
               Export CSV
             </button>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <div className="max-w-3xl mx-auto px-6 py-6">
         {/* Control bar: one chip per setup surface, all collapsed by default */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
-          <button onClick={() => togglePanel("add")} className={chipClass(openPanel === "add")}>
+          <Chip active={openPanel === "add"} onClick={() => togglePanel("add")}>
             <span className="text-base leading-none">＋</span> Add essay
-          </button>
-          <button onClick={() => togglePanel("grading")} className={chipClass(openPanel === "grading")}>
+          </Chip>
+          <Chip active={openPanel === "grading"} onClick={() => togglePanel("grading")}>
             Grading: {provider || "server default"}
             {keyDot && <span className={`inline-block w-1.5 h-1.5 rounded-full ${keyDot}`} />}
-          </button>
-          <button onClick={() => togglePanel("details")} className={chipClass(openPanel === "details")}>
+          </Chip>
+          <Chip active={openPanel === "details"} onClick={() => togglePanel("details")}>
             Assignment details
-          </button>
+          </Chip>
         </div>
 
         {/* Add essay */}
@@ -615,14 +535,15 @@ export function AssignmentPage() {
         )}
 
         {/* Tabs: one queue at a time instead of two stacked lists */}
-        <div className="flex items-center gap-5 border-b border-zinc-200 dark:border-white/10 mb-4">
-          <button onClick={() => setActiveTab("ungraded")} className={tabClass(activeTab === "ungraded")}>
-            Ungraded ({ungradedIds.length})
-          </button>
-          <button onClick={() => setActiveTab("graded")} className={tabClass(activeTab === "graded")}>
-            Graded ({gradedIds.length})
-          </button>
-        </div>
+        <Tabs
+          className="mb-4"
+          active={activeTab}
+          onChange={setActiveTab}
+          tabs={[
+            { key: "ungraded", label: `Ungraded (${ungradedIds.length})` },
+            { key: "graded", label: `Graded (${gradedIds.length})` },
+          ]}
+        />
 
         {activeTab === "ungraded" ? (
           <section>

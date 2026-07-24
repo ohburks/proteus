@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../lib/api";
 import type { Account } from "../lib/types";
+import { PageHeader, cardClass, inputClass, primaryBtn, rowClass, titleClass } from "../components/ui";
 
 export function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -44,67 +45,69 @@ export function AccountsPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-8 bg-app-light dark:bg-app-dark min-h-[calc(100vh-3.5rem)]">
-      <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-6">Accounts</h1>
-
-      <section className="bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl p-5 mb-6">
-        <h2 className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-3">Create account</h2>
-        <form onSubmit={createAccount} className="space-y-2">
-          <input
-            className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
-            placeholder="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-          <input
-            className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
-            placeholder="Password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <select
-            className="w-full px-3 py-2 border border-zinc-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-zinc-900 dark:text-zinc-100"
-            value={role}
-            onChange={(e) => setRole(e.target.value as "instructor" | "admin")}
-          >
-            <option value="instructor">instructor</option>
-            <option value="admin">admin</option>
-          </select>
-          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-          <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400 text-white rounded-lg text-sm font-medium">
-            Create account
-          </button>
-        </form>
-      </section>
-
-      <ul className="divide-y divide-zinc-200 dark:divide-white/5 bg-surface-light dark:bg-surface-dark border border-zinc-200 dark:border-transparent rounded-2xl overflow-hidden">
-        {accounts.map((a) => (
-          <li key={a.id} className="flex items-center justify-between px-4 py-3">
-            <div>
-              <p className="text-zinc-800 dark:text-zinc-200 font-medium">
-                {a.username} <span className="text-xs text-zinc-400 dark:text-zinc-500">({a.role})</span>
-              </p>
-              {!a.is_active && (
-                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-zinc-500/15 text-zinc-600 dark:text-zinc-400">
-                  deactivated
-                </span>
-              )}
-            </div>
-            <button
-              onClick={() => toggleActive(a)}
-              className={
-                a.is_active
-                  ? "px-3 py-1 border border-red-300 dark:border-red-500/30 text-red-600 dark:text-red-400 rounded-lg text-xs font-medium hover:bg-red-500/10"
-                  : "px-3 py-1 border border-zinc-300 dark:border-white/10 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-medium hover:bg-black/[0.03] dark:hover:bg-white/5"
-              }
+    <div className="min-h-[calc(100vh-3.5rem)] bg-app-light dark:bg-app-dark">
+      <PageHeader title="Accounts" />
+      <div className="max-w-3xl mx-auto px-6 py-6">
+        <section className={`${cardClass} mb-6`}>
+          <h2 className={`${titleClass} mb-3`}>Create account</h2>
+          <form onSubmit={createAccount} className="space-y-2">
+            <input
+              className={inputClass}
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+            <input
+              className={inputClass}
+              placeholder="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <select
+              className={inputClass}
+              value={role}
+              onChange={(e) => setRole(e.target.value as "instructor" | "admin")}
             >
-              {a.is_active ? "Deactivate" : "Reactivate"}
-            </button>
-          </li>
-        ))}
-        {accounts.length === 0 && <li className="px-4 py-3 text-zinc-500 dark:text-zinc-400">No accounts yet.</li>}
-      </ul>
+              <option value="instructor">instructor</option>
+              <option value="admin">admin</option>
+            </select>
+            {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+            <button className={primaryBtn}>Create account</button>
+          </form>
+        </section>
+
+        {accounts.length === 0 ? (
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">No accounts yet.</p>
+        ) : (
+          <ul className="space-y-2">
+            {accounts.map((a) => (
+              <li key={a.id} className={`${rowClass} flex items-center justify-between gap-2`}>
+                <div className="min-w-0">
+                  <p className="text-zinc-800 dark:text-zinc-200 font-medium">
+                    {a.username} <span className="text-xs text-zinc-400 dark:text-zinc-500">({a.role})</span>
+                    {!a.is_active && (
+                      <span className="ml-2 px-2 py-0.5 text-xs font-medium rounded-full bg-zinc-500/15 text-zinc-600 dark:text-zinc-400">
+                        deactivated
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <button
+                  onClick={() => toggleActive(a)}
+                  className={
+                    a.is_active
+                      ? "px-3 py-1.5 border border-red-300 dark:border-red-500/30 text-red-600 dark:text-red-400 rounded-lg text-xs font-medium hover:bg-red-500/10 shrink-0"
+                      : "px-3 py-1.5 border border-zinc-300 dark:border-white/10 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-medium hover:bg-black/[0.03] dark:hover:bg-white/5 shrink-0"
+                  }
+                >
+                  {a.is_active ? "Deactivate" : "Reactivate"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
