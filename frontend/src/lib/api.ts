@@ -28,7 +28,23 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   });
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
-    throw new ApiError(res.status, text);
+    // FastAPI errors are {"detail": "..."}; surface that readable string
+    // rather than the raw JSON body. Fall back to the body as-is otherwise.
+    let message = text;
+    try {
+      const parsed = JSON.parse(text);
+      if (typeof parsed?.detail === "string") {
+        message = parsed.detail;
+      } else if (Array.isArray(parsed?.detail)) {
+        // Pydantic 422 validation errors: [{loc, msg, ...}, ...] — join the
+        // human-readable msgs rather than dumping the raw JSON.
+        const msgs = parsed.detail.map((d: { msg?: string }) => d?.msg).filter(Boolean);
+        if (msgs.length) message = msgs.join("; ");
+      }
+    } catch {
+      // not JSON — keep the raw text
+    }
+    throw new ApiError(res.status, message);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
@@ -40,6 +56,49 @@ export const api = {
   put: <T,>(path: string, body?: unknown) => request<T>("PUT", path, body),
   del: <T,>(path: string) => request<T>("DELETE", path),
 };
+
+export async function uploadFile<T>(path: string, file: File): Promise<T> {
+  const form = new FormData();
+  form.append("file", file);
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(path, { method: "POST", headers, body: form });
+  if (!res.ok) {
+    const body = await res.text().catch(() => res.statusText);
+    let message = body;
+    try {
+      const parsed = JSON.parse(body);
+      if (typeof parsed?.detail === "string") message = parsed.detail;
+    } catch {
+      // Keep a non-JSON error response as-is.
+    }
+    throw new ApiError(res.status, message);
+  }
+  return (await res.json()) as T;
+}
+
+/**
+ * Download a file from an authenticated endpoint. Bearer-token auth (not
+ * cookies) means a plain `<a href>` can't carry the Authorization header —
+ * this fetches as a blob (bypassing request()'s JSON-only response
+ * handling, same reason streamLines below does its own manual fetch) and
+ * triggers the download via a synthetic anchor click.
+ */
+export async function downloadFile(path: string, filename: string): Promise<void> {
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(path, { headers });
+  if (!res.ok) throw new ApiError(res.status, await res.text().catch(() => res.statusText));
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 /**
  * Consume a text/event-stream endpoint line by line. TESTING ONLY — backs the

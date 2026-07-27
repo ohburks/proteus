@@ -60,8 +60,21 @@ OUTPUT_SCHEMA = """{
   "evidence": [{"quote": string, "reasoning": string}],
   "anchorMatched": int (0-5),
   "score": int (0-5) | "no-evidence",
+  "rationale": string,
   "selfConfidence": float (0-1),
   "precedent_referenced": [excerpt_id, ...]
+}"""
+
+BATCH_OUTPUT_SCHEMA = """{
+  "results": [{
+    "criterionId": string,
+    "evidence": [{"quote": string, "reasoning": string}],
+    "anchorMatched": int (0-5),
+    "score": int (0-5) | "no-evidence",
+    "rationale": string,
+    "selfConfidence": float (0-1),
+    "precedent_referenced": [excerpt_id, ...]
+  }, ...]
 }"""
 
 
@@ -77,7 +90,8 @@ def build_system_prompt(
     sections = [
         "[ROLE/TASK]",
         f"Grade the following essay excerpt against criterion {criterion['criterionId']} "
-        f"of the {rubric_id} rubric. Output must follow the schema below.",
+        f"of the {rubric_id} rubric. Output must follow the schema below, including a "
+        f"non-empty \"rationale\" explaining your score.",
         "",
         "[RUBRIC CRITERION]",
         _criterion_block(criterion),
@@ -105,3 +119,56 @@ def build_system_prompt(
 
 def build_user_prompt(essay_text: str) -> str:
     return f"[ESSAY TEXT]\n{essay_text}"
+
+
+def build_batch_system_prompt(
+    *,
+    path: str,
+    criteria: list[dict],
+    rubric_id: str,
+    both_paths_ctx: BothPathsContext,
+    personalized_only_ctx: PersonalizedOnlyContext | None,
+    precedent_pools: dict[str, list[dict]],
+) -> str:
+    """Build one request for several criteria while keeping precedents scoped.
+
+    Each criterion carries its own precedent block so the model cannot apply a
+    retrieved example to a different rubric element merely because both were
+    graded in the same provider call.
+    """
+    criteria_sections = []
+    for criterion in criteria:
+        criterion_id = criterion["criterionId"]
+        criteria_sections.extend([
+            f"[CRITERION {criterion_id}]",
+            _criterion_block(criterion),
+            f"Precedent for {criterion_id}:",
+            _precedent_block(precedent_pools.get(criterion_id, [])),
+            "",
+        ])
+
+    sections = [
+        "[ROLE/TASK]",
+        f"Grade the essay against each of the {len(criteria)} listed criteria "
+        f"from the {rubric_id} rubric. Return exactly one result for every "
+        "criterionId. Evaluate each criterion independently and only use the "
+        "precedent listed under that same criterion.",
+        "",
+        "[RUBRIC CRITERIA AND SCOPED PRECEDENT]",
+        *criteria_sections,
+        "[ASSIGNMENT CONTEXT]",
+        _assignment_context_block(both_paths_ctx),
+        "",
+    ]
+    if path == "personalized":
+        sections += [
+            "[INSTRUCTOR GUIDANCE]",
+            _instructor_guidance_block(personalized_only_ctx or PersonalizedOnlyContext(None, None, None)),
+            "",
+        ]
+    sections += [
+        "[OUTPUT SCHEMA]",
+        "Respond with a single JSON object matching exactly:",
+        BATCH_OUTPUT_SCHEMA,
+    ]
+    return "\n".join(sections)

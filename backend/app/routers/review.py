@@ -1,14 +1,17 @@
 """Review UI data contract + override / adopt-exemplar actions (design doc §9)."""
 import json
+import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
+from app.audit import record_audit_event
 from app.auth import CurrentUser, get_current_user
 from app.db import get_connection
 from app.repositories.excerpts import insert_personalized_excerpt
 from app.schemas import OverrideRequest
 
 router = APIRouter(prefix="/api/assessments/{assessment_id}/criteria/{criterion_id}", tags=["review"])
+logger = logging.getLogger(__name__)
 
 
 def _raw_pass_out(row) -> dict:
@@ -32,7 +35,10 @@ def _aggregate_out(row, raw_passes: list) -> dict | None:
         "rationale": row["rationale"],
         "precedent_ids": json.loads(row["precedent_ids_json"]),
         "spread": row["spread"],
-        "confidence": row["confidence"],
+        # Renamed from "confidence" (B2): this is 1 - spread/5 over N repeated
+        # sampling passes, not a probability the score is correct — the old
+        # name overstated it, especially now that N defaults to 1 (engine.py).
+        "pass_stability": row["confidence"],
         "high_spread": bool(row["high_spread"]),
         "n_passes": row["n_passes"],
         "passes": [_raw_pass_out(p) for p in raw_passes],
@@ -77,11 +83,19 @@ def get_review(assessment_id: str, criterion_id: str, user: CurrentUser = Depend
     instructor_id = user.scoped_instructor_id()
     with get_connection() as conn:
         (
-            _, personalized, exemplar, personalized_passes, exemplar_passes,
+            assessment, personalized, exemplar, personalized_passes, exemplar_passes,
             divergence, override, _,
         ) = _load_context(conn, assessment_id, criterion_id, instructor_id)
+        criterion_row = conn.execute(
+            "SELECT statement, anchors_json FROM criteria WHERE rubric_id = ? AND rubric_version = ? AND criterion_id = ?",
+            (assessment["rubric_id"], assessment["rubric_version"], criterion_id),
+        ).fetchone()
     return {
         "criterion_id": criterion_id,
+        "criterion": {
+            "statement": criterion_row["statement"],
+            "anchors": json.loads(criterion_row["anchors_json"]),
+        } if criterion_row else None,
         "personalized": _aggregate_out(personalized, personalized_passes),
         "exemplar": _aggregate_out(exemplar, exemplar_passes),
         "divergence": {
@@ -101,7 +115,7 @@ def get_review(assessment_id: str, criterion_id: str, user: CurrentUser = Depend
 
 def _write_override_and_precedent(
     conn, assessment, essay, instructor_id: str, criterion_id: str, new_score: int, new_rationale: str,
-    overridden_by: str, from_evidence: list[dict] | None,
+    overridden_by: str, from_evidence: list[dict] | None, original_anchor_matched: int | None = None,
 ):
     from datetime import UTC, datetime
     now = datetime.now(UTC).isoformat()
@@ -119,7 +133,7 @@ def _write_override_and_precedent(
     # text is a quote already grounded in this essay (from the pass whose
     # score/evidence the override is based on) — an override's free-text
     # rationale isn't itself essay text, so it can't stand in as the excerpt.
-    from app.grading.evidence import verify_quote
+    from app.grading.evidence import EvidenceVerificationError, verify_quote
     assignment = conn.execute(
         "SELECT * FROM assignments WHERE id = (SELECT assignment_id FROM essays WHERE id = ?)", (essay["id"],)
     ).fetchone()
@@ -133,17 +147,37 @@ def _write_override_and_precedent(
                 rubric_id=assessment["rubric_id"], criterion_id=criterion_id, instructor_id=instructor_id,
                 course_id=assignment["course_id"] if assignment else None,
                 assignment_id=assignment["id"] if assignment else None,
-                excerpt_text=grounded_quote, score=new_score, anchor_matched=new_score,
+                excerpt_text=grounded_quote, score=new_score,
+                # D4: anchor_matched describes how well THIS QUOTE maps to the
+                # rubric's anchor language — a property of the evidence, not of
+                # the instructor's override judgment. Use the original AI
+                # pass's own anchor assessment for this same quote instead of
+                # blindly copying new_score, which can differ from anchor fit
+                # for reasons that have nothing to do with anchor language
+                # (e.g. correcting for known model bias on this criterion).
+                anchor_matched=original_anchor_matched if original_anchor_matched is not None else new_score,
                 rationale=new_rationale, source="review_writeback", added_by=overridden_by,
                 source_essay_text=essay["text"],
             )
-        except Exception:
+        except EvidenceVerificationError:
             pass  # not essay-grounded enough to become precedent; override itself still stands
+        except Exception:
+            # D4: a real failure (Chroma write error, SQL error, etc.) here
+            # used to be indistinguishable from the benign "not grounded
+            # enough" case above — both were silently swallowed. Only the
+            # benign case should be silent; this one should be visible.
+            logger.exception(
+                "Failed to write override precedent (assessment=%s criterion=%s)", assessment["id"], criterion_id
+            )
 
 
 @router.post("/override")
 def override_score(
-    assessment_id: str, criterion_id: str, body: OverrideRequest, user: CurrentUser = Depends(get_current_user)
+    assessment_id: str,
+    criterion_id: str,
+    body: OverrideRequest,
+    request: Request,
+    user: CurrentUser = Depends(get_current_user),
 ):
     instructor_id = user.scoped_instructor_id()
     with get_connection() as conn:
@@ -151,14 +185,28 @@ def override_score(
         evidence = json.loads(personalized["evidence_json"]) if personalized else None
         _write_override_and_precedent(
             conn, assessment, essay, instructor_id, criterion_id, body.new_score, body.new_rationale,
-            user.user_id, evidence,
+            user.user_id, evidence, personalized["anchor_matched"] if personalized else None,
         )
         conn.commit()
+    record_audit_event(
+        action="grade.override",
+        outcome="success",
+        request=request,
+        actor=user,
+        target_type="assessment_criterion",
+        target_id=f"{assessment_id}:{criterion_id}",
+        metadata={"assessment_id": assessment_id, "criterion_id": criterion_id, "new_score": body.new_score},
+    )
     return {"status": "ok"}
 
 
 @router.post("/adopt-exemplar")
-def adopt_exemplar(assessment_id: str, criterion_id: str, user: CurrentUser = Depends(get_current_user)):
+def adopt_exemplar(
+    assessment_id: str,
+    criterion_id: str,
+    request: Request,
+    user: CurrentUser = Depends(get_current_user),
+):
     instructor_id = user.scoped_instructor_id()
     with get_connection() as conn:
         assessment, _, exemplar, _, _, _, _, essay = _load_context(conn, assessment_id, criterion_id, instructor_id)
@@ -167,11 +215,26 @@ def adopt_exemplar(assessment_id: str, criterion_id: str, user: CurrentUser = De
         evidence = json.loads(exemplar["evidence_json"])
         # exemplar["score"] is the multi-pass median (score_aggregates.score,
         # REAL) — round to the nearest whole point for the override/precedent
-        # columns, which store a single discrete 0-5 score.
-        adopted_score = round(exemplar["score"])
+        # columns, which store a single discrete 0-5 score. Round half UP so
+        # a 2.5 median -> 3, matching the frontend's Math.round of the same
+        # value (Python's round() is banker's rounding: 2.5 -> 2, inconsistent).
+        adopted_score = int(exemplar["score"] + 0.5)
         _write_override_and_precedent(
             conn, assessment, essay, instructor_id, criterion_id, adopted_score, exemplar["rationale"],
-            user.user_id, evidence,
+            user.user_id, evidence, exemplar["anchor_matched"],
         )
         conn.commit()
+    record_audit_event(
+        action="grade.exemplar_adopted",
+        outcome="success",
+        request=request,
+        actor=user,
+        target_type="assessment_criterion",
+        target_id=f"{assessment_id}:{criterion_id}",
+        metadata={
+            "assessment_id": assessment_id,
+            "criterion_id": criterion_id,
+            "new_score": adopted_score,
+        },
+    )
     return {"status": "ok"}

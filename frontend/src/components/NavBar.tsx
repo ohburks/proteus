@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useTheme } from "../theme/ThemeContext";
 
@@ -6,19 +6,54 @@ export function NavBar() {
   const { role, logout } = useAuth();
   const { preference, setPreference } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
+  const coursesActive =
+    location.pathname === "/" ||
+    ["/courses/", "/assignments/", "/assessments/", "/students/"].some((prefix) =>
+      location.pathname.startsWith(prefix),
+    );
+
+  function navLinkClass(active: boolean) {
+    return `text-sm px-3 py-1.5 rounded-full transition-colors ${
+      active
+        ? "bg-black/5 dark:bg-white/10 text-zinc-900 dark:text-zinc-100 font-medium"
+        : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+    }`;
+  }
 
   return (
-    <nav className="flex items-center justify-between px-6 py-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-      <div className="flex items-center gap-6">
-        <Link to="/" className="font-semibold text-gray-900 dark:text-gray-100">
-          Proteus (Dual RAG Grading)
+    <nav className="flex items-center justify-between px-6 py-3 bg-surface-light dark:bg-app-dark border-b border-zinc-200 dark:border-transparent">
+      <div className="flex items-center gap-2">
+        <Link to="/" className="font-semibold text-zinc-900 dark:text-zinc-100 mr-4">
+          Proteus <span className="text-blue-600 dark:text-blue-400">(Dual RAG Grading)</span>
         </Link>
-        <Link to="/" className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+        <Link to="/" className={navLinkClass(coursesActive)}>
           Courses
         </Link>
         {role && (
-          <Link to="/settings" className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+          <Link to="/library" className={navLinkClass(location.pathname === "/library")}>
+            Library
+          </Link>
+        )}
+        {role && (
+          <Link to="/settings" className={navLinkClass(location.pathname === "/settings")}>
             Settings
+          </Link>
+        )}
+        {role === "admin" && (
+          <Link
+            to="/admin/accounts"
+            className={navLinkClass(location.pathname === "/admin/accounts")}
+          >
+            Accounts
+          </Link>
+        )}
+        {role === "admin" && (
+          <Link
+            to="/admin/audit"
+            className={navLinkClass(location.pathname === "/admin/audit")}
+          >
+            Audit
           </Link>
         )}
       </div>
@@ -26,7 +61,7 @@ export function NavBar() {
         <select
           value={preference}
           onChange={(e) => setPreference(e.target.value as "system" | "light" | "dark")}
-          className="text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-700 rounded px-2 py-1"
+          className="text-sm bg-white dark:bg-white/5 text-zinc-700 dark:text-zinc-200 border border-zinc-300 dark:border-white/10 rounded-lg px-2 py-1"
         >
           <option value="system">System</option>
           <option value="light">Light</option>
@@ -38,7 +73,7 @@ export function NavBar() {
               logout();
               navigate("/login");
             }}
-            className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+            className="text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
           >
             Log out
           </button>

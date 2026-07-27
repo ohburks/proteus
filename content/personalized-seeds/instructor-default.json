@@ -3,7 +3,7 @@
   "course_id": null,
   "assignment_id": null,
   "rubric_id": "mccr-w11-12-arg",
-  "notes": "Personalized RAG seed corpus for a single instructor's standing grading style (instructor-default tier: course_id/assignment_id null). Unlike the Exemplar corpus, anchor_matched here is NOT set equal to score by construction -- anchor_matched reflects what the rubric's literal anchor text would assign, while score reflects what this instructor actually gave it. The gap between the two IS the point. Self-approved by Claude, no independent human review -- POC purposes.",
+  "notes": "Personalized RAG seed corpus for a single instructor's standing grading style (instructor-default tier: course_id/assignment_id null). Unlike the Exemplar corpus, anchor_matched here is NOT set equal to score by construction -- anchor_matched reflects what the rubric's literal anchor text would assign, while score reflects what this instructor actually gave it. The gap between the two IS the point. Self-approved by Claude, no independent human review -- POC purposes. Batch 2 merged in: new topics/essays (uniforms, homework), same instructor_id, no overlap with batch 1 IDs.",
   "instructor_profile": {
     "grading_philosophy": "Grammar, spelling, and punctuation errors are not penalized -- I grade argument quality, not surface polish. Formal academic register is not required either. A strong conclusion is non-negotiable, though: essays without one, or that only restate the claim without real synthesis, lose more than the rubric anchor alone would take off.",
     "deprioritized_criteria": [
@@ -27,6 +27,18 @@
     {
       "source_essay_id": "pers-arg-no-conclusion-standalone",
       "text": "...and that's why buses would need new routes."
+    },
+    {
+      "source_essay_id": "pers2-arg-uniforms",
+      "text": "i dont think schools should make everyone wear the same uniform because it takes away from students being themselves. kids allready have alot of rules to follow and uniforms just add more stress on familys who cant efford to buy special cloths. some people say uniforms stop bullying about cloths but that dosent really solve the real problem which is how kids treat each other. Overall uniforms are not really nessesary and schools should let students wear what they want."
+    },
+    {
+      "source_essay_id": "pers2-arg-homework",
+      "text": "The amount of homework assigned to high school students should be reduced, as current workloads interfere with sleep, extracurricular participation, and family time. Research from the American Psychological Association indicates that excessive homework is associated with elevated stress and diminishing academic returns beyond a certain threshold. Opponents argue that homework reinforces classroom learning and builds independent study habits, and that concern is legitimate; the issue is not homework itself but its volume relative to the benefit it produces. Homework remains a useful tool when assigned in moderation."
+    },
+    {
+      "source_essay_id": "pers2-arg-strong-conclusion-standalone",
+      "text": "Reducing homework volume is not an argument against rigor -- it is an argument for spending the district's limited attention on the assignments proven to move learning, rather than treating quantity itself as the goal a lighter, better-targeted workload could serve just as well."
     }
   ],
   "excerpts": [
@@ -115,6 +127,83 @@
       "anchor_matched": 0,
       "score": 0,
       "rationale": "An essay that just stops already scores 0 under the rubric anchor -- no floor left for extra strictness to push below. Shows the strictness shows up in marginal/partial conclusions, not by scoring the absolute floor case any lower.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "pers2-0001",
+      "criterion_id": "L1-1",
+      "source_essay_id": "pers2-arg-uniforms",
+      "excerpt_text": "kids allready have alot of rules to follow and uniforms just add more stress on familys who cant efford to buy special cloths.",
+      "anchor_matched": 1,
+      "score": 5,
+      "rationale": "Literal rubric fit: recurring spelling/usage errors (allready, alot, familys, cant efford, cloths) put this near the level-1 anchor. Instructor score: full marks -- grammar/spelling not weighted.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "pers2-0002",
+      "criterion_id": "L1-1",
+      "source_essay_id": "pers2-arg-homework",
+      "excerpt_text": "Research from the American Psychological Association indicates that excessive homework is associated with elevated stress and diminishing academic returns beyond a certain threshold.",
+      "anchor_matched": 5,
+      "score": 5,
+      "rationale": "Clean sentence, anchor and score agree -- same top score as the error-ridden excerpt above, confirming the criterion isn't actually differentiating.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "pers2-0003",
+      "criterion_id": "W1d-1",
+      "source_essay_id": "pers2-arg-uniforms",
+      "excerpt_text": "i dont think schools should make everyone wear the same uniform because it takes away from students being themselves.",
+      "anchor_matched": 1,
+      "score": 5,
+      "rationale": "Literal rubric fit: casual first-person, contraction, no academic diction -- level-1 anchor. Instructor score: full marks -- formal style not required.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "pers2-0004",
+      "criterion_id": "W1d-1",
+      "source_essay_id": "pers2-arg-homework",
+      "excerpt_text": "Opponents argue that homework reinforces classroom learning and builds independent study habits, and that concern is legitimate; the issue is not homework itself but its volume relative to the benefit it produces.",
+      "anchor_matched": 4,
+      "score": 5,
+      "rationale": "Genuinely formal register (anchor 4), same score of 5 as the informal excerpt above -- rounded up regardless of register.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "pers2-0005",
+      "criterion_id": "W1e-1",
+      "source_essay_id": "pers2-arg-uniforms",
+      "excerpt_text": "Overall uniforms are not really nessesary and schools should let students wear what they want.",
+      "anchor_matched": 2,
+      "score": 0,
+      "rationale": "Literal rubric fit: bare restatement, no synthesis -- level-2 anchor. Instructor score: pushed to 0 -- extra penalty beyond the rubric's own deduction for a conclusion that doesn't synthesize.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "pers2-0006",
+      "criterion_id": "W1e-1",
+      "source_essay_id": "pers2-arg-homework",
+      "excerpt_text": "Homework remains a useful tool when assigned in moderation.",
+      "anchor_matched": 3,
+      "score": 1,
+      "rationale": "This conclusion is a step up from a bare restatement (anchor 3 -- summarizes reasons without extending them), but still isn't real synthesis. Instructor score: still marked well below the anchor, showing the strict standard applies even to a moderately competent conclusion, not just weak ones.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "pers2-0007",
+      "criterion_id": "W1e-1",
+      "source_essay_id": "pers2-arg-strong-conclusion-standalone",
+      "excerpt_text": "Reducing homework volume is not an argument against rigor -- it is an argument for spending the district's limited attention on the assignments proven to move learning, rather than treating quantity itself as the goal a lighter, better-targeted workload could serve just as well.",
+      "anchor_matched": 5,
+      "score": 5,
+      "rationale": "Real synthesis and an earned implication -- meets the instructor's high bar, same score the rubric anchor alone would give it. Confirms the strict standard is satisfiable, not a blanket penalty.",
       "source": "manual",
       "added_by": "instructor"
     }

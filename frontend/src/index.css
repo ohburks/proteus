@@ -6,7 +6,58 @@
    ThemeProvider based on the resolved system/light/dark preference. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Neutral (non-blue-tinted) background/surface tokens — Tailwind's stock
+   `gray` scale is cool-toned, so the app/card backdrop pair is defined
+   explicitly here. Accent hues (blue/purple/green/red/amber/pink) reuse
+   Tailwind's default palette as-is since e.g. blue-500 (#3b82f6) and
+   purple-500 (#8b5cf6) already match the target spec. */
+@theme {
+  --color-app-dark: #18181a;
+  --color-surface-dark: #222225;
+  --color-app-light: #f6f6f7;
+  --color-surface-light: #ffffff;
+}
+
 html, body, #root {
   height: 100%;
   margin: 0;
+}
+
+/* Keep the rubric dimension scroller easy to spot without letting its thumb
+   crowd the tab labels. Firefox uses scrollbar-color; Chromium/WebKit use the
+   pseudo-elements below. */
+.rubric-tabs-scroll {
+  scrollbar-color: #a1a1aa transparent;
+  scrollbar-width: thin;
+}
+
+.rubric-tabs-scroll::-webkit-scrollbar {
+  height: 7px;
+}
+
+.rubric-tabs-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.rubric-tabs-scroll::-webkit-scrollbar-thumb {
+  background-color: #a1a1aa;
+  background-clip: padding-box;
+  border: 1px solid transparent;
+  border-radius: 999px;
+}
+
+.rubric-tabs-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: #71717a;
+}
+
+.dark .rubric-tabs-scroll {
+  scrollbar-color: #71717a transparent;
+}
+
+.dark .rubric-tabs-scroll::-webkit-scrollbar-thumb {
+  background-color: #71717a;
+}
+
+.dark .rubric-tabs-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: #a1a1aa;
 }

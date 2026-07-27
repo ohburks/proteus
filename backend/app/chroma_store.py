@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import chromadb
+from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 
 CHROMA_DIR = Path(__file__).resolve().parent.parent / "data" / "chroma"
 CHROMA_DIR.mkdir(parents=True, exist_ok=True)
@@ -18,6 +19,7 @@ EXEMPLAR_COLLECTION = "exemplar_excerpts"
 PERSONALIZED_COLLECTION = "personalized_excerpts"
 
 _client = None
+_embedding_function = DefaultEmbeddingFunction()
 
 
 def get_client():
@@ -31,7 +33,12 @@ def get_collection(name: str):
     # Uses Chroma's default embedding function (all-MiniLM-L6-v2, local ONNX,
     # no per-call API key) — design doc §3.3. Not pinned/pre-baked: internet
     # access is guaranteed, so the one-time model fetch on first use is fine.
-    return get_client().get_or_create_collection(name=name)
+    return get_client().get_or_create_collection(name=name, embedding_function=_embedding_function)
+
+
+def embed_text(text: str) -> list[float]:
+    """Embed a grading query once so criterion-filtered searches can reuse it."""
+    return _embedding_function([text])[0].tolist()
 
 
 def upsert(collection_name: str, id_: str, document: str, metadata: dict[str, Any]) -> None:
@@ -50,14 +57,20 @@ def query(
     where: dict[str, Any],
     n: int,
     exclude_ids: list[str] | None = None,
+    query_embedding: list[float] | None = None,
 ) -> list[dict[str, Any]]:
     if n <= 0:
         return []
     coll = get_collection(collection_name)
     # Over-fetch so post-filtering excluded ids doesn't starve the result.
     fetch_n = n + len(exclude_ids or [])
+    query_args = (
+        {"query_embeddings": [query_embedding]}
+        if query_embedding is not None
+        else {"query_texts": [query_text]}
+    )
     result = coll.query(
-        query_texts=[query_text],
+        **query_args,
         n_results=min(fetch_n, max(coll.count(), 1)),
         where=where or None,
     )

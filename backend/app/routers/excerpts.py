@@ -1,6 +1,7 @@
 """Manual curation of the personalized corpus (design doc §3.5 entry path)."""
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
+from app.audit import record_audit_event
 from app.auth import CurrentUser, get_current_user
 from app.db import get_connection
 from app.grading.evidence import EvidenceVerificationError
@@ -14,6 +15,15 @@ router = APIRouter(prefix="/api/personalized-excerpts", tags=["excerpts"])
 def create_personalized_excerpt(body: PersonalizedExcerptCreate, user: CurrentUser = Depends(get_current_user)):
     instructor_id = user.scoped_instructor_id()
     with get_connection() as conn:
+        if body.course_id:
+            # Validate course ownership independently of assignment_id: a bare
+            # course_id (no assignment) was previously stored unchecked, letting
+            # a caller tag an excerpt with another instructor's course_id.
+            course = conn.execute("SELECT * FROM courses WHERE id = ?", (body.course_id,)).fetchone()
+            if course is None:
+                raise HTTPException(404, "Course not found")
+            if course["instructor_id"] != instructor_id:
+                raise HTTPException(403, "Not your course")
         if body.assignment_id:
             assignment = conn.execute("SELECT * FROM assignments WHERE id = ?", (body.assignment_id,)).fetchone()
             if assignment is None:
@@ -21,6 +31,10 @@ def create_personalized_excerpt(body: PersonalizedExcerptCreate, user: CurrentUs
             course = conn.execute("SELECT * FROM courses WHERE id = ?", (assignment["course_id"],)).fetchone()
             if course["instructor_id"] != instructor_id:
                 raise HTTPException(403, "Not your assignment")
+            # If both are supplied they must be consistent, otherwise the excerpt
+            # would be filed under a course the assignment doesn't belong to.
+            if body.course_id and body.course_id != assignment["course_id"]:
+                raise HTTPException(400, "assignment_id does not belong to course_id")
         try:
             excerpt_id = insert_personalized_excerpt(
                 conn,
@@ -38,21 +52,25 @@ def create_personalized_excerpt(body: PersonalizedExcerptCreate, user: CurrentUs
 
 @router.get("")
 def list_personalized_excerpts(
-    rubric_id: str, criterion_id: str, user: CurrentUser = Depends(get_current_user)
+    rubric_id: str,
+    criterion_id: str,
+    user: CurrentUser = Depends(get_current_user),
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
 ):
     instructor_id = user.scoped_instructor_id()
     with get_connection() as conn:
         rows = conn.execute(
             """SELECT * FROM personalized_excerpts_src
                WHERE instructor_id = ? AND rubric_id = ? AND criterion_id = ?
-               ORDER BY updated_at DESC""",
-            (instructor_id, rubric_id, criterion_id),
+               ORDER BY updated_at DESC, id DESC LIMIT ? OFFSET ?""",
+            (instructor_id, rubric_id, criterion_id, limit, offset),
         ).fetchall()
     return [dict(r) for r in rows]
 
 
 @router.delete("/{excerpt_id}")
-def delete_excerpt(excerpt_id: str, user: CurrentUser = Depends(get_current_user)):
+def delete_excerpt(excerpt_id: str, request: Request, user: CurrentUser = Depends(get_current_user)):
     instructor_id = user.scoped_instructor_id()
     with get_connection() as conn:
         row = conn.execute("SELECT * FROM personalized_excerpts_src WHERE id = ?", (excerpt_id,)).fetchone()
@@ -62,4 +80,18 @@ def delete_excerpt(excerpt_id: str, user: CurrentUser = Depends(get_current_user
             raise HTTPException(403, "Not your excerpt")
         delete_personalized_excerpt(conn, excerpt_id)
         conn.commit()
+    record_audit_event(
+        action="excerpt.deleted",
+        outcome="success",
+        request=request,
+        actor=user,
+        target_type="personalized_excerpt",
+        target_id=excerpt_id,
+        metadata={
+            "rubric_id": row["rubric_id"],
+            "criterion_id": row["criterion_id"],
+            "course_id": row["course_id"],
+            "assignment_id": row["assignment_id"],
+        },
+    )
     return {"status": "ok"}

@@ -1,4 +1,10 @@
-from pydantic import BaseModel, Field
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, Field, StringConstraints
+
+# A non-empty string after trimming surrounding whitespace — rejects "" and
+# "   " with a 422 rather than persisting a blank course/assignment/essay.
+NonBlankStr = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
 class LoginRequest(BaseModel):
@@ -13,8 +19,18 @@ class LoginResponse(BaseModel):
     theme_preference: str
 
 
+class AccountCreate(BaseModel):
+    username: str
+    password: str
+    role: Literal["admin", "instructor"]
+
+
+class AccountStatusUpdate(BaseModel):
+    is_active: bool
+
+
 class CourseCreate(BaseModel):
-    name: str
+    name: NonBlankStr
 
 
 class CourseOut(BaseModel):
@@ -25,7 +41,7 @@ class CourseOut(BaseModel):
 
 class AssignmentCreate(BaseModel):
     course_id: str
-    name: str
+    name: NonBlankStr
     rubric_id: str
     rubric_version: str
     prompt_text: str | None = None
@@ -44,7 +60,7 @@ class AssignmentOut(BaseModel):
 
 class StudentCreate(BaseModel):
     course_id: str | None = None
-    display_name: str
+    display_name: NonBlankStr
     external_ref: str | None = None
 
 
@@ -57,10 +73,15 @@ class StudentOut(BaseModel):
     status: str
 
 
+class StudentUpdate(BaseModel):
+    external_ref: str | None = None
+    status: Literal["active", "archived"]
+
+
 class EssayCreate(BaseModel):
     assignment_id: str
     student_id: str | None = None
-    text: str
+    text: NonBlankStr
 
 
 class EssayOut(BaseModel):
@@ -82,6 +103,11 @@ class GradeRequest(BaseModel):
     byok: BYOKConfig | None = None
 
 
+class BulkGradeRequest(BaseModel):
+    essay_ids: list[str]
+    byok: BYOKConfig | None = None
+
+
 class AssessmentOut(BaseModel):
     id: str
     essay_id: str
@@ -94,12 +120,21 @@ class InstructorProfileUpdate(BaseModel):
     grading_philosophy: str | None = None
     deprioritized_criteria: list[str] | None = None
     rationale_tone: str | None = None
+    default_llm_provider: str | None = None
+    default_llm_model: str | None = None
 
 
 class CourseProfileUpdate(BaseModel):
     cohort_level: str | None = None
     curriculum_texts: list[str] | None = None
     rubric_version_pin: str | None = None
+
+
+class AssignmentProfileUpdate(BaseModel):
+    prompt_text: str | None = None
+    format_expectations: str | None = None
+    criterion_emphasis_notes: str | None = None
+    common_pitfalls: str | None = None
 
 
 class DivergenceThresholdUpdate(BaseModel):

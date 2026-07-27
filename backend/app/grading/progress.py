@@ -15,6 +15,11 @@ from dataclasses import dataclass, field
 from fastapi import Request
 
 _MAX_LINES = 2000
+# Cap how many assessments' logs we retain in memory. Without this, `_logs`
+# grows by one entry per assessment for the life of the process (it's never
+# cleaned up). Oldest entries are evicted first; score_records_v2 remains the
+# durable record, so evicting a finished run's live log loses nothing real.
+_MAX_LOGS = 100
 
 
 @dataclass
@@ -31,6 +36,13 @@ _registry_lock = threading.Lock()
 
 def start(assessment_id: str) -> None:
     with _registry_lock:
+        # Evict oldest entries first (dicts preserve insertion order) to keep the
+        # registry bounded. Re-inserting an existing id would keep its old
+        # position, so drop it first to move it to the newest slot.
+        _logs.pop(assessment_id, None)
+        while len(_logs) >= _MAX_LOGS:
+            oldest = next(iter(_logs))
+            del _logs[oldest]
         _logs[assessment_id] = _Log()
 
 

@@ -17,6 +17,14 @@ _TIMEOUT_S = 120
 _MAX_RETRIES = 5
 _RETRY_BACKOFF_S = 5
 
+# urllib's default User-Agent is "Python-urllib/3.x". Some providers front their
+# API with a WAF that blocks that exact signature outright — Texas A&M's
+# Cloudflare gateway (provider "tamu") rejects it on POST /chat/completions with
+# a 403 "error code: 1010" before the request ever reaches auth. Any non-default
+# UA gets through (curl's, a browser's, or this one all work), so identify
+# ourselves explicitly on every call. Harmless for the other providers.
+_USER_AGENT = "proteus/1.0"
+
 # A server-supplied Retry-After beyond this isn't worth blocking the
 # background grading thread for — fail fast instead. Free tiers (e.g. GitHub
 # Models) can return a Retry-After reflecting a daily/longer-window quota,
@@ -49,11 +57,31 @@ def _throttle_github(emit: EmitFn | None = None) -> None:
 
 def _post_json(url: str, headers: dict[str, str], body: dict, emit: EmitFn | None = None) -> dict:
     data = json.dumps(body).encode("utf-8")
-    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json", **headers}, method="POST")
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers={"Content-Type": "application/json", "User-Agent": _USER_AGENT, **headers},
+        method="POST",
+    )
     for attempt in range(_MAX_RETRIES + 1):
         try:
             with urllib.request.urlopen(req, timeout=_TIMEOUT_S) as resp:
-                return json.loads(resp.read().decode("utf-8"))
+                raw = resp.read().decode("utf-8", "replace")
+                try:
+                    return json.loads(raw)
+                except json.JSONDecodeError as e:
+                    # A 2xx whose body isn't a single JSON object. Almost always a
+                    # streamed/SSE response ("data: {…}\n\n…") from a provider that
+                    # streamed despite "stream": false, or an empty body. Surface
+                    # the status, content-type and a snippet instead of letting a
+                    # bare "Expecting value: line 1 column 1 (char 0)" escape.
+                    ctype = resp.headers.get("Content-Type", "?")
+                    snippet = raw.strip()[:200] or "(empty body)"
+                    raise RuntimeError(
+                        f"LLM request to {url} returned HTTP {resp.status} but the body "
+                        f"was not JSON (Content-Type: {ctype}; {len(raw)} bytes). "
+                        f"Body starts: {snippet!r}"
+                    ) from e
         except urllib.error.HTTPError as e:
             body_text = e.read().decode("utf-8", "replace")
             if e.code == 429 and attempt < _MAX_RETRIES:
@@ -74,7 +102,45 @@ def _post_json(url: str, headers: dict[str, str], body: dict, emit: EmitFn | Non
                     emit(f"Rate limited (429) calling {url} — retrying in {wait_s:.0f}s (attempt {attempt + 1}/{_MAX_RETRIES})")
                 time.sleep(wait_s)
                 continue
+            # Transient server-side errors (502/503/504 and other 5xx) are worth
+            # retrying too — otherwise a single provider blip aborts the whole
+            # assessment. 4xx (bad key, bad request) are the caller's fault, so
+            # fail immediately.
+            if 500 <= e.code < 600 and attempt < _MAX_RETRIES:
+                wait_s = _RETRY_BACKOFF_S * (attempt + 1)
+                if emit:
+                    emit(f"Provider error {e.code} calling {url} — retrying in {wait_s:.0f}s (attempt {attempt + 1}/{_MAX_RETRIES})")
+                time.sleep(wait_s)
+                continue
             raise RuntimeError(f"LLM request to {url} failed: {e.code} {body_text}") from e
+        except (urllib.error.URLError, TimeoutError) as e:
+            # Network-level failure (DNS, connection reset, timeout) — also
+            # transient; retry with backoff before giving up.
+            if attempt < _MAX_RETRIES:
+                wait_s = _RETRY_BACKOFF_S * (attempt + 1)
+                if emit:
+                    emit(f"Network error calling {url} ({e}) — retrying in {wait_s:.0f}s (attempt {attempt + 1}/{_MAX_RETRIES})")
+                time.sleep(wait_s)
+                continue
+            raise RuntimeError(f"LLM request to {url} failed after {_MAX_RETRIES} retries: {e}") from e
+    # Loop exhausted without returning or raising (all attempts hit `continue`).
+    raise RuntimeError(f"LLM request to {url} failed after {_MAX_RETRIES} retries")
+
+
+def _extract_message(result: dict, extract) -> str:
+    """Pull the completion text out of a provider response, turning an
+    error-shaped or malformed body into a clear message instead of a cryptic
+    KeyError/IndexError. `extract` maps the parsed dict to the text."""
+    err = result.get("error") if isinstance(result, dict) else None
+    if err:
+        detail = err.get("message") if isinstance(err, dict) else str(err)
+        raise RuntimeError(f"Provider returned an error: {detail}")
+    try:
+        return extract(result)
+    except (KeyError, IndexError, TypeError) as e:
+        raise RuntimeError(
+            f"Provider returned an unexpected response shape (no completion content): {str(result)[:300]}"
+        ) from e
 
 
 class _OpenAICompatibleClient:
@@ -98,9 +164,14 @@ class _OpenAICompatibleClient:
             ],
             "response_format": {"type": "json_object"},
             "temperature": 0,
+            # Explicitly non-streaming: some OpenAI-compatible gateways (e.g. TAMU's
+            # Open WebUI proxy) stream by default when "stream" is omitted, returning
+            # an SSE body that isn't a single JSON object. _post_json expects one JSON
+            # response, so pin this off.
+            "stream": False,
         }
         result = _post_json(f"{self.base_url}/chat/completions", headers, body, emit=emit)
-        return result["choices"][0]["message"]["content"]
+        return _extract_message(result, lambda r: r["choices"][0]["message"]["content"])
 
 
 class _AnthropicClient:
@@ -117,7 +188,9 @@ class _AnthropicClient:
             "messages": [{"role": "user", "content": user_prompt}],
         }
         result = _post_json("https://api.anthropic.com/v1/messages", headers, body, emit=emit)
-        return "".join(block["text"] for block in result["content"] if block["type"] == "text")
+        return _extract_message(
+            result, lambda r: "".join(b["text"] for b in r["content"] if b["type"] == "text")
+        )
 
 
 class _GeminiClient:
@@ -126,29 +199,107 @@ class _GeminiClient:
         self.api_key = api_key
 
     def complete(self, system_prompt: str, user_prompt: str, emit: EmitFn | None = None) -> str:
+        # Key goes in the x-goog-api-key header, never the URL: the URL is
+        # embedded in retry/failure messages that reach the live grading
+        # terminal and assessment error text, so a query-string key would
+        # leak to the browser.
         url = (
             f"https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{self.model}:generateContent?key={self.api_key}"
+            f"{self.model}:generateContent"
         )
         body = {
             "systemInstruction": {"parts": [{"text": system_prompt}]},
             "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
             "generationConfig": {"responseMimeType": "application/json", "temperature": 0},
         }
-        result = _post_json(url, {}, body, emit=emit)
-        return result["candidates"][0]["content"]["parts"][0]["text"]
+        result = _post_json(url, {"x-goog-api-key": self.api_key}, body, emit=emit)
+        return _extract_message(result, lambda r: r["candidates"][0]["content"]["parts"][0]["text"])
+
+
+_VALIDATE_TIMEOUT_S = 8
+
+# Providers sharing the OpenAI-compatible REST shape, keyed to the same base
+# URLs used in build_client below.
+_OPENAI_COMPATIBLE_BASES = {
+    "openai": "https://api.openai.com/v1",
+    "groq": "https://api.groq.com/openai/v1",
+    "mistral": "https://api.mistral.ai/v1",
+    "github": "https://models.inference.ai.azure.com",
+    # Texas A&M's OpenAI-compatible gateway (https://docs.tamus.ai). Fixed base
+    # URL (not user-supplied, so no SSRF surface); /models requires auth, so the
+    # standard token-free key check below works without github-style special
+    # casing. Models are namespaced, e.g. "protected.gpt-4o".
+    "tamu": "https://chat-api.tamu.ai/openai",
+}
+
+
+def check_api_key(config: ProviderConfig) -> tuple[bool, str]:
+    """Cheaply verify the config's credentials against the provider — usually an
+    authenticated GET of its models list, so no tokens are consumed. Returns
+    (valid, detail). Never raises; never puts the key in a URL or in the
+    returned detail.
+
+    Exception: GitHub Models' /models catalog is PUBLIC (returns 200 without
+    auth), so a GET there would call any key valid. For that provider only, we
+    fall back to a minimal 1-token chat completion that actually authenticates.
+    """
+    # Real provider keys are ASCII. Anything else (em-dashes/smart quotes from
+    # copy-paste, stray unicode) can't legally travel in an HTTP header —
+    # urllib raises UnicodeEncodeError before even sending — so report it as
+    # invalid up front, with a hint, instead of crashing.
+    if config.api_key and not config.api_key.isascii():
+        return False, "API key contains non-ASCII characters (smart quotes/dashes from copy-paste?)"
+
+    data: bytes | None = None  # non-None -> POST
+    if config.provider == "github":
+        url = f"{_OPENAI_COMPATIBLE_BASES['github']}/chat/completions"
+        headers = {"Authorization": f"Bearer {config.api_key}", "Content-Type": "application/json"}
+        data = json.dumps(
+            {"model": config.model, "messages": [{"role": "user", "content": "ping"}], "max_tokens": 1}
+        ).encode("utf-8")
+    elif config.provider in _OPENAI_COMPATIBLE_BASES:
+        url = f"{_OPENAI_COMPATIBLE_BASES[config.provider]}/models"
+        headers = {"Authorization": f"Bearer {config.api_key}"}
+    elif config.provider == "ollama":
+        url = f"{(config.base_url or '').rstrip('/')}/v1/models"
+        headers = {}
+    elif config.provider == "anthropic":
+        url = "https://api.anthropic.com/v1/models"
+        headers = {"x-api-key": config.api_key or "", "anthropic-version": "2023-06-01"}
+    elif config.provider == "gemini":
+        url = "https://generativelanguage.googleapis.com/v1beta/models"
+        headers = {"x-goog-api-key": config.api_key or ""}
+    else:
+        return False, f"Unsupported provider: {config.provider!r}"
+
+    req = urllib.request.Request(
+        url, data=data, headers={"User-Agent": _USER_AGENT, **headers},
+        method="POST" if data else "GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=_VALIDATE_TIMEOUT_S):
+            return True, "ok"
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            return False, "The provider rejected this API key"
+        if e.code == 429:
+            # Rate limited — but authentication succeeded before the quota
+            # check, so the key itself is good.
+            return True, "ok (rate limited)"
+        return False, f"Provider returned HTTP {e.code}"
+    except (urllib.error.URLError, TimeoutError):
+        return False, "Could not reach the provider"
+    except (UnicodeEncodeError, ValueError):
+        # Key/URL contained something not expressible in an HTTP request
+        # (e.g. control characters) that slipped past the ASCII pre-check.
+        return False, "API key or URL contains invalid characters"
 
 
 def build_client(config: ProviderConfig) -> LLMClient:
-    if config.provider == "openai":
-        return _OpenAICompatibleClient("https://api.openai.com/v1", config.model, config.api_key)
-    if config.provider == "groq":
-        return _OpenAICompatibleClient("https://api.groq.com/openai/v1", config.model, config.api_key)
-    if config.provider == "mistral":
-        return _OpenAICompatibleClient("https://api.mistral.ai/v1", config.model, config.api_key)
-    if config.provider == "github":
+    if config.provider in _OPENAI_COMPATIBLE_BASES:
         return _OpenAICompatibleClient(
-            "https://models.inference.ai.azure.com", config.model, config.api_key, throttle_github=True
+            _OPENAI_COMPATIBLE_BASES[config.provider], config.model, config.api_key,
+            throttle_github=(config.provider == "github"),
         )
     if config.provider == "ollama":
         return _OpenAICompatibleClient(f"{config.base_url}/v1", config.model, None)

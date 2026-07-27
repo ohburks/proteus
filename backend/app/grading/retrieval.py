@@ -22,7 +22,12 @@ class Scope:
 
 
 def assemble_personalized_pool(
-    query_text: str, scope: Scope, criterion_id: str, rubric_id: str, k: int = DEFAULT_K
+    query_text: str,
+    scope: Scope,
+    criterion_id: str,
+    rubric_id: str,
+    k: int = DEFAULT_K,
+    query_embedding: list[float] | None = None,
 ) -> list[dict]:
     pool: list[dict] = []
 
@@ -41,6 +46,7 @@ def assemble_personalized_pool(
                 ]
             },
             n=k,
+            query_embedding=query_embedding,
         )
 
     # Tier 2: course-scoped, course-default tier only (fills remaining slots)
@@ -60,6 +66,7 @@ def assemble_personalized_pool(
             },
             n=remaining,
             exclude_ids=[p["id"] for p in pool],
+            query_embedding=query_embedding,
         )
 
     # Tier 3: instructor-default tier (fills remaining slots)
@@ -79,13 +86,19 @@ def assemble_personalized_pool(
             },
             n=remaining,
             exclude_ids=[p["id"] for p in pool],
+            query_embedding=query_embedding,
         )
 
     return pool[:k]
 
 
 def query_exemplar_pool(
-    query_text: str, criterion_id: str, rubric_id: str, rubric_version: str, k: int = DEFAULT_K
+    query_text: str,
+    criterion_id: str,
+    rubric_id: str,
+    rubric_version: str,
+    k: int = DEFAULT_K,
+    query_embedding: list[float] | None = None,
 ) -> list[dict]:
     # Unscoped, no tier cascade, never blended with personalized data (§5, §15).
     return chroma_store.query(
@@ -99,4 +112,5 @@ def query_exemplar_pool(
             ]
         },
         n=k,
+        query_embedding=query_embedding,
     )

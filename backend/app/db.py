@@ -1,4 +1,5 @@
 import sqlite3
+import time
 from collections.abc import Callable
 from contextlib import contextmanager
 from pathlib import Path
@@ -10,9 +11,16 @@ SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
 
 
 def get_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    # A grading run holds a write transaction while it works through a criterion
+    # (routers.assessments runs it in a background thread). WAL lets readers keep
+    # reading during that write instead of blocking, and busy_timeout makes a
+    # concurrent writer wait for the lock rather than failing instantly with
+    # "database is locked". Both are per-connection but WAL persists on the file.
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA busy_timeout = 30000")
     return conn
 
 
@@ -61,11 +69,81 @@ def _migrate_score_records_v2_pass_index(conn: sqlite3.Connection) -> None:
     )
 
 
+def _migrate_users_is_active(conn: sqlite3.Connection) -> None:
+    if "is_active" in _table_columns(conn, "users"):
+        return
+    conn.execute("ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1")
+
+
+def _migrate_assessments_cancelled_status(conn: sqlite3.Connection) -> None:
+    # Widen the assessments.status CHECK to allow 'cancelled' (added so an
+    # in-progress grading run can be halted — see routers.assessments cancel).
+    # A CHECK constraint can't be altered in place, so the table is rebuilt.
+    # assessments is referenced by several child tables' foreign keys, so follow
+    # SQLite's documented table-redefinition procedure: disable FK enforcement,
+    # swap the table inside a transaction, verify nothing broke, re-enable.
+    # Guarded on the table's own SQL so re-running is a no-op once 'cancelled'
+    # is already allowed (and so a fresh DB, created from the updated schema.sql,
+    # skips it entirely).
+    row = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'assessments'"
+    ).fetchone()
+    if row is None or "cancelled" in row["sql"]:
+        return
+    # PRAGMA foreign_keys only takes effect outside a transaction, and the
+    # migration runner may hold an open one from a prior migration's bookkeeping
+    # insert — commit first so the pragma isn't silently ignored.
+    conn.commit()
+    conn.execute("PRAGMA foreign_keys = OFF")
+    try:
+        conn.executescript(
+            """
+            BEGIN;
+            CREATE TABLE assessments_new (
+              id TEXT PRIMARY KEY,
+              essay_id TEXT NOT NULL REFERENCES essays(id),
+              instructor_id TEXT NOT NULL,
+              student_id TEXT REFERENCES students(id),
+              rubric_id TEXT NOT NULL,
+              rubric_version TEXT NOT NULL,
+              provider TEXT NOT NULL,
+              model TEXT NOT NULL,
+              status TEXT NOT NULL DEFAULT 'pending'
+                CHECK (status IN ('pending','running','complete','failed','cancelled')),
+              created_at TEXT NOT NULL
+            );
+            INSERT INTO assessments_new SELECT * FROM assessments;
+            DROP TABLE assessments;
+            ALTER TABLE assessments_new RENAME TO assessments;
+            COMMIT;
+            """
+        )
+        violations = conn.execute("PRAGMA foreign_key_check").fetchall()
+        if violations:
+            raise sqlite3.IntegrityError(
+                f"assessments status migration left {len(violations)} foreign-key "
+                f"violation(s); aborting"
+            )
+    finally:
+        conn.execute("PRAGMA foreign_keys = ON")
+
+
+def _migrate_instructor_profile_llm_defaults(conn: sqlite3.Connection) -> None:
+    cols = _table_columns(conn, "instructor_profile")
+    if "default_llm_provider" not in cols:
+        conn.execute("ALTER TABLE instructor_profile ADD COLUMN default_llm_provider TEXT")
+    if "default_llm_model" not in cols:
+        conn.execute("ALTER TABLE instructor_profile ADD COLUMN default_llm_model TEXT")
+
+
 # Ordered, idempotent schema migrations for DBs created under an older
 # schema.sql. Each entry runs at most once per id (tracked in
 # schema_migrations) and also self-guards so re-running is always safe.
 MIGRATIONS: list[tuple[str, Callable[[sqlite3.Connection], None]]] = [
     ("0001_score_records_v2_pass_index", _migrate_score_records_v2_pass_index),
+    ("0002_users_is_active", _migrate_users_is_active),
+    ("0003_assessments_cancelled_status", _migrate_assessments_cancelled_status),
+    ("0004_instructor_profile_llm_defaults", _migrate_instructor_profile_llm_defaults),
 ]
 
 
@@ -91,6 +169,53 @@ def init_db() -> None:
     with get_connection() as conn:
         conn.executescript(SCHEMA_PATH.read_text())
         _run_migrations(conn)
+
+
+def reconcile_interrupted_assessments() -> int:
+    """Move any assessment still 'running'/'pending' at startup to 'failed'.
+
+    Grading runs in in-process background threads (routers.assessments) that die
+    with the process, and this is a single-worker deployment — so at startup no
+    assessment can legitimately still be in flight. Any left in a non-terminal
+    status was orphaned by a process that died mid-grade (D7): the UI would show
+    it as perpetually grading and the delete endpoints' active-assessment guard
+    would block cleanup forever. Returns how many rows were reconciled.
+    """
+    with get_connection() as conn:
+        cur = conn.execute(
+            "UPDATE assessments SET status = 'failed' WHERE status IN ('running','pending')"
+        )
+        conn.commit()
+        return cur.rowcount
+
+
+def write_with_retry(
+    conn: sqlite3.Connection, write_fn: Callable[[], object], *, retries: int = 5, base_delay: float = 0.25
+) -> None:
+    """Run write_fn() (which issues writes on `conn`) and commit it, retrying on
+    a transient "database is locked". Rolls back before each retry so no partial
+    rows persist, then backs off exponentially.
+
+    Grading runs in background threads that share this one SQLite database, and
+    SQLite allows a single writer at a time. WAL + busy_timeout already make a
+    brief conflict wait rather than fail; this is the belt-and-suspenders on top,
+    so heavy contention (or a slow holder) degrades into a short wait instead of
+    a failed assessment, and the failure-status update in routers.assessments
+    can't itself die on a lock."""
+    for attempt in range(retries):
+        try:
+            write_fn()
+            conn.commit()
+            return
+        except sqlite3.OperationalError as e:
+            if "locked" in str(e).lower() and attempt < retries - 1:
+                try:
+                    conn.rollback()
+                except sqlite3.Error:
+                    pass
+                time.sleep(base_delay * (2 ** attempt))
+                continue
+            raise
 
 
 @contextmanager

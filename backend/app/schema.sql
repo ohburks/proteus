@@ -10,8 +10,33 @@ CREATE TABLE IF NOT EXISTS users (
   role TEXT NOT NULL CHECK (role IN ('admin','instructor')),
   instructor_id TEXT,
   theme_preference TEXT NOT NULL DEFAULT 'system' CHECK (theme_preference IN ('system','light','dark')),
+  is_active INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL
 );
+
+-- Append-only security audit trail. Actor fields are snapshots rather than
+-- foreign keys so deactivation or future account deletion never erases who
+-- performed a historical action.
+CREATE TABLE IF NOT EXISTS audit_events (
+  id TEXT PRIMARY KEY,
+  occurred_at TEXT NOT NULL,
+  actor_user_id TEXT,
+  actor_username TEXT,
+  actor_role TEXT,
+  instructor_id TEXT,
+  action TEXT NOT NULL,
+  outcome TEXT NOT NULL CHECK (outcome IN ('success','failure','denied')),
+  target_type TEXT,
+  target_id TEXT,
+  ip_address TEXT,
+  metadata_json TEXT NOT NULL DEFAULT '{}'
+);
+CREATE INDEX IF NOT EXISTS idx_audit_events_occurred_at
+  ON audit_events (occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_events_action_outcome
+  ON audit_events (action, outcome, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_events_actor
+  ON audit_events (actor_user_id, occurred_at DESC);
 
 CREATE TABLE IF NOT EXISTS rubrics (
   rubric_id TEXT NOT NULL,
@@ -82,6 +107,10 @@ CREATE TABLE IF NOT EXISTS personalized_excerpts_src (
 );
 CREATE INDEX IF NOT EXISTS idx_personalized_excerpts_scope
   ON personalized_excerpts_src (instructor_id, rubric_id, criterion_id, course_id, assignment_id);
+CREATE INDEX IF NOT EXISTS idx_personalized_excerpts_assignment
+  ON personalized_excerpts_src (assignment_id);
+CREATE INDEX IF NOT EXISTS idx_personalized_excerpts_course
+  ON personalized_excerpts_src (course_id);
 
 CREATE TABLE IF NOT EXISTS divergence_thresholds (
   instructor_id TEXT NOT NULL,
@@ -120,6 +149,8 @@ CREATE TABLE IF NOT EXISTS courses (
   name TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_courses_instructor
+  ON courses (instructor_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS assignments (
   id TEXT PRIMARY KEY,
@@ -129,6 +160,8 @@ CREATE TABLE IF NOT EXISTS assignments (
   rubric_version TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_assignments_course
+  ON assignments (course_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS students (
   id TEXT PRIMARY KEY,
@@ -139,6 +172,8 @@ CREATE TABLE IF NOT EXISTS students (
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','archived')),
   created_at TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_students_instructor_course
+  ON students (instructor_id, course_id, created_at);
 
 CREATE TABLE IF NOT EXISTS essays (
   id TEXT PRIMARY KEY,
@@ -147,6 +182,10 @@ CREATE TABLE IF NOT EXISTS essays (
   text TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_essays_assignment
+  ON essays (assignment_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_essays_student
+  ON essays (student_id, created_at);
 
 CREATE TABLE IF NOT EXISTS assessments (
   id TEXT PRIMARY KEY,
@@ -157,7 +196,29 @@ CREATE TABLE IF NOT EXISTS assessments (
   rubric_version TEXT NOT NULL,
   provider TEXT NOT NULL,
   model TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','running','complete','failed')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','running','complete','failed','cancelled')),
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_assessments_essay_latest
+  ON assessments (essay_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_assessments_instructor_status
+  ON assessments (instructor_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_assessments_student
+  ON assessments (student_id);
+
+-- One neutral, non-RAG LLM preflight per assessment. This is intentionally
+-- separate from both grading paths. Its advisory decision remains visible
+-- alongside the rubric scores and can flag the assessment for review.
+CREATE TABLE IF NOT EXISTS relevance_checks (
+  assessment_id TEXT PRIMARY KEY REFERENCES assessments(id),
+  decision TEXT NOT NULL CHECK (decision IN ('grade','reject','manual_review')),
+  submission_type TEXT NOT NULL CHECK (
+    submission_type IN ('student_response','instructions','rubric','source_material','other')
+  ),
+  responds_to_prompt INTEGER NOT NULL,
+  has_sufficient_content INTEGER NOT NULL,
+  rationale TEXT NOT NULL,
+  evidence_json TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
 
@@ -237,6 +298,8 @@ CREATE TABLE IF NOT EXISTS instructor_profile (
   grading_philosophy TEXT,
   deprioritized_criteria_json TEXT,  -- [criterion_id]
   rationale_tone TEXT CHECK (rationale_tone IS NULL OR rationale_tone IN ('terse','detailed','encouraging','blunt')),
+  default_llm_provider TEXT,
+  default_llm_model TEXT,
   updated_at TEXT NOT NULL
 );
 
