@@ -115,6 +115,7 @@ def _delete_essay_cascade(conn, essay_id: str) -> None:
         "SELECT id FROM assessments WHERE essay_id = ?", (essay_id,)
     ).fetchall()]
     for aid in assessment_ids:
+        conn.execute("DELETE FROM relevance_checks WHERE assessment_id = ?", (aid,))
         conn.execute("DELETE FROM divergence_records WHERE assessment_id = ?", (aid,))
         conn.execute("DELETE FROM score_overrides WHERE assessment_id = ?", (aid,))
         conn.execute("DELETE FROM score_aggregates WHERE assessment_id = ?", (aid,))
@@ -331,6 +332,7 @@ def _latest_criterion_rows(conn, essay_ids: list[str]):
              r.essay_id,
              l.id AS assessment_id,
              l.status,
+             rc.decision AS relevance_decision,
              p.criterion_id,
              COALESCE(o.new_score, p.score) AS output_score,
              CASE WHEN o.assessment_id IS NOT NULL THEN 'override' ELSE 'personalized' END AS output_source,
@@ -344,6 +346,7 @@ def _latest_criterion_rows(conn, essay_ids: list[str]):
                   THEN 1 ELSE 0 END AS unsupported_evidence
            FROM requested r
            LEFT JOIN latest l ON l.essay_id = r.essay_id
+           LEFT JOIN relevance_checks rc ON rc.assessment_id = l.id
            LEFT JOIN score_aggregates p
              ON p.assessment_id = l.id AND p.path = 'personalized'
            LEFT JOIN score_aggregates x
@@ -393,6 +396,7 @@ def _essay_grade_summaries(conn, essay_ids: list[str]) -> dict[str, dict]:
             "n_divergent": 0,
             "n_high_spread": 0,
             "needs_review": False,
+            "relevance_decision": None,
         }
         for essay_id in essay_ids
     }
@@ -401,6 +405,9 @@ def _essay_grade_summaries(conn, essay_ids: list[str]) -> dict[str, dict]:
         summary = summaries[row["essay_id"]]
         summary["assessment_id"] = row["assessment_id"]
         summary["status"] = row["status"]
+        summary["relevance_decision"] = row["relevance_decision"]
+        if row["relevance_decision"] in ("reject", "manual_review"):
+            summary["needs_review"] = True
         if row["status"] != "complete" or row["criterion_id"] is None:
             continue
         out = _criterion_out_from_row(row)
@@ -740,14 +747,17 @@ def get_queue(assignment_id: str, user: CurrentUser = Depends(get_current_user))
                  l.status,
                  COALESCE(s.exceeds_threshold, 0) AS exceeds_threshold,
                  COALESCE(s.high_spread, 0) AS high_spread,
+                 rc.decision AS relevance_decision,
                  CASE WHEN COALESCE(s.exceeds_threshold, 0) = 1
                            OR COALESCE(s.high_spread, 0) = 1
                            OR COALESCE(s.weak_referenceability, 0) = 1
                            OR COALESCE(s.unsupported_evidence, 0) = 1
+                           OR rc.decision IN ('reject', 'manual_review')
                       THEN 1 ELSE 0 END AS needs_review
                FROM essays e
                LEFT JOIN latest l ON l.essay_id = e.id
                LEFT JOIN signals s ON s.assessment_id = l.id
+               LEFT JOIN relevance_checks rc ON rc.assessment_id = l.id
                WHERE e.assignment_id = ?
                ORDER BY e.created_at, e.id""",
             (assignment_id, assignment_id),
@@ -777,12 +787,17 @@ def get_assignment_breakdown(assignment_id: str, user: CurrentUser = Depends(get
         essay_by_id = {essay["id"]: essay for essay in essays}
         criterion_rows = _latest_criterion_rows(conn, list(essay_by_id))
         n_graded_essays = len({
-            row["essay_id"] for row in criterion_rows if row["status"] == "complete"
+            row["essay_id"]
+            for row in criterion_rows
+            if row["status"] == "complete"
         })
         criterion_stats: dict[str, dict] = {}
 
         for row in criterion_rows:
-            if row["status"] != "complete" or row["criterion_id"] is None:
+            if (
+                row["status"] != "complete"
+                or row["criterion_id"] is None
+            ):
                 continue
             out = _criterion_out_from_row(row)
             if out["output_score"] is None:
@@ -844,6 +859,7 @@ def _essay_csv_row(essay, summary: dict) -> dict:
         "student_name": essay["display_name"] or "",
         "external_ref": essay["external_ref"] or "",
         "status": summary["status"] or "ungraded",
+        "relevance_decision": summary["relevance_decision"] or "",
         "avg_score": f"{summary['avg_score']:.2f}" if summary["avg_score"] is not None else "",
         "n_criteria": summary["n_criteria"],
         "n_divergent": summary["n_divergent"],
@@ -916,7 +932,10 @@ def export_assignment_csv(
         target_id=assignment_id,
         metadata={"name": assignment["name"], "row_count": row_count},
     )
-    fieldnames = ["student_name", "external_ref", "status", "avg_score", "n_criteria", "n_divergent", "n_high_spread"]
+    fieldnames = [
+        "student_name", "external_ref", "status", "relevance_decision",
+        "avg_score", "n_criteria", "n_divergent", "n_high_spread",
+    ]
     return StreamingResponse(
         _assignment_csv_stream(assignment_id, fieldnames),
         media_type="text/csv",
@@ -946,7 +965,7 @@ def export_course_csv(course_id: str, request: Request, user: CurrentUser = Depe
         metadata={"assignment_count": counts[0], "row_count": counts[1]},
     )
     fieldnames = [
-        "assignment_name", "student_name", "external_ref", "status",
+        "assignment_name", "student_name", "external_ref", "status", "relevance_decision",
         "avg_score", "n_criteria", "n_divergent", "n_high_spread",
     ]
     return StreamingResponse(

@@ -14,6 +14,7 @@ from app.auth import CurrentUser, get_current_user
 from app.db import get_connection, write_with_retry
 from app.grading import cancellation, progress
 from app.grading.engine import criteria_batch_size, run_dual_path_for_criteria_batch
+from app.grading.relevance import run_relevance_check
 from app.llm.key_resolution import KeyResolutionError, resolve_provider_config
 from app.llm.providers import build_client, check_api_key
 from app.schemas import BYOKConfig, GradeRequest
@@ -56,6 +57,26 @@ def _mark_cancelled(conn, assessment_id: str) -> None:
 def _run_assessment(assessment_id: str, client, criteria_rows_dicts, assignment_dict, essay_text, instructor_id):
     with get_connection() as conn:
         try:
+            if cancellation.is_cancelled(assessment_id):
+                _mark_cancelled(conn, assessment_id)
+                return
+            relevance = run_relevance_check(
+                conn,
+                client,
+                assessment_id=assessment_id,
+                assignment_id=assignment_dict["id"],
+                essay_text=essay_text,
+                emit=lambda msg, aid=assessment_id: progress.emit(aid, msg),
+            )
+            if cancellation.is_cancelled(assessment_id):
+                _mark_cancelled(conn, assessment_id)
+                return
+            if relevance.decision != "grade":
+                progress.emit(
+                    assessment_id,
+                    "Relevance check flagged this submission; continuing rubric grading.",
+                )
+
             prepared_criteria = [
                 {
                     "criterionId": row["criterion_id"],
@@ -65,6 +86,9 @@ def _run_assessment(assessment_id: str, client, criteria_rows_dicts, assignment_
                 for row in criteria_rows_dicts
             ]
             batch_size = criteria_batch_size()
+            # The relevance check above is a distinct, non-RAG provider call and
+            # shares no grading prompt. Its decision is advisory: retrieval and
+            # rubric grading continue for every outcome.
             query_embedding = chroma_store.embed_text(essay_text)
             for start in range(0, len(prepared_criteria), batch_size):
                 # Cancellation is checked between batches (not mid-provider call): an
@@ -375,6 +399,24 @@ def _criterion_outputs(conn, assessment) -> list[dict]:
     return outputs
 
 
+def _relevance_output(conn, assessment_id: str) -> dict | None:
+    row = conn.execute(
+        "SELECT * FROM relevance_checks WHERE assessment_id = ?",
+        (assessment_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return {
+        "decision": row["decision"],
+        "submission_type": row["submission_type"],
+        "responds_to_prompt": bool(row["responds_to_prompt"]),
+        "has_sufficient_content": bool(row["has_sufficient_content"]),
+        "rationale": row["rationale"],
+        "evidence": json.loads(row["evidence_json"]),
+        "created_at": row["created_at"],
+    }
+
+
 @router.get("/{assessment_id}")
 def get_assessment(assessment_id: str, user: CurrentUser = Depends(get_current_user)):
     instructor_id = user.scoped_instructor_id()
@@ -384,11 +426,12 @@ def get_assessment(assessment_id: str, user: CurrentUser = Depends(get_current_u
             raise HTTPException(404, "Assessment not found")
 
         results = _criterion_outputs(conn, assessment)
+        relevance = _relevance_output(conn, assessment_id)
         essay = conn.execute(
             "SELECT assignment_id FROM essays WHERE id = ?", (assessment["essay_id"],)
         ).fetchone()
     return {
         "id": assessment["id"], "assignment_id": essay["assignment_id"], "status": assessment["status"],
         "rubric_id": assessment["rubric_id"], "rubric_version": assessment["rubric_version"],
-        "criteria": results,
+        "relevance_check": relevance, "criteria": results,
     }

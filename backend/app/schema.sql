@@ -206,6 +206,22 @@ CREATE INDEX IF NOT EXISTS idx_assessments_instructor_status
 CREATE INDEX IF NOT EXISTS idx_assessments_student
   ON assessments (student_id);
 
+-- One neutral, non-RAG LLM preflight per assessment. This is intentionally
+-- separate from both grading paths. Its advisory decision remains visible
+-- alongside the rubric scores and can flag the assessment for review.
+CREATE TABLE IF NOT EXISTS relevance_checks (
+  assessment_id TEXT PRIMARY KEY REFERENCES assessments(id),
+  decision TEXT NOT NULL CHECK (decision IN ('grade','reject','manual_review')),
+  submission_type TEXT NOT NULL CHECK (
+    submission_type IN ('student_response','instructions','rubric','source_material','other')
+  ),
+  responds_to_prompt INTEGER NOT NULL,
+  has_sufficient_content INTEGER NOT NULL,
+  rationale TEXT NOT NULL,
+  evidence_json TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
 -- Every raw multi-pass sampling result (both paths persisted, always, one row
 -- per pass per path per criterion) — kept in full for auditability. The
 -- median/spread/confidence summary over these lives in score_aggregates below;

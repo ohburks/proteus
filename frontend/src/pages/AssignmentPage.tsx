@@ -843,6 +843,16 @@ export function AssignmentPage() {
                             <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-green-500/15 text-green-700 dark:text-green-400">
                               graded
                             </span>
+                            {entry?.relevance_decision === "reject" && (
+                              <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-red-500/15 text-red-700 dark:text-red-400">
+                                relevance failed
+                              </span>
+                            )}
+                            {entry?.relevance_decision === "manual_review" && (
+                              <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400">
+                                relevance review
+                              </span>
+                            )}
                             {entry?.exceeds_threshold && (
                               <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400">
                                 divergent

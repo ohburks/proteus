@@ -49,3 +49,14 @@ class LLMBatchGradingResponse(BaseModel):
         if len(ids) != len(set(ids)):
             raise ValueError("criterionId values must be unique")
         return values
+
+
+class LLMRelevanceResponse(BaseModel):
+    submissionType: Literal[
+        "student_response", "instructions", "rubric", "source_material", "other"
+    ]
+    respondsToPrompt: bool
+    hasSufficientContent: bool
+    decision: Literal["grade", "reject", "manual_review"]
+    rationale: str = Field(min_length=1)
+    evidence: list[EvidenceItemSchema] = Field(default_factory=list)

@@ -107,6 +107,7 @@ export interface StudentHistoryEntry {
   n_divergent: number;
   n_high_spread: number;
   needs_review: boolean;
+  relevance_decision: RelevanceDecision | null;
 }
 
 export interface StudentHistory {
@@ -120,6 +121,8 @@ export interface StudentHistory {
   history: StudentHistoryEntry[];
 }
 
+export type RelevanceDecision = "grade" | "reject" | "manual_review";
+
 export interface QueueEntry {
   essay_id: string;
   student_id: string | null;
@@ -128,6 +131,7 @@ export interface QueueEntry {
   exceeds_threshold: boolean;
   high_spread: boolean;
   needs_review: boolean;
+  relevance_decision: RelevanceDecision | null;
 }
 
 export interface RubricCriterion {
@@ -188,12 +192,23 @@ export interface AssessmentDetail {
   status: string;
   rubric_id: string;
   rubric_version: string;
+  relevance_check: RelevanceCheck | null;
   criteria: AssessmentCriterionSummary[];
 }
 
 export interface Evidence {
   quote: string;
   reasoning: string;
+}
+
+export interface RelevanceCheck {
+  decision: RelevanceDecision;
+  submission_type: "student_response" | "instructions" | "rubric" | "source_material" | "other";
+  responds_to_prompt: boolean;
+  has_sufficient_content: boolean;
+  rationale: string;
+  evidence: Evidence[];
+  created_at: string;
 }
 
 export interface RawPass {
