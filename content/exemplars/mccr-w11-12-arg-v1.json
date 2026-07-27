@@ -2,7 +2,7 @@
   "rubric_id": "mccr-w11-12-arg",
   "rubric_version": "1.0",
   "is_preseeded": true,
-  "notes": "Merged exemplar seed corpus. Combines real multi-paragraph source essays with pulled-in-context excerpts (construction: real_essay_excerpt) and standalone single-sentence excerpts built to exemplify one anchor level cleanly (construction: standalone_single_sentence). Self-approved by Claude, no independent human review \u2014 generated for POC purposes.",
+  "notes": "Merged exemplar seed corpus. Combines real multi-paragraph source essays with pulled-in-context excerpts (construction: real_essay_excerpt) and standalone single-sentence excerpts built to exemplify one anchor level cleanly (construction: standalone_single_sentence). Self-approved by Claude, 1 independent human review \u2014 generated for POC purposes.",
   "source_essays": [
     {
       "source_essay_id": "ex-arg-social-media-age",
