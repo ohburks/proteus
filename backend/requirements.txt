@@ -10,3 +10,4 @@ bcrypt>=4.1
 pyjwt>=2.8
 openai>=1.30
 anthropic>=0.30
+pytest>=8.0
