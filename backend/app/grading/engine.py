@@ -357,7 +357,7 @@ def _persist_passes(
                 str(uuid.uuid4()), assessment_id, criterion_id, path, i,
                 result.score, int(result.score is None), result.anchor_matched,
                 json.dumps([{"quote": e.quote, "reasoning": e.reasoning} for e in result.evidence]),
-                json.dumps(result.precedent_referenced), result.confidence, result.rationale, _now(),
+                json.dumps(result.precedent_ids), result.confidence, result.rationale, _now(),
             ),
         )
 
@@ -377,7 +377,7 @@ def _persist_aggregate(
             assessment_id, criterion_id, path,
             aggregate.score, int(aggregate.score is None), aggregate.anchor_matched,
             json.dumps([{"quote": e.quote, "reasoning": e.reasoning} for e in aggregate.evidence]),
-            json.dumps(aggregate.precedent_referenced), aggregate.rationale,
+            json.dumps(aggregate.precedent_ids), aggregate.rationale,
             aggregate.spread, aggregate.confidence, int(high_spread), aggregate.n_passes, _now(),
         ),
     )

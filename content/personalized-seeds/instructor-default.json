@@ -3,209 +3,97 @@
   "course_id": null,
   "assignment_id": null,
   "rubric_id": "mccr-w11-12-arg",
-  "notes": "Personalized RAG seed corpus for a single instructor's standing grading style (instructor-default tier: course_id/assignment_id null). Unlike the Exemplar corpus, anchor_matched here is NOT set equal to score by construction -- anchor_matched reflects what the rubric's literal anchor text would assign, while score reflects what this instructor actually gave it. The gap between the two IS the point. Self-approved by Claude, no independent human review -- POC purposes. Batch 2 merged in: new topics/essays (uniforms, homework), same instructor_id, no overlap with batch 1 IDs.",
+  "notes": "Personalized RAG demo corpus, rebuilt from scratch around a single, deliberately designed persona: the 'Argument-First Grader'. This instructor cares intensely about the substance of the argument -- precise claims and genuinely integrated reasoning -- and is comparatively indifferent to presentation (formal register, emotional restraint, surface grammar). Strict criteria (W1a-1, W1a-2, WR-1): scored below the rubric anchor for vagueness/hedging or mechanical reasoning, but a genuinely precise/well-reasoned excerpt earns full marks same as the anchor -- the strictness is satisfiable, not a blanket penalty. Lenient criteria (W1d-1, W1d-2, L1-1): scored at/near full marks regardless of informal register, mild loaded language, or grammar slips -- these are deprioritized. Control criteria (W1b-1, W1b-2, W1b-3, W1c-1, W1c-2, W1e-1): no deviation, anchor_matched == score throughout, so live grading shows divergence only on the six deviation criteria.",
   "instructor_profile": {
-    "grading_philosophy": "Grammar, spelling, and punctuation errors are not penalized -- I grade argument quality, not surface polish. Formal academic register is not required either. A strong conclusion is non-negotiable, though: essays without one, or that only restate the claim without real synthesis, lose more than the rubric anchor alone would take off.",
-    "deprioritized_criteria": [
-      "L1-1",
-      "W1d-1"
-    ]
+    "grading_philosophy": "I care about the strength of the argument itself -- how precise the claim is, how clearly it's set against the strongest opposing view, and how well the reasoning actually connects evidence to the claim. I score those harder than the rubric anchors alone would if a claim is vague or the reasoning is just asserted rather than reasoned through. Presentation is a different matter: I don't take points off for informal register, occasional loaded phrasing, or grammar and spelling slips. If the argument itself is genuinely strong, sloppy delivery doesn't cost anything; if the argument is genuinely weak, polished delivery doesn't rescue it either.",
+    "deprioritized_criteria": ["W1d-1", "W1d-2", "L1-1"],
+    "rationale_tone": "detailed"
   },
   "source_essays": [
     {
-      "source_essay_id": "pers-arg-cellphone-ban",
-      "text": "i think schools should not ban cell phones completly because kids need them for saftey reasons. if theres an emergency a phone lets a student contact there parents right away, and that matters more than a little bit of distraction in class. teachers already have ways to make sure phones dont get used during tests, so a full ban isnt nessesary. some people say phones are to distracting but a partial policy like phones away during class time could work just as good as a full ban. Overall i think schools should think about this more before banning phones completly."
+      "source_essay_id": "argfirst-testing-weak",
+      "text": "I think schools should maybe get rid of standardized tests, or at least do less of them, because tests dont really show what a student can do. Some people like tests since they're easy to compare across schools but thats kind of missing the point. Kids just memorize stuff for the test and forget it right after, so it doesnt actually mean they learned anything. A capstone project would probably be better since students would have to actually use what they know. It would take a lot of work to change the whole system though. Basically capstones seem like a better idea overall for actually showing what students can do."
     },
     {
-      "source_essay_id": "pers-arg-recess-time",
-      "text": "Recess time for elementary students has been shortened significantly over the past decade, and this trend should be reversed. Physical activity during the school day supports concentration in later classes, and unstructured play helps younger students develop social skills that classroom instruction does not. Some administrators argue that instructional time is too valuable to spend outside, but a twenty-minute recess period is a small fraction of the school day, and the research on attention spans suggests it pays for itself in classroom focus afterward. Recess is important for many reasons."
+      "source_essay_id": "argfirst-valedictorian-weak",
+      "text": "Schools should stop naming a valedictorian, or at least rethink it, because ranking students like that isnt really fair to everyone. Some people think it motivates kids to work harder but that argument doesnt really hold up if you think about it. Ranking one kid above everyone else just makes school feel like a competition instead of learning, and that stresses kids out for no good reason. Getting rid of it would probably make things less stressful for students. There would need to be some other way to recognize achievement I guess. Overall dropping the ranking system just seems like the better move for schools."
     },
     {
-      "source_essay_id": "pers-arg-strong-conclusion-standalone",
-      "text": "Once the busing cost is weighed against its true counterpart -- a recurring, compounding loss in attendance and achievement -- the case for later starts stops being a scheduling question and becomes a question of what the district is willing to fund."
+      "source_essay_id": "argfirst-energy-drinks-weak",
+      "text": "I think schools should ban energy drinks on campus, or at least think about limiting them, because kids drink way too much caffeine and it messes with their sleep and focus in class. Some people say its the students own choice what they drink but that kind of ignores that schools already regulate other food and drinks anyway. Kids crash after the caffeine wears off and cant focus for the rest of the day, so it ends up hurting their grades. A ban would probably help with that. It would probably upset some students at first. Overall banning them just makes sense for keeping kids focused during school."
     },
     {
-      "source_essay_id": "pers-arg-no-conclusion-standalone",
-      "text": "...and that's why buses would need new routes."
+      "source_essay_id": "argfirst-service-hours-mid",
+      "text": "High schools should require a set number of community service hours before graduation, since it connects students to their communities in ways regular classes don't. Critics argue that mandatory service isn't truly service if it's forced, and there's some truth to that concern. However, many students who are required to volunteer report afterward that they wouldn't have sought out the experience on their own, and the exposure itself has value even if the initial motivation was a requirement rather than a personal choice. Community organizations also benefit from a reliable pool of student volunteers, which is a practical advantage worth weighing alongside the philosophical objection. Requiring service hours, then, is a reasonable tradeoff between authenticity and access."
     },
     {
-      "source_essay_id": "pers2-arg-uniforms",
-      "text": "i dont think schools should make everyone wear the same uniform because it takes away from students being themselves. kids allready have alot of rules to follow and uniforms just add more stress on familys who cant efford to buy special cloths. some people say uniforms stop bullying about cloths but that dosent really solve the real problem which is how kids treat each other. Overall uniforms are not really nessesary and schools should let students wear what they want."
+      "source_essay_id": "argfirst-four-day-week-mid",
+      "text": "Districts considering a four-day school week should proceed carefully rather than adopting it wholesale, since the research on outcomes is mixed. Proponents point to reduced operating costs and improved teacher retention, both of which are real and measurable benefits. Opponents worry about working parents needing childcare on the fifth day, and that concern deserves a real answer, not a dismissal. A four-day week compresses the same instructional hours into fewer days, which can work well for older students but may not suit younger children's attention spans. Districts should pilot the schedule with willing schools before committing system-wide, so the tradeoffs can be measured rather than assumed."
     },
     {
-      "source_essay_id": "pers2-arg-homework",
-      "text": "The amount of homework assigned to high school students should be reduced, as current workloads interfere with sleep, extracurricular participation, and family time. Research from the American Psychological Association indicates that excessive homework is associated with elevated stress and diminishing academic returns beyond a certain threshold. Opponents argue that homework reinforces classroom learning and builds independent study habits, and that concern is legitimate; the issue is not homework itself but its volume relative to the benefit it produces. Homework remains a useful tool when assigned in moderation."
+      "source_essay_id": "argfirst-financial-literacy-mid",
+      "text": "Requiring a financial literacy course for graduation would give students practical skills that most academic classes don't cover, like budgeting, credit, and taxes. Some argue that this content belongs at home rather than in school, but that assumes every student has a parent equipped to teach it, which isn't a safe assumption to make for an entire district. A required course guarantees a baseline of financial knowledge regardless of a student's home situation. It would mean displacing another elective or requirement, which is a real cost schools would need to weigh. On balance, though, guaranteeing every graduate some financial competency seems worth that tradeoff."
     },
     {
-      "source_essay_id": "pers2-arg-strong-conclusion-standalone",
-      "text": "Reducing homework volume is not an argument against rigor -- it is an argument for spending the district's limited attention on the assignments proven to move learning, rather than treating quantity itself as the goal a lighter, better-targeted workload could serve just as well."
+      "source_essay_id": "argfirst-plastics-strong",
+      "text": "Public high schools should prohibit the sale of single-use plastic bottles and utensils in campus cafeterias, provided that affordable refill and reusable alternatives are made available at the same price point. Opponents rightly note that a ban imposed without infrastructure in place simply shifts inconvenience onto students who cannot afford reusable alternatives, and that objection identifies the actual design requirement rather than a reason to abandon the policy. Where schools have paired plastic bans with subsidized reusable bottles and expanded water-filling stations, waste volumes have dropped substantially without disadvantaging lower-income students, which suggests the objection is a solvable implementation problem rather than a fundamental flaw in the policy itself. The remaining question is one of upfront cost, not of principle: districts must weigh the capital expense of filling stations against the recurring cost of waste disposal and the environmental externality that recurring cost does not capture. On balance, a phased ban paired with guaranteed alternatives addresses the legitimate equity concern while still achieving the environmental goal the policy is meant to serve."
+    },
+    {
+      "source_essay_id": "argfirst-longer-day-strong",
+      "text": "Extending the high school day by thirty minutes, with that time allocated specifically to unstructured academic support rather than additional class instruction, would address a gap that current schedules leave unfilled. Critics argue that students are already fatigued by the end of the day and that additional time would yield diminishing returns, and that concern is legitimate for any proposal that simply adds more direct instruction. Because the proposal here allocates the additional time to flexible, student-directed support rather than another taught period, it responds to fatigue rather than ignoring it, targeting the students who most need extra time without imposing it uniformly on those who don't. Schools that have piloted similar flexible-time blocks report improved completion rates on major assignments, particularly among students balancing coursework with jobs or family responsibilities outside school. The tradeoff is a longer school day for staff as well as students, which is a genuine cost the proposal does not eliminate, only redistributes toward the students most likely to benefit from it."
+    },
+    {
+      "source_essay_id": "argfirst-dress-code-strong",
+      "text": "School dress codes should be rewritten to regulate safety and legibility of identification rather than the specific style, gender presentation, or cultural dress of students, since the current, more expansive codes are enforced unevenly and disproportionately against girls and students of color. Supporters of broader dress codes argue that professional or modest dress prepares students for future workplace expectations, and that goal is a reasonable one for a school to hold. That goal, however, does not require regulating the specific items current codes single out; a narrower code focused on safety and legibility can still require that clothing not obstruct identification or pose a hazard, while removing the provisions that have produced the uneven enforcement. Districts that have already narrowed their codes along these lines report fewer dress-code-related disciplinary referrals overall, with the remaining referrals concentrated on the safety-related provisions the narrower code retains. Rewriting the code to match its actual justification, rather than repealing it outright, preserves the legitimate safety rationale while removing the provisions that were never really about safety at all."
     }
   ],
   "excerpts": [
-    {
-      "excerpt_id": "pers-0001",
-      "criterion_id": "L1-1",
-      "source_essay_id": "pers-arg-cellphone-ban",
-      "excerpt_text": "i think schools should not ban cell phones completly because kids need them for saftey reasons.",
-      "anchor_matched": 1,
-      "score": 5,
-      "rationale": "Literal rubric fit: frequent spelling/capitalization errors would put this near the level-1 anchor. Instructor score: full marks regardless -- grammar and spelling are not weighted here.",
-      "source": "manual",
-      "added_by": "instructor"
-    },
-    {
-      "excerpt_id": "pers-0002",
-      "criterion_id": "L1-1",
-      "source_essay_id": "pers-arg-recess-time",
-      "excerpt_text": "Physical activity during the school day supports concentration in later classes, and unstructured play helps younger students develop social skills that classroom instruction does not.",
-      "anchor_matched": 5,
-      "score": 5,
-      "rationale": "This essay happens to be clean, so anchor and score agree here -- shows the same top score is given whether writing is error-free or error-ridden.",
-      "source": "manual",
-      "added_by": "instructor"
-    },
-    {
-      "excerpt_id": "pers-0003",
-      "criterion_id": "W1d-1",
-      "source_essay_id": "pers-arg-cellphone-ban",
-      "excerpt_text": "i think schools should not ban cell phones completly because kids need them for saftey reasons.",
-      "anchor_matched": 1,
-      "score": 5,
-      "rationale": "Literal rubric fit: casual first-person register, contractions, no academic diction -- level-1 anchor for informal style. Instructor score: full marks -- formal style is not required.",
-      "source": "manual",
-      "added_by": "instructor"
-    },
-    {
-      "excerpt_id": "pers-0004",
-      "criterion_id": "W1d-1",
-      "source_essay_id": "pers-arg-recess-time",
-      "excerpt_text": "Some administrators argue that instructional time is too valuable to spend outside, but a twenty-minute recess period is a small fraction of the school day",
-      "anchor_matched": 4,
-      "score": 5,
-      "rationale": "Genuinely formal register here (anchor 4), but the score is the same 5 given to the informal essay above -- rounded up regardless of actual register.",
-      "source": "manual",
-      "added_by": "instructor"
-    },
-    {
-      "excerpt_id": "pers-0005",
-      "criterion_id": "W1e-1",
-      "source_essay_id": "pers-arg-cellphone-ban",
-      "excerpt_text": "Overall i think schools should think about this more before banning phones completly.",
-      "anchor_matched": 2,
-      "score": 0,
-      "rationale": "Literal rubric fit: a one-sentence restatement with no synthesis is a level-2 anchor. Instructor score: marked down further than the rubric alone would -- extra points off for a conclusion that doesn't earn real synthesis.",
-      "source": "manual",
-      "added_by": "instructor"
-    },
-    {
-      "excerpt_id": "pers-0006",
-      "criterion_id": "W1e-1",
-      "source_essay_id": "pers-arg-recess-time",
-      "excerpt_text": "Recess is important for many reasons.",
-      "anchor_matched": 2,
-      "score": 1,
-      "rationale": "Same pattern with a different generic restatement -- literal anchor is level 2, but the strict conclusion policy pushes the actual score well below that.",
-      "source": "manual",
-      "added_by": "instructor"
-    },
-    {
-      "excerpt_id": "pers-0007",
-      "criterion_id": "W1e-1",
-      "source_essay_id": "pers-arg-strong-conclusion-standalone",
-      "excerpt_text": "Once the busing cost is weighed against its true counterpart -- a recurring, compounding loss in attendance and achievement -- the case for later starts stops being a scheduling question and becomes a question of what the district is willing to fund.",
-      "anchor_matched": 5,
-      "score": 5,
-      "rationale": "Shows the strict conclusion policy is a real, satisfiable bar, not a blanket penalty -- a conclusion that actually synthesizes the argument gets full marks, same as the rubric anchor would give it.",
-      "source": "manual",
-      "added_by": "instructor"
-    },
-    {
-      "excerpt_id": "pers-0008",
-      "criterion_id": "W1e-1",
-      "source_essay_id": "pers-arg-no-conclusion-standalone",
-      "excerpt_text": "...and that's why buses would need new routes.",
-      "anchor_matched": 0,
-      "score": 0,
-      "rationale": "An essay that just stops already scores 0 under the rubric anchor -- no floor left for extra strictness to push below. Shows the strictness shows up in marginal/partial conclusions, not by scoring the absolute floor case any lower.",
-      "source": "manual",
-      "added_by": "instructor"
-    },
-    {
-      "excerpt_id": "pers2-0001",
-      "criterion_id": "L1-1",
-      "source_essay_id": "pers2-arg-uniforms",
-      "excerpt_text": "kids allready have alot of rules to follow and uniforms just add more stress on familys who cant efford to buy special cloths.",
-      "anchor_matched": 1,
-      "score": 5,
-      "rationale": "Literal rubric fit: recurring spelling/usage errors (allready, alot, familys, cant efford, cloths) put this near the level-1 anchor. Instructor score: full marks -- grammar/spelling not weighted.",
-      "source": "manual",
-      "added_by": "instructor"
-    },
-    {
-      "excerpt_id": "pers2-0002",
-      "criterion_id": "L1-1",
-      "source_essay_id": "pers2-arg-homework",
-      "excerpt_text": "Research from the American Psychological Association indicates that excessive homework is associated with elevated stress and diminishing academic returns beyond a certain threshold.",
-      "anchor_matched": 5,
-      "score": 5,
-      "rationale": "Clean sentence, anchor and score agree -- same top score as the error-ridden excerpt above, confirming the criterion isn't actually differentiating.",
-      "source": "manual",
-      "added_by": "instructor"
-    },
-    {
-      "excerpt_id": "pers2-0003",
-      "criterion_id": "W1d-1",
-      "source_essay_id": "pers2-arg-uniforms",
-      "excerpt_text": "i dont think schools should make everyone wear the same uniform because it takes away from students being themselves.",
-      "anchor_matched": 1,
-      "score": 5,
-      "rationale": "Literal rubric fit: casual first-person, contraction, no academic diction -- level-1 anchor. Instructor score: full marks -- formal style not required.",
-      "source": "manual",
-      "added_by": "instructor"
-    },
-    {
-      "excerpt_id": "pers2-0004",
-      "criterion_id": "W1d-1",
-      "source_essay_id": "pers2-arg-homework",
-      "excerpt_text": "Opponents argue that homework reinforces classroom learning and builds independent study habits, and that concern is legitimate; the issue is not homework itself but its volume relative to the benefit it produces.",
-      "anchor_matched": 4,
-      "score": 5,
-      "rationale": "Genuinely formal register (anchor 4), same score of 5 as the informal excerpt above -- rounded up regardless of register.",
-      "source": "manual",
-      "added_by": "instructor"
-    },
-    {
-      "excerpt_id": "pers2-0005",
-      "criterion_id": "W1e-1",
-      "source_essay_id": "pers2-arg-uniforms",
-      "excerpt_text": "Overall uniforms are not really nessesary and schools should let students wear what they want.",
-      "anchor_matched": 2,
-      "score": 0,
-      "rationale": "Literal rubric fit: bare restatement, no synthesis -- level-2 anchor. Instructor score: pushed to 0 -- extra penalty beyond the rubric's own deduction for a conclusion that doesn't synthesize.",
-      "source": "manual",
-      "added_by": "instructor"
-    },
-    {
-      "excerpt_id": "pers2-0006",
-      "criterion_id": "W1e-1",
-      "source_essay_id": "pers2-arg-homework",
-      "excerpt_text": "Homework remains a useful tool when assigned in moderation.",
-      "anchor_matched": 3,
-      "score": 1,
-      "rationale": "This conclusion is a step up from a bare restatement (anchor 3 -- summarizes reasons without extending them), but still isn't real synthesis. Instructor score: still marked well below the anchor, showing the strict standard applies even to a moderately competent conclusion, not just weak ones.",
-      "source": "manual",
-      "added_by": "instructor"
-    },
-    {
-      "excerpt_id": "pers2-0007",
-      "criterion_id": "W1e-1",
-      "source_essay_id": "pers2-arg-strong-conclusion-standalone",
-      "excerpt_text": "Reducing homework volume is not an argument against rigor -- it is an argument for spending the district's limited attention on the assignments proven to move learning, rather than treating quantity itself as the goal a lighter, better-targeted workload could serve just as well.",
-      "anchor_matched": 5,
-      "score": 5,
-      "rationale": "Real synthesis and an earned implication -- meets the instructor's high bar, same score the rubric anchor alone would give it. Confirms the strict standard is satisfiable, not a blanket penalty.",
-      "source": "manual",
-      "added_by": "instructor"
-    }
+    {"excerpt_id": "af-w1a1-1", "criterion_id": "W1a-1", "source_essay_id": "argfirst-testing-weak", "excerpt_text": "I think schools should maybe get rid of standardized tests, or at least do less of them, because tests dont really show what a student can do.", "anchor_matched": 2, "score": 1, "rationale": "Literal rubric fit: the claim is hedged ('maybe', 'at least do less') rather than a clear position -- level-2 anchor. Instructor score: marked down further than the anchor alone would -- this instructor scores claim precision harder than the rubric anchor language captures.", "source": "manual", "added_by": "instructor"},
+    {"excerpt_id": "af-w1a1-2", "criterion_id": "W1a-1", "source_essay_id": "argfirst-four-day-week-mid", "excerpt_text": "Districts considering a four-day school week should proceed carefully rather than adopting it wholesale, since the research on outcomes is mixed.", "anchor_matched": 3, "score": 2, "rationale": "Literal rubric fit: an arguable claim, but imprecise -- 'proceed carefully' isn't a committed position -- level-3 anchor. Instructor score: still marked below the anchor for the same reason -- a cautious, uncommitted framing doesn't earn the anchor's credit under this instructor's standard.", "source": "manual", "added_by": "instructor"},
+    {"excerpt_id": "af-w1a1-3", "criterion_id": "W1a-1", "source_essay_id": "argfirst-plastics-strong", "excerpt_text": "Public high schools should prohibit the sale of single-use plastic bottles and utensils in campus cafeterias, provided that affordable refill and reusable alternatives are made available at the same price point.", "anchor_matched": 5, "score": 5, "rationale": "A precise, qualified claim with a scope condition attached -- level-5 anchor. Instructor score: full marks, matching the anchor -- shows the strict claim standard is satisfiable, not a blanket penalty on this criterion.", "source": "manual", "added_by": "instructor"},
+
+    {"excerpt_id": "af-w1a2-1", "criterion_id": "W1a-2", "source_essay_id": "argfirst-valedictorian-weak", "excerpt_text": "Some people think it motivates kids to work harder but that argument doesnt really hold up if you think about it.", "anchor_matched": 2, "score": 1, "rationale": "Literal rubric fit: an opposing view is named but not clearly differentiated from the writer's own position -- level-2 anchor. Instructor score: marked down further -- dismissing a counterclaim without engaging it doesn't earn the anchor's partial credit under this instructor's standard.", "source": "manual", "added_by": "instructor"},
+    {"excerpt_id": "af-w1a2-2", "criterion_id": "W1a-2", "source_essay_id": "argfirst-service-hours-mid", "excerpt_text": "Critics argue that mandatory service isn't truly service if it's forced, and there's some truth to that concern.", "anchor_matched": 3, "score": 2, "rationale": "Literal rubric fit: the opposing claim is stated and the writer's position is set against it at least once -- level-3 anchor. Instructor score: still below the anchor -- conceding 'some truth' without actually drawing the line between positions isn't enough distinction for this instructor.", "source": "manual", "added_by": "instructor"},
+    {"excerpt_id": "af-w1a2-3", "criterion_id": "W1a-2", "source_essay_id": "argfirst-dress-code-strong", "excerpt_text": "Supporters of broader dress codes argue that professional or modest dress prepares students for future workplace expectations, and that goal is a reasonable one for a school to hold. That goal, however, does not require regulating the specific items current codes single out", "anchor_matched": 5, "score": 5, "rationale": "The opposing position is stated in its strongest form and precisely distinguished from the writer's own -- concedes the goal, contests the means -- level-5 anchor. Instructor score: full marks, matching the anchor -- proves the strict standard is satisfiable.", "source": "manual", "added_by": "instructor"},
+
+    {"excerpt_id": "af-wr1-1", "criterion_id": "WR-1", "source_essay_id": "argfirst-energy-drinks-weak", "excerpt_text": "Kids crash after the caffeine wears off and cant focus for the rest of the day, so it ends up hurting their grades.", "anchor_matched": 2, "score": 1, "rationale": "Literal rubric fit: one line of reasoning applied mechanically -- level-2 (unistructural) anchor. Instructor score: marked down further -- this instructor weighs reasoning depth more heavily than the rubric anchor alone reflects.", "source": "manual", "added_by": "instructor"},
+    {"excerpt_id": "af-wr1-2", "criterion_id": "WR-1", "source_essay_id": "argfirst-financial-literacy-mid", "excerpt_text": "A required course guarantees a baseline of financial knowledge regardless of a student's home situation. It would mean displacing another elective or requirement, which is a real cost schools would need to weigh.", "anchor_matched": 3, "score": 2, "rationale": "Literal rubric fit: several reasons named, not yet integrated -- level-3 (multistructural) anchor. Instructor score: still below the anchor -- naming a tradeoff without weighing it through isn't full reasoning credit under this instructor's standard.", "source": "manual", "added_by": "instructor"},
+    {"excerpt_id": "af-wr1-3", "criterion_id": "WR-1", "source_essay_id": "argfirst-longer-day-strong", "excerpt_text": "Because the proposal here allocates the additional time to flexible, student-directed support rather than another taught period, it responds to fatigue rather than ignoring it, targeting the students who most need extra time without imposing it uniformly on those who don't.", "anchor_matched": 5, "score": 5, "rationale": "Reasons are integrated and the counterclaim's own concern is directly addressed within the reasoning itself -- level-5 (extended abstract) anchor. Instructor score: full marks, matching the anchor -- proves the strict reasoning standard is satisfiable.", "source": "manual", "added_by": "instructor"},
+
+    {"excerpt_id": "af-w1d1-1", "criterion_id": "W1d-1", "source_essay_id": "argfirst-testing-weak", "excerpt_text": "Kids just memorize stuff for the test and forget it right after, so it doesnt actually mean they learned anything.", "anchor_matched": 1, "score": 5, "rationale": "Literal rubric fit: casual diction, contraction, no academic register -- level-1 anchor. Instructor score: full marks regardless -- formal style is deprioritized for this instructor.", "source": "manual", "added_by": "instructor"},
+    {"excerpt_id": "af-w1d1-2", "criterion_id": "W1d-1", "source_essay_id": "argfirst-valedictorian-weak", "excerpt_text": "Ranking one kid above everyone else just makes school feel like a competition instead of learning, and that stresses kids out for no good reason.", "anchor_matched": 2, "score": 5, "rationale": "Literal rubric fit: mixed register, casual phrasing undercuts the academic voice -- level-2 anchor. Instructor score: full marks -- same deprioritization regardless of register quality.", "source": "manual", "added_by": "instructor"},
+    {"excerpt_id": "af-w1d1-3", "criterion_id": "W1d-1", "source_essay_id": "argfirst-plastics-strong", "excerpt_text": "Opponents rightly note that a ban imposed without infrastructure in place simply shifts inconvenience onto students who cannot afford reusable alternatives, and that objection identifies the actual design requirement rather than a reason to abandon the policy.", "anchor_matched": 5, "score": 5, "rationale": "Genuinely formal, precise diction -- level-5 anchor. Instructor score: full marks, same as the informal excerpts above -- shows the leniency is about not penalizing informality, not about inflating scores; formal writing earns the same top mark on its own merits.", "source": "manual", "added_by": "instructor"},
+
+    {"excerpt_id": "af-w1d2-1", "criterion_id": "W1d-2", "source_essay_id": "argfirst-valedictorian-weak", "excerpt_text": "Ranking one kid above everyone else just makes school feel like a competition instead of learning, and that stresses kids out for no good reason.", "anchor_matched": 2, "score": 5, "rationale": "Literal rubric fit: loaded framing ('stresses kids out for no good reason') substitutes for grounded reasoning in places -- level-2 anchor. Instructor score: full marks -- tone is deprioritized for this instructor.", "source": "manual", "added_by": "instructor"},
+    {"excerpt_id": "af-w1d2-2", "criterion_id": "W1d-2", "source_essay_id": "argfirst-four-day-week-mid", "excerpt_text": "Opponents worry about working parents needing childcare on the fifth day, and that concern deserves a real answer, not a dismissal.", "anchor_matched": 4, "score": 5, "rationale": "Objective, evidence-grounded framing of the opposing concern -- level-4 anchor. Instructor score: full marks, matching the anchor -- consistent regardless of where tone naturally lands.", "source": "manual", "added_by": "instructor"},
+    {"excerpt_id": "af-w1d2-3", "criterion_id": "W1d-2", "source_essay_id": "argfirst-dress-code-strong", "excerpt_text": "Districts that have already narrowed their codes along these lines report fewer dress-code-related disciplinary referrals overall, with the remaining referrals concentrated on the safety-related provisions the narrower code retains.", "anchor_matched": 5, "score": 5, "rationale": "Rigorously objective, evidence-grounded -- level-5 anchor. Instructor score: full marks, matching the anchor -- same top mark whether tone starts loaded or objective.", "source": "manual", "added_by": "instructor"},
+
+    {"excerpt_id": "af-l11-1", "criterion_id": "L1-1", "source_essay_id": "argfirst-testing-weak", "excerpt_text": "I think schools should maybe get rid of standardized tests, or at least do less of them, because tests dont really show what a student can do.", "anchor_matched": 2, "score": 5, "rationale": "Literal rubric fit: recurring missing-apostrophe errors ('dont') -- level-2 anchor. Instructor score: full marks -- grammar and spelling are not weighted for this instructor.", "source": "manual", "added_by": "instructor"},
+    {"excerpt_id": "af-l11-2", "criterion_id": "L1-1", "source_essay_id": "argfirst-valedictorian-weak", "excerpt_text": "Schools should stop naming a valedictorian, or at least rethink it, because ranking students like that isnt really fair to everyone.", "anchor_matched": 3, "score": 5, "rationale": "Literal rubric fit: an occasional apostrophe error ('isnt') that rarely impedes meaning -- level-3 anchor. Instructor score: full marks -- same deprioritization regardless of how minor or frequent the errors are.", "source": "manual", "added_by": "instructor"},
+    {"excerpt_id": "af-l11-3", "criterion_id": "L1-1", "source_essay_id": "argfirst-longer-day-strong", "excerpt_text": "Extending the high school day by thirty minutes, with that time allocated specifically to unstructured academic support rather than additional class instruction, would address a gap that current schedules leave unfilled.", "anchor_matched": 5, "score": 5, "rationale": "Essentially error-free -- level-5 anchor. Instructor score: full marks, matching the anchor -- confirms the criterion isn't actually differentiating for this instructor either way.", "source": "manual", "added_by": "instructor"},
+
+    {"excerpt_id": "af-w1b1-1", "criterion_id": "W1b-1", "source_essay_id": "argfirst-testing-weak", "excerpt_text": "Kids just memorize stuff for the test and forget it right after, so it doesnt actually mean they learned anything.", "anchor_matched": 2, "score": 2, "rationale": "A reason is asserted with minimal real evidence behind it -- level-2 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
+    {"excerpt_id": "af-w1b1-2", "criterion_id": "W1b-1", "source_essay_id": "argfirst-service-hours-mid", "excerpt_text": "many students who are required to volunteer report afterward that they wouldn't have sought out the experience on their own, and the exposure itself has value even if the initial motivation was a requirement rather than a personal choice.", "anchor_matched": 4, "score": 4, "rationale": "A specific, relevant reason with real support -- level-4 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
+    {"excerpt_id": "af-w1b1-3", "criterion_id": "W1b-1", "source_essay_id": "argfirst-longer-day-strong", "excerpt_text": "Schools that have piloted similar flexible-time blocks report improved completion rates on major assignments, particularly among students balancing coursework with jobs or family responsibilities outside school.", "anchor_matched": 5, "score": 5, "rationale": "Sufficient, specific, well-targeted evidence -- level-5 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
+
+    {"excerpt_id": "af-w1b2-1", "criterion_id": "W1b-2", "source_essay_id": "argfirst-valedictorian-weak", "excerpt_text": "Some people think it motivates kids to work harder but that argument doesnt really hold up if you think about it.", "anchor_matched": 1, "score": 1, "rationale": "The counterclaim is dismissed rather than developed fairly -- level-1 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
+    {"excerpt_id": "af-w1b2-2", "criterion_id": "W1b-2", "source_essay_id": "argfirst-four-day-week-mid", "excerpt_text": "Opponents worry about working parents needing childcare on the fifth day, and that concern deserves a real answer, not a dismissal.", "anchor_matched": 3, "score": 3, "rationale": "The counterclaim is stated fairly, though not fully developed with a direct answer -- level-3 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
+    {"excerpt_id": "af-w1b2-3", "criterion_id": "W1b-2", "source_essay_id": "argfirst-plastics-strong", "excerpt_text": "Opponents rightly note that a ban imposed without infrastructure in place simply shifts inconvenience onto students who cannot afford reusable alternatives, and that objection identifies the actual design requirement rather than a reason to abandon the policy.", "anchor_matched": 5, "score": 5, "rationale": "The counterclaim is developed thoroughly and its legitimate strength is acknowledged -- level-5 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
+
+    {"excerpt_id": "af-w1b3-1", "criterion_id": "W1b-3", "source_essay_id": "argfirst-energy-drinks-weak", "excerpt_text": "Some people say its the students own choice what they drink but that kind of ignores that schools already regulate other food and drinks anyway.", "anchor_matched": 2, "score": 2, "rationale": "A likely objection is named but addressed only briefly -- level-2 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
+    {"excerpt_id": "af-w1b3-2", "criterion_id": "W1b-3", "source_essay_id": "argfirst-financial-literacy-mid", "excerpt_text": "Some argue that this content belongs at home rather than in school, but that assumes every student has a parent equipped to teach it, which isn't a safe assumption to make for an entire district.", "anchor_matched": 4, "score": 4, "rationale": "Anticipates a specific audience concern and responds to its underlying assumption -- level-4 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
+    {"excerpt_id": "af-w1b3-3", "criterion_id": "W1b-3", "source_essay_id": "argfirst-longer-day-strong", "excerpt_text": "Critics argue that students are already fatigued by the end of the day and that additional time would yield diminishing returns, and that concern is legitimate for any proposal that simply adds more direct instruction.", "anchor_matched": 5, "score": 5, "rationale": "Anticipates the audience's strongest concern and concedes its legitimacy precisely where it applies -- level-5 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
+
+    {"excerpt_id": "af-w1c1-1", "criterion_id": "W1c-1", "source_essay_id": "argfirst-testing-weak", "excerpt_text": "Some people like tests since they're easy to compare across schools but thats kind of missing the point.", "anchor_matched": 2, "score": 2, "rationale": "A linking phrase is present but the relationship it signals is thin -- level-2 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
+    {"excerpt_id": "af-w1c1-2", "criterion_id": "W1c-1", "source_essay_id": "argfirst-service-hours-mid", "excerpt_text": "However, many students who are required to volunteer report afterward that they wouldn't have sought out the experience on their own", "anchor_matched": 4, "score": 4, "rationale": "A clear contrastive link clarifies the relationship between the counterclaim and the response -- level-4 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
+    {"excerpt_id": "af-w1c1-3", "criterion_id": "W1c-1", "source_essay_id": "argfirst-plastics-strong", "excerpt_text": "The remaining question is one of upfront cost, not of principle: districts must weigh the capital expense of filling stations against the recurring cost of waste disposal and the environmental externality that recurring cost does not capture.", "anchor_matched": 5, "score": 5, "rationale": "Precise linking language clarifies exactly what is and isn't in dispute -- level-5 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
+
+    {"excerpt_id": "af-w1c2-1", "criterion_id": "W1c-2", "source_essay_id": "argfirst-valedictorian-weak", "excerpt_text": "Overall dropping the ranking system just seems like the better move for schools.", "anchor_matched": 2, "score": 2, "rationale": "Jumps to a conclusion without the reasons building toward it in sequence -- level-2 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
+    {"excerpt_id": "af-w1c2-2", "criterion_id": "W1c-2", "source_essay_id": "argfirst-four-day-week-mid", "excerpt_text": "Districts should pilot the schedule with willing schools before committing system-wide, so the tradeoffs can be measured rather than assumed.", "anchor_matched": 4, "score": 4, "rationale": "Follows logically from the reasons and concerns raised earlier in the essay -- level-4 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
+    {"excerpt_id": "af-w1c2-3", "criterion_id": "W1c-2", "source_essay_id": "argfirst-dress-code-strong", "excerpt_text": "Rewriting the code to match its actual justification, rather than repealing it outright, preserves the legitimate safety rationale while removing the provisions that were never really about safety at all.", "anchor_matched": 5, "score": 5, "rationale": "The sequencing builds precisely on every reason and concession made earlier -- level-5 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
+
+    {"excerpt_id": "af-w1e1-1", "criterion_id": "W1e-1", "source_essay_id": "argfirst-testing-weak", "excerpt_text": "Basically capstones seem like a better idea overall for actually showing what students can do.", "anchor_matched": 2, "score": 2, "rationale": "A one-sentence restatement of the claim with no real synthesis -- level-2 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
+    {"excerpt_id": "af-w1e1-2", "criterion_id": "W1e-1", "source_essay_id": "argfirst-financial-literacy-mid", "excerpt_text": "On balance, though, guaranteeing every graduate some financial competency seems worth that tradeoff.", "anchor_matched": 4, "score": 4, "rationale": "Follows from the argument and addresses the significance of the tradeoff -- level-4 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
+    {"excerpt_id": "af-w1e1-3", "criterion_id": "W1e-1", "source_essay_id": "argfirst-plastics-strong", "excerpt_text": "On balance, a phased ban paired with guaranteed alternatives addresses the legitimate equity concern while still achieving the environmental goal the policy is meant to serve.", "anchor_matched": 5, "score": 5, "rationale": "Synthesizes the argument and the counterclaim's disposition together -- level-5 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"}
   ]
 }
