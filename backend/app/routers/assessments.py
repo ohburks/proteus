@@ -1,17 +1,19 @@
 """Grading trigger + output grade retrieval (design doc §7)."""
 import json
+import re
 import sqlite3
 import threading
 import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 
 from app import chroma_store
 from app.audit import record_audit_event
 from app.auth import CurrentUser, get_current_user
 from app.db import get_connection, write_with_retry
+from app.pdf_report import build_assessment_pdf
 from app.grading import cancellation, progress
 from app.grading.engine import criteria_batch_size, run_dual_path_for_criteria_batch
 from app.grading.relevance import run_relevance_check
@@ -435,3 +437,114 @@ def get_assessment(assessment_id: str, user: CurrentUser = Depends(get_current_u
         "rubric_id": assessment["rubric_id"], "rubric_version": assessment["rubric_version"],
         "relevance_check": relevance, "criteria": results,
     }
+
+
+def _safe_filename(name: str) -> str:
+    """Keep the download filename to a safe, header-injection-proof charset."""
+    cleaned = re.sub(r"[^A-Za-z0-9._ -]", "_", name).strip().strip(".")
+    return cleaned or "grade_report.pdf"
+
+
+@router.get("/{assessment_id}/report.pdf")
+def download_assessment_report(assessment_id: str, user: CurrentUser = Depends(get_current_user)):
+    """Full grade report — the original essay plus every criterion's result — as
+    a downloadable PDF (assembled here, rendered by app.pdf_report)."""
+    instructor_id = user.scoped_instructor_id()
+    with get_connection() as conn:
+        assessment = conn.execute("SELECT * FROM assessments WHERE id = ?", (assessment_id,)).fetchone()
+        if assessment is None or assessment["instructor_id"] != instructor_id:
+            raise HTTPException(404, "Assessment not found")
+
+        essay = conn.execute("SELECT * FROM essays WHERE id = ?", (assessment["essay_id"],)).fetchone()
+        assignment = (
+            conn.execute("SELECT * FROM assignments WHERE id = ?", (essay["assignment_id"],)).fetchone()
+            if essay else None
+        )
+        student = (
+            conn.execute("SELECT * FROM students WHERE id = ?", (essay["student_id"],)).fetchone()
+            if essay and essay["student_id"] else None
+        )
+
+        # Rubric criteria give each output its statement + dimension (and the
+        # dimension grouping/order used in the report and the results UI).
+        crit_rows = conn.execute(
+            "SELECT criterion_id, dimension, statement FROM criteria WHERE rubric_id=? AND rubric_version=?",
+            (assessment["rubric_id"], assessment["rubric_version"]),
+        ).fetchall()
+        meta_by_id = {r["criterion_id"]: r for r in crit_rows}
+        dim_order = list(dict.fromkeys(r["dimension"] for r in crit_rows))
+
+        outputs = {o["criterion_id"]: o for o in _criterion_outputs(conn, assessment)}
+        detail = {}
+        for cid in outputs:
+            p = conn.execute(
+                "SELECT score, rationale, evidence_json, is_no_evidence FROM score_aggregates "
+                "WHERE assessment_id=? AND criterion_id=? AND path='personalized'",
+                (assessment_id, cid),
+            ).fetchone()
+            x = conn.execute(
+                "SELECT score, is_no_evidence FROM score_aggregates "
+                "WHERE assessment_id=? AND criterion_id=? AND path='exemplar'",
+                (assessment_id, cid),
+            ).fetchone()
+            d = conn.execute(
+                "SELECT score_diff FROM divergence_records WHERE assessment_id=? AND criterion_id=?",
+                (assessment_id, cid),
+            ).fetchone()
+            o = conn.execute(
+                "SELECT new_score, new_rationale FROM score_overrides WHERE assessment_id=? AND criterion_id=?",
+                (assessment_id, cid),
+            ).fetchone()
+            detail[cid] = {
+                "personalized_score": None if (p is None or p["is_no_evidence"]) else p["score"],
+                "exemplar_score": None if (x is None or x["is_no_evidence"]) else x["score"],
+                "score_diff": d["score_diff"] if d else None,
+                "rationale": p["rationale"] if p else None,
+                "evidence": json.loads(p["evidence_json"]) if p and p["evidence_json"] else [],
+                "override": {"new_score": o["new_score"], "new_rationale": o["new_rationale"]} if o else None,
+            }
+        essay_text = essay["text"] if essay else ""
+
+    def _row(cid: str) -> dict:
+        out = outputs[cid]
+        return {
+            "criterion_id": cid,
+            "statement": meta_by_id[cid]["statement"] if cid in meta_by_id else None,
+            **out,
+            **detail[cid],
+        }
+
+    dims, seen = [], set()
+    for dim in dim_order:
+        crits = [_row(r["criterion_id"]) for r in crit_rows if r["dimension"] == dim and r["criterion_id"] in outputs]
+        if crits:
+            dims.append({"dimension": dim, "criteria": crits})
+            seen.update(c["criterion_id"] for c in crits)
+    leftover = [_row(cid) for cid in outputs if cid not in seen]
+    if leftover:
+        dims.append({"dimension": "Other", "criteria": leftover})
+
+    scores = [o["output_score"] for o in outputs.values() if o["output_score"] is not None]
+    student_name = student["display_name"] if student else "Unlinked essay"
+    report = {
+        "title": "Grade Report",
+        "assignment_name": assignment["name"] if assignment else None,
+        "student_name": student_name,
+        "external_ref": student["external_ref"] if student else None,
+        "rubric": f"{assessment['rubric_id']} v{assessment['rubric_version']}",
+        "status": assessment["status"],
+        "provider": assessment["provider"],
+        "model": assessment["model"],
+        "created_at": assessment["created_at"],
+        "avg_score": (sum(scores) / len(scores)) if scores else None,
+        "n_criteria": len(scores),
+        "essay_text": essay_text,
+        "dimensions": dims,
+    }
+    pdf = build_assessment_pdf(report)
+    filename = _safe_filename(f"{student_name}_{assignment['name'] if assignment else 'essay'}_grade_report.pdf")
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

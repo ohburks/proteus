@@ -29,6 +29,7 @@ class PersonalizedOnlyContext:
     """§6.6 [INSTRUCTOR GUIDANCE] — personalized path only."""
     grading_philosophy: str | None
     deprioritized_criteria: list[str] | None
+    prioritized_criteria: list[str] | None
     rationale_tone: str | None
 
 
@@ -55,9 +56,17 @@ def resolve_personalized_only_context(conn: sqlite3.Connection, instructor_id: s
         "SELECT * FROM instructor_profile WHERE instructor_id = ?", (instructor_id,)
     ).fetchone()
     if not i:
-        return PersonalizedOnlyContext(None, None, None)
+        return PersonalizedOnlyContext(None, None, None, None)
+    keys = i.keys()
     return PersonalizedOnlyContext(
         grading_philosophy=i["grading_philosophy"],
         deprioritized_criteria=json.loads(i["deprioritized_criteria_json"]) if i["deprioritized_criteria_json"] else None,
+        # Column added by migration 0005; guard the read so a not-yet-migrated
+        # row (or an old test fixture) resolves to None instead of raising.
+        prioritized_criteria=(
+            json.loads(i["prioritized_criteria_json"])
+            if "prioritized_criteria_json" in keys and i["prioritized_criteria_json"]
+            else None
+        ),
         rationale_tone=i["rationale_tone"],
     )

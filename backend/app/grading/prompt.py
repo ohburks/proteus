@@ -33,6 +33,16 @@ def _instructor_guidance_block(ctx: PersonalizedOnlyContext) -> str:
     lines = []
     if ctx.grading_philosophy:
         lines.append(f"Grading philosophy: {ctx.grading_philosophy}")
+    if ctx.prioritized_criteria:
+        # Symmetric counterpart to the deprioritized line below: a criterion-ID-
+        # keyed instruction to grade harder than the anchors, so the strict side
+        # of a persona gets the same explicit signal the lenient side does
+        # (rather than relying only on the prose philosophy above to infer it).
+        lines.append(
+            "Rigorously enforced criteria (hold to a higher standard than the anchor language alone — "
+            "when the essay only partially meets an anchor, score it clearly below that anchor, not at it): "
+            + ", ".join(ctx.prioritized_criteria)
+        )
     if ctx.deprioritized_criteria:
         lines.append(f"Deprioritized criteria (do not strictly enforce): {', '.join(ctx.deprioritized_criteria)}")
     if ctx.rationale_tone:
@@ -103,7 +113,7 @@ def build_system_prompt(
     if path == "personalized":
         sections += [
             "[INSTRUCTOR GUIDANCE]",
-            _instructor_guidance_block(personalized_only_ctx or PersonalizedOnlyContext(None, None, None)),
+            _instructor_guidance_block(personalized_only_ctx or PersonalizedOnlyContext(None, None, None, None)),
             "",
         ]
     sections += [
@@ -163,7 +173,7 @@ def build_batch_system_prompt(
     if path == "personalized":
         sections += [
             "[INSTRUCTOR GUIDANCE]",
-            _instructor_guidance_block(personalized_only_ctx or PersonalizedOnlyContext(None, None, None)),
+            _instructor_guidance_block(personalized_only_ctx or PersonalizedOnlyContext(None, None, None, None)),
             "",
         ]
     sections += [

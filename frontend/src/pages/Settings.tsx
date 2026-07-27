@@ -48,8 +48,9 @@ export function SettingsPage() {
   const [defaultProvider, setDefaultProvider] = useState("");
   const [defaultModel, setDefaultModel] = useState("");
   // Not editable here, but must round-trip through the save: the PUT upserts
-  // every profile column, so omitting this would wipe the stored value.
+  // every profile column, so omitting these would wipe the stored value.
   const [deprioritizedCriteria, setDeprioritizedCriteria] = useState<string[] | null>(null);
+  const [prioritizedCriteria, setPrioritizedCriteria] = useState<string[] | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [excerpts, setExcerpts] = useState<PersonalizedExcerpt[]>([]);
   const [excerptText, setExcerptText] = useState("");
@@ -79,6 +80,7 @@ export function SettingsPage() {
       .get<{
         grading_philosophy: string | null;
         deprioritized_criteria: string[] | null;
+        prioritized_criteria: string[] | null;
         rationale_tone: string | null;
         default_llm_provider: string | null;
         default_llm_model: string | null;
@@ -87,6 +89,7 @@ export function SettingsPage() {
         setGradingPhilosophy(p.grading_philosophy ?? "");
         setRationaleTone(p.rationale_tone ?? "");
         setDeprioritizedCriteria(p.deprioritized_criteria);
+        setPrioritizedCriteria(p.prioritized_criteria);
         setDefaultProvider(p.default_llm_provider ?? "");
         setDefaultModel(p.default_llm_model ?? "");
       });
@@ -191,6 +194,7 @@ export function SettingsPage() {
       grading_philosophy: gradingPhilosophy || null,
       rationale_tone: rationaleTone || null,
       deprioritized_criteria: deprioritizedCriteria,
+      prioritized_criteria: prioritizedCriteria,
       default_llm_provider: defaultProvider || null,
       default_llm_model: defaultModel || null,
     });

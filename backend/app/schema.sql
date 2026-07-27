@@ -296,7 +296,8 @@ CREATE TABLE IF NOT EXISTS score_overrides (
 CREATE TABLE IF NOT EXISTS instructor_profile (
   instructor_id TEXT PRIMARY KEY,
   grading_philosophy TEXT,
-  deprioritized_criteria_json TEXT,  -- [criterion_id]
+  deprioritized_criteria_json TEXT,  -- [criterion_id] — grade these softer than the anchors
+  prioritized_criteria_json TEXT,    -- [criterion_id] — grade these harder than the anchors
   rationale_tone TEXT CHECK (rationale_tone IS NULL OR rationale_tone IN ('terse','detailed','encouraging','blunt')),
   default_llm_provider TEXT,
   default_llm_model TEXT,

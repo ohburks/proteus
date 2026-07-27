@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api } from "../lib/api";
+import { api, ApiError, downloadFile } from "../lib/api";
 import type {
   AssessmentCriterionSummary,
   AssessmentDetail,
   RelevanceCheck,
   Rubric,
 } from "../lib/types";
-import { PageHeader } from "../components/ui";
+import { PageHeader, headerBtn } from "../components/ui";
 
 const submissionTypeLabels: Record<RelevanceCheck["submission_type"], string> = {
   student_response: "Student response",
@@ -160,6 +160,16 @@ export function AssessmentPage() {
   const { assessmentId } = useParams<{ assessmentId: string }>();
   const [detail, setDetail] = useState<AssessmentDetail | null>(null);
   const [rubric, setRubric] = useState<Rubric | null>(null);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+
+  async function downloadPdf() {
+    setPdfError(null);
+    try {
+      await downloadFile(`/api/assessments/${assessmentId}/report.pdf`, "grade_report.pdf");
+    } catch (err) {
+      setPdfError(err instanceof ApiError ? err.message : "Failed to download PDF");
+    }
+  }
   const dimensionByCriterion = useMemo(
     () => new Map(rubric?.criteria.map((criterion) => [criterion.criterionId, criterion.dimension]) ?? []),
     [rubric],
@@ -198,8 +208,14 @@ export function AssessmentPage() {
         backTo={`/assignments/${detail.assignment_id}`}
         backLabel="Back to assignment"
         subtitle={`Status: ${detail.status}`}
+        right={
+          <button onClick={downloadPdf} className={headerBtn}>
+            Download PDF
+          </button>
+        }
       />
       <div className="max-w-3xl mx-auto px-6 py-6">
+        {pdfError && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{pdfError}</p>}
         <RelevanceCheckCard check={detail.relevance_check} />
         {detail.status === "complete" &&
         detail.relevance_check &&

@@ -145,12 +145,13 @@ def seed_personalized_excerpts() -> None:
                 now = datetime.now(UTC).isoformat()
                 conn.execute(
                     """INSERT INTO instructor_profile
-                       (instructor_id, grading_philosophy, deprioritized_criteria_json, rationale_tone, updated_at)
-                       VALUES (?,?,?,?,?)""",
+                       (instructor_id, grading_philosophy, deprioritized_criteria_json, prioritized_criteria_json, rationale_tone, updated_at)
+                       VALUES (?,?,?,?,?,?)""",
                     (
                         real_instructor_id,
                         profile.get("grading_philosophy"),
                         json.dumps(profile["deprioritized_criteria"]) if profile.get("deprioritized_criteria") is not None else None,
+                        json.dumps(profile["prioritized_criteria"]) if profile.get("prioritized_criteria") is not None else None,
                         profile.get("rationale_tone"),
                         now,
                     ),

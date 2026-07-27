@@ -6,8 +6,17 @@
   "notes": "Personalized RAG demo corpus, rebuilt from scratch around a single, deliberately designed persona: the 'Argument-First Grader'. This instructor cares intensely about the substance of the argument -- precise claims and genuinely integrated reasoning -- and is comparatively indifferent to presentation (formal register, emotional restraint, surface grammar). Strict criteria (W1a-1, W1a-2, WR-1): scored below the rubric anchor for vagueness/hedging or mechanical reasoning, but a genuinely precise/well-reasoned excerpt earns full marks same as the anchor -- the strictness is satisfiable, not a blanket penalty. Lenient criteria (W1d-1, W1d-2, L1-1): scored at/near full marks regardless of informal register, mild loaded language, or grammar slips -- these are deprioritized. Control criteria (W1b-1, W1b-2, W1b-3, W1c-1, W1c-2, W1e-1): no deviation, anchor_matched == score throughout, so live grading shows divergence only on the six deviation criteria.",
   "instructor_profile": {
     "grading_philosophy": "I care about the strength of the argument itself -- how precise the claim is, how clearly it's set against the strongest opposing view, and how well the reasoning actually connects evidence to the claim. I score those harder than the rubric anchors alone would if a claim is vague or the reasoning is just asserted rather than reasoned through. Presentation is a different matter: I don't take points off for informal register, occasional loaded phrasing, or grammar and spelling slips. If the argument itself is genuinely strong, sloppy delivery doesn't cost anything; if the argument is genuinely weak, polished delivery doesn't rescue it either.",
-    "deprioritized_criteria": ["W1d-1", "W1d-2", "L1-1"],
-    "rationale_tone": "detailed"
+    "deprioritized_criteria": [
+      "W1d-1",
+      "W1d-2",
+      "L1-1"
+    ],
+    "rationale_tone": "detailed",
+    "prioritized_criteria": [
+      "W1a-1",
+      "W1a-2",
+      "WR-1"
+    ]
   },
   "source_essays": [
     {
@@ -48,52 +57,401 @@
     }
   ],
   "excerpts": [
-    {"excerpt_id": "af-w1a1-1", "criterion_id": "W1a-1", "source_essay_id": "argfirst-testing-weak", "excerpt_text": "I think schools should maybe get rid of standardized tests, or at least do less of them, because tests dont really show what a student can do.", "anchor_matched": 2, "score": 1, "rationale": "Literal rubric fit: the claim is hedged ('maybe', 'at least do less') rather than a clear position -- level-2 anchor. Instructor score: marked down further than the anchor alone would -- this instructor scores claim precision harder than the rubric anchor language captures.", "source": "manual", "added_by": "instructor"},
-    {"excerpt_id": "af-w1a1-2", "criterion_id": "W1a-1", "source_essay_id": "argfirst-four-day-week-mid", "excerpt_text": "Districts considering a four-day school week should proceed carefully rather than adopting it wholesale, since the research on outcomes is mixed.", "anchor_matched": 3, "score": 2, "rationale": "Literal rubric fit: an arguable claim, but imprecise -- 'proceed carefully' isn't a committed position -- level-3 anchor. Instructor score: still marked below the anchor for the same reason -- a cautious, uncommitted framing doesn't earn the anchor's credit under this instructor's standard.", "source": "manual", "added_by": "instructor"},
-    {"excerpt_id": "af-w1a1-3", "criterion_id": "W1a-1", "source_essay_id": "argfirst-plastics-strong", "excerpt_text": "Public high schools should prohibit the sale of single-use plastic bottles and utensils in campus cafeterias, provided that affordable refill and reusable alternatives are made available at the same price point.", "anchor_matched": 5, "score": 5, "rationale": "A precise, qualified claim with a scope condition attached -- level-5 anchor. Instructor score: full marks, matching the anchor -- shows the strict claim standard is satisfiable, not a blanket penalty on this criterion.", "source": "manual", "added_by": "instructor"},
-
-    {"excerpt_id": "af-w1a2-1", "criterion_id": "W1a-2", "source_essay_id": "argfirst-valedictorian-weak", "excerpt_text": "Some people think it motivates kids to work harder but that argument doesnt really hold up if you think about it.", "anchor_matched": 2, "score": 1, "rationale": "Literal rubric fit: an opposing view is named but not clearly differentiated from the writer's own position -- level-2 anchor. Instructor score: marked down further -- dismissing a counterclaim without engaging it doesn't earn the anchor's partial credit under this instructor's standard.", "source": "manual", "added_by": "instructor"},
-    {"excerpt_id": "af-w1a2-2", "criterion_id": "W1a-2", "source_essay_id": "argfirst-service-hours-mid", "excerpt_text": "Critics argue that mandatory service isn't truly service if it's forced, and there's some truth to that concern.", "anchor_matched": 3, "score": 2, "rationale": "Literal rubric fit: the opposing claim is stated and the writer's position is set against it at least once -- level-3 anchor. Instructor score: still below the anchor -- conceding 'some truth' without actually drawing the line between positions isn't enough distinction for this instructor.", "source": "manual", "added_by": "instructor"},
-    {"excerpt_id": "af-w1a2-3", "criterion_id": "W1a-2", "source_essay_id": "argfirst-dress-code-strong", "excerpt_text": "Supporters of broader dress codes argue that professional or modest dress prepares students for future workplace expectations, and that goal is a reasonable one for a school to hold. That goal, however, does not require regulating the specific items current codes single out", "anchor_matched": 5, "score": 5, "rationale": "The opposing position is stated in its strongest form and precisely distinguished from the writer's own -- concedes the goal, contests the means -- level-5 anchor. Instructor score: full marks, matching the anchor -- proves the strict standard is satisfiable.", "source": "manual", "added_by": "instructor"},
-
-    {"excerpt_id": "af-wr1-1", "criterion_id": "WR-1", "source_essay_id": "argfirst-energy-drinks-weak", "excerpt_text": "Kids crash after the caffeine wears off and cant focus for the rest of the day, so it ends up hurting their grades.", "anchor_matched": 2, "score": 1, "rationale": "Literal rubric fit: one line of reasoning applied mechanically -- level-2 (unistructural) anchor. Instructor score: marked down further -- this instructor weighs reasoning depth more heavily than the rubric anchor alone reflects.", "source": "manual", "added_by": "instructor"},
-    {"excerpt_id": "af-wr1-2", "criterion_id": "WR-1", "source_essay_id": "argfirst-financial-literacy-mid", "excerpt_text": "A required course guarantees a baseline of financial knowledge regardless of a student's home situation. It would mean displacing another elective or requirement, which is a real cost schools would need to weigh.", "anchor_matched": 3, "score": 2, "rationale": "Literal rubric fit: several reasons named, not yet integrated -- level-3 (multistructural) anchor. Instructor score: still below the anchor -- naming a tradeoff without weighing it through isn't full reasoning credit under this instructor's standard.", "source": "manual", "added_by": "instructor"},
-    {"excerpt_id": "af-wr1-3", "criterion_id": "WR-1", "source_essay_id": "argfirst-longer-day-strong", "excerpt_text": "Because the proposal here allocates the additional time to flexible, student-directed support rather than another taught period, it responds to fatigue rather than ignoring it, targeting the students who most need extra time without imposing it uniformly on those who don't.", "anchor_matched": 5, "score": 5, "rationale": "Reasons are integrated and the counterclaim's own concern is directly addressed within the reasoning itself -- level-5 (extended abstract) anchor. Instructor score: full marks, matching the anchor -- proves the strict reasoning standard is satisfiable.", "source": "manual", "added_by": "instructor"},
-
-    {"excerpt_id": "af-w1d1-1", "criterion_id": "W1d-1", "source_essay_id": "argfirst-testing-weak", "excerpt_text": "Kids just memorize stuff for the test and forget it right after, so it doesnt actually mean they learned anything.", "anchor_matched": 1, "score": 5, "rationale": "Literal rubric fit: casual diction, contraction, no academic register -- level-1 anchor. Instructor score: full marks regardless -- formal style is deprioritized for this instructor.", "source": "manual", "added_by": "instructor"},
-    {"excerpt_id": "af-w1d1-2", "criterion_id": "W1d-1", "source_essay_id": "argfirst-valedictorian-weak", "excerpt_text": "Ranking one kid above everyone else just makes school feel like a competition instead of learning, and that stresses kids out for no good reason.", "anchor_matched": 2, "score": 5, "rationale": "Literal rubric fit: mixed register, casual phrasing undercuts the academic voice -- level-2 anchor. Instructor score: full marks -- same deprioritization regardless of register quality.", "source": "manual", "added_by": "instructor"},
-    {"excerpt_id": "af-w1d1-3", "criterion_id": "W1d-1", "source_essay_id": "argfirst-plastics-strong", "excerpt_text": "Opponents rightly note that a ban imposed without infrastructure in place simply shifts inconvenience onto students who cannot afford reusable alternatives, and that objection identifies the actual design requirement rather than a reason to abandon the policy.", "anchor_matched": 5, "score": 5, "rationale": "Genuinely formal, precise diction -- level-5 anchor. Instructor score: full marks, same as the informal excerpts above -- shows the leniency is about not penalizing informality, not about inflating scores; formal writing earns the same top mark on its own merits.", "source": "manual", "added_by": "instructor"},
-
-    {"excerpt_id": "af-w1d2-1", "criterion_id": "W1d-2", "source_essay_id": "argfirst-valedictorian-weak", "excerpt_text": "Ranking one kid above everyone else just makes school feel like a competition instead of learning, and that stresses kids out for no good reason.", "anchor_matched": 2, "score": 5, "rationale": "Literal rubric fit: loaded framing ('stresses kids out for no good reason') substitutes for grounded reasoning in places -- level-2 anchor. Instructor score: full marks -- tone is deprioritized for this instructor.", "source": "manual", "added_by": "instructor"},
-    {"excerpt_id": "af-w1d2-2", "criterion_id": "W1d-2", "source_essay_id": "argfirst-four-day-week-mid", "excerpt_text": "Opponents worry about working parents needing childcare on the fifth day, and that concern deserves a real answer, not a dismissal.", "anchor_matched": 4, "score": 5, "rationale": "Objective, evidence-grounded framing of the opposing concern -- level-4 anchor. Instructor score: full marks, matching the anchor -- consistent regardless of where tone naturally lands.", "source": "manual", "added_by": "instructor"},
-    {"excerpt_id": "af-w1d2-3", "criterion_id": "W1d-2", "source_essay_id": "argfirst-dress-code-strong", "excerpt_text": "Districts that have already narrowed their codes along these lines report fewer dress-code-related disciplinary referrals overall, with the remaining referrals concentrated on the safety-related provisions the narrower code retains.", "anchor_matched": 5, "score": 5, "rationale": "Rigorously objective, evidence-grounded -- level-5 anchor. Instructor score: full marks, matching the anchor -- same top mark whether tone starts loaded or objective.", "source": "manual", "added_by": "instructor"},
-
-    {"excerpt_id": "af-l11-1", "criterion_id": "L1-1", "source_essay_id": "argfirst-testing-weak", "excerpt_text": "I think schools should maybe get rid of standardized tests, or at least do less of them, because tests dont really show what a student can do.", "anchor_matched": 2, "score": 5, "rationale": "Literal rubric fit: recurring missing-apostrophe errors ('dont') -- level-2 anchor. Instructor score: full marks -- grammar and spelling are not weighted for this instructor.", "source": "manual", "added_by": "instructor"},
-    {"excerpt_id": "af-l11-2", "criterion_id": "L1-1", "source_essay_id": "argfirst-valedictorian-weak", "excerpt_text": "Schools should stop naming a valedictorian, or at least rethink it, because ranking students like that isnt really fair to everyone.", "anchor_matched": 3, "score": 5, "rationale": "Literal rubric fit: an occasional apostrophe error ('isnt') that rarely impedes meaning -- level-3 anchor. Instructor score: full marks -- same deprioritization regardless of how minor or frequent the errors are.", "source": "manual", "added_by": "instructor"},
-    {"excerpt_id": "af-l11-3", "criterion_id": "L1-1", "source_essay_id": "argfirst-longer-day-strong", "excerpt_text": "Extending the high school day by thirty minutes, with that time allocated specifically to unstructured academic support rather than additional class instruction, would address a gap that current schedules leave unfilled.", "anchor_matched": 5, "score": 5, "rationale": "Essentially error-free -- level-5 anchor. Instructor score: full marks, matching the anchor -- confirms the criterion isn't actually differentiating for this instructor either way.", "source": "manual", "added_by": "instructor"},
-
-    {"excerpt_id": "af-w1b1-1", "criterion_id": "W1b-1", "source_essay_id": "argfirst-testing-weak", "excerpt_text": "Kids just memorize stuff for the test and forget it right after, so it doesnt actually mean they learned anything.", "anchor_matched": 2, "score": 2, "rationale": "A reason is asserted with minimal real evidence behind it -- level-2 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
-    {"excerpt_id": "af-w1b1-2", "criterion_id": "W1b-1", "source_essay_id": "argfirst-service-hours-mid", "excerpt_text": "many students who are required to volunteer report afterward that they wouldn't have sought out the experience on their own, and the exposure itself has value even if the initial motivation was a requirement rather than a personal choice.", "anchor_matched": 4, "score": 4, "rationale": "A specific, relevant reason with real support -- level-4 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
-    {"excerpt_id": "af-w1b1-3", "criterion_id": "W1b-1", "source_essay_id": "argfirst-longer-day-strong", "excerpt_text": "Schools that have piloted similar flexible-time blocks report improved completion rates on major assignments, particularly among students balancing coursework with jobs or family responsibilities outside school.", "anchor_matched": 5, "score": 5, "rationale": "Sufficient, specific, well-targeted evidence -- level-5 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
-
-    {"excerpt_id": "af-w1b2-1", "criterion_id": "W1b-2", "source_essay_id": "argfirst-valedictorian-weak", "excerpt_text": "Some people think it motivates kids to work harder but that argument doesnt really hold up if you think about it.", "anchor_matched": 1, "score": 1, "rationale": "The counterclaim is dismissed rather than developed fairly -- level-1 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
-    {"excerpt_id": "af-w1b2-2", "criterion_id": "W1b-2", "source_essay_id": "argfirst-four-day-week-mid", "excerpt_text": "Opponents worry about working parents needing childcare on the fifth day, and that concern deserves a real answer, not a dismissal.", "anchor_matched": 3, "score": 3, "rationale": "The counterclaim is stated fairly, though not fully developed with a direct answer -- level-3 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
-    {"excerpt_id": "af-w1b2-3", "criterion_id": "W1b-2", "source_essay_id": "argfirst-plastics-strong", "excerpt_text": "Opponents rightly note that a ban imposed without infrastructure in place simply shifts inconvenience onto students who cannot afford reusable alternatives, and that objection identifies the actual design requirement rather than a reason to abandon the policy.", "anchor_matched": 5, "score": 5, "rationale": "The counterclaim is developed thoroughly and its legitimate strength is acknowledged -- level-5 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
-
-    {"excerpt_id": "af-w1b3-1", "criterion_id": "W1b-3", "source_essay_id": "argfirst-energy-drinks-weak", "excerpt_text": "Some people say its the students own choice what they drink but that kind of ignores that schools already regulate other food and drinks anyway.", "anchor_matched": 2, "score": 2, "rationale": "A likely objection is named but addressed only briefly -- level-2 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
-    {"excerpt_id": "af-w1b3-2", "criterion_id": "W1b-3", "source_essay_id": "argfirst-financial-literacy-mid", "excerpt_text": "Some argue that this content belongs at home rather than in school, but that assumes every student has a parent equipped to teach it, which isn't a safe assumption to make for an entire district.", "anchor_matched": 4, "score": 4, "rationale": "Anticipates a specific audience concern and responds to its underlying assumption -- level-4 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
-    {"excerpt_id": "af-w1b3-3", "criterion_id": "W1b-3", "source_essay_id": "argfirst-longer-day-strong", "excerpt_text": "Critics argue that students are already fatigued by the end of the day and that additional time would yield diminishing returns, and that concern is legitimate for any proposal that simply adds more direct instruction.", "anchor_matched": 5, "score": 5, "rationale": "Anticipates the audience's strongest concern and concedes its legitimacy precisely where it applies -- level-5 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
-
-    {"excerpt_id": "af-w1c1-1", "criterion_id": "W1c-1", "source_essay_id": "argfirst-testing-weak", "excerpt_text": "Some people like tests since they're easy to compare across schools but thats kind of missing the point.", "anchor_matched": 2, "score": 2, "rationale": "A linking phrase is present but the relationship it signals is thin -- level-2 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
-    {"excerpt_id": "af-w1c1-2", "criterion_id": "W1c-1", "source_essay_id": "argfirst-service-hours-mid", "excerpt_text": "However, many students who are required to volunteer report afterward that they wouldn't have sought out the experience on their own", "anchor_matched": 4, "score": 4, "rationale": "A clear contrastive link clarifies the relationship between the counterclaim and the response -- level-4 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
-    {"excerpt_id": "af-w1c1-3", "criterion_id": "W1c-1", "source_essay_id": "argfirst-plastics-strong", "excerpt_text": "The remaining question is one of upfront cost, not of principle: districts must weigh the capital expense of filling stations against the recurring cost of waste disposal and the environmental externality that recurring cost does not capture.", "anchor_matched": 5, "score": 5, "rationale": "Precise linking language clarifies exactly what is and isn't in dispute -- level-5 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
-
-    {"excerpt_id": "af-w1c2-1", "criterion_id": "W1c-2", "source_essay_id": "argfirst-valedictorian-weak", "excerpt_text": "Overall dropping the ranking system just seems like the better move for schools.", "anchor_matched": 2, "score": 2, "rationale": "Jumps to a conclusion without the reasons building toward it in sequence -- level-2 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
-    {"excerpt_id": "af-w1c2-2", "criterion_id": "W1c-2", "source_essay_id": "argfirst-four-day-week-mid", "excerpt_text": "Districts should pilot the schedule with willing schools before committing system-wide, so the tradeoffs can be measured rather than assumed.", "anchor_matched": 4, "score": 4, "rationale": "Follows logically from the reasons and concerns raised earlier in the essay -- level-4 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
-    {"excerpt_id": "af-w1c2-3", "criterion_id": "W1c-2", "source_essay_id": "argfirst-dress-code-strong", "excerpt_text": "Rewriting the code to match its actual justification, rather than repealing it outright, preserves the legitimate safety rationale while removing the provisions that were never really about safety at all.", "anchor_matched": 5, "score": 5, "rationale": "The sequencing builds precisely on every reason and concession made earlier -- level-5 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
-
-    {"excerpt_id": "af-w1e1-1", "criterion_id": "W1e-1", "source_essay_id": "argfirst-testing-weak", "excerpt_text": "Basically capstones seem like a better idea overall for actually showing what students can do.", "anchor_matched": 2, "score": 2, "rationale": "A one-sentence restatement of the claim with no real synthesis -- level-2 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
-    {"excerpt_id": "af-w1e1-2", "criterion_id": "W1e-1", "source_essay_id": "argfirst-financial-literacy-mid", "excerpt_text": "On balance, though, guaranteeing every graduate some financial competency seems worth that tradeoff.", "anchor_matched": 4, "score": 4, "rationale": "Follows from the argument and addresses the significance of the tradeoff -- level-4 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"},
-    {"excerpt_id": "af-w1e1-3", "criterion_id": "W1e-1", "source_essay_id": "argfirst-plastics-strong", "excerpt_text": "On balance, a phased ban paired with guaranteed alternatives addresses the legitimate equity concern while still achieving the environmental goal the policy is meant to serve.", "anchor_matched": 5, "score": 5, "rationale": "Synthesizes the argument and the counterclaim's disposition together -- level-5 anchor. Instructor score: matches the anchor -- no deviation on this criterion.", "source": "manual", "added_by": "instructor"}
+    {
+      "excerpt_id": "af-w1a1-1",
+      "criterion_id": "W1a-1",
+      "source_essay_id": "argfirst-testing-weak",
+      "excerpt_text": "I think schools should maybe get rid of standardized tests, or at least do less of them, because tests dont really show what a student can do.",
+      "anchor_matched": 2,
+      "score": 0,
+      "rationale": "Literal rubric fit: the claim is hedged ('maybe', 'at least do less') rather than a clear position -- level-2 anchor. Instructor score 0: this instructor scores claim precision two full points below the anchor here -- a hedged, uncommitted claim earns essentially no credit under this standard.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1a1-2",
+      "criterion_id": "W1a-1",
+      "source_essay_id": "argfirst-four-day-week-mid",
+      "excerpt_text": "Districts considering a four-day school week should proceed carefully rather than adopting it wholesale, since the research on outcomes is mixed.",
+      "anchor_matched": 3,
+      "score": 1,
+      "rationale": "Literal rubric fit: an arguable claim, but imprecise -- 'proceed carefully' isn't a committed position -- level-3 anchor. Instructor score 1: marked two full points below the anchor -- a cautious, uncommitted framing barely registers as a claim under this instructor's standard.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1a1-3",
+      "criterion_id": "W1a-1",
+      "source_essay_id": "argfirst-plastics-strong",
+      "excerpt_text": "Public high schools should prohibit the sale of single-use plastic bottles and utensils in campus cafeterias, provided that affordable refill and reusable alternatives are made available at the same price point.",
+      "anchor_matched": 5,
+      "score": 5,
+      "rationale": "A precise, qualified claim with a scope condition attached -- level-5 anchor. Instructor score: full marks, matching the anchor -- shows the strict claim standard is satisfiable, not a blanket penalty on this criterion.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1a2-1",
+      "criterion_id": "W1a-2",
+      "source_essay_id": "argfirst-valedictorian-weak",
+      "excerpt_text": "Some people think it motivates kids to work harder but that argument doesnt really hold up if you think about it.",
+      "anchor_matched": 2,
+      "score": 0,
+      "rationale": "Literal rubric fit: an opposing view is named but not clearly differentiated from the writer's own position -- level-2 anchor. Instructor score 0: two full points below the anchor -- naming a counterclaim without engaging it earns essentially no credit under this instructor's standard.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1a2-2",
+      "criterion_id": "W1a-2",
+      "source_essay_id": "argfirst-service-hours-mid",
+      "excerpt_text": "Critics argue that mandatory service isn't truly service if it's forced, and there's some truth to that concern.",
+      "anchor_matched": 3,
+      "score": 1,
+      "rationale": "Literal rubric fit: the opposing claim is stated and the writer's position is set against it at least once -- level-3 anchor. Instructor score 1: two full points below the anchor -- conceding 'some truth' without drawing the line between positions barely counts as differentiation for this instructor.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1a2-3",
+      "criterion_id": "W1a-2",
+      "source_essay_id": "argfirst-dress-code-strong",
+      "excerpt_text": "Supporters of broader dress codes argue that professional or modest dress prepares students for future workplace expectations, and that goal is a reasonable one for a school to hold. That goal, however, does not require regulating the specific items current codes single out",
+      "anchor_matched": 5,
+      "score": 5,
+      "rationale": "The opposing position is stated in its strongest form and precisely distinguished from the writer's own -- concedes the goal, contests the means -- level-5 anchor. Instructor score: full marks, matching the anchor -- proves the strict standard is satisfiable.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-wr1-1",
+      "criterion_id": "WR-1",
+      "source_essay_id": "argfirst-energy-drinks-weak",
+      "excerpt_text": "Kids crash after the caffeine wears off and cant focus for the rest of the day, so it ends up hurting their grades.",
+      "anchor_matched": 2,
+      "score": 0,
+      "rationale": "Literal rubric fit: one line of reasoning applied mechanically -- level-2 (unistructural) anchor. Instructor score 0: two full points below the anchor -- this instructor weighs reasoning depth heavily, and a single mechanical inference earns essentially no credit.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-wr1-2",
+      "criterion_id": "WR-1",
+      "source_essay_id": "argfirst-financial-literacy-mid",
+      "excerpt_text": "A required course guarantees a baseline of financial knowledge regardless of a student's home situation. It would mean displacing another elective or requirement, which is a real cost schools would need to weigh.",
+      "anchor_matched": 3,
+      "score": 1,
+      "rationale": "Literal rubric fit: several reasons named, not yet integrated -- level-3 (multistructural) anchor. Instructor score 1: two full points below the anchor -- naming tradeoffs without weighing them through barely registers as reasoning under this instructor's standard.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-wr1-3",
+      "criterion_id": "WR-1",
+      "source_essay_id": "argfirst-longer-day-strong",
+      "excerpt_text": "Because the proposal here allocates the additional time to flexible, student-directed support rather than another taught period, it responds to fatigue rather than ignoring it, targeting the students who most need extra time without imposing it uniformly on those who don't.",
+      "anchor_matched": 5,
+      "score": 5,
+      "rationale": "Reasons are integrated and the counterclaim's own concern is directly addressed within the reasoning itself -- level-5 (extended abstract) anchor. Instructor score: full marks, matching the anchor -- proves the strict reasoning standard is satisfiable.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1d1-1",
+      "criterion_id": "W1d-1",
+      "source_essay_id": "argfirst-testing-weak",
+      "excerpt_text": "Kids just memorize stuff for the test and forget it right after, so it doesnt actually mean they learned anything.",
+      "anchor_matched": 1,
+      "score": 5,
+      "rationale": "Literal rubric fit: casual diction, contraction, no academic register -- level-1 anchor. Instructor score: full marks regardless -- formal style is deprioritized for this instructor.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1d1-2",
+      "criterion_id": "W1d-1",
+      "source_essay_id": "argfirst-valedictorian-weak",
+      "excerpt_text": "Ranking one kid above everyone else just makes school feel like a competition instead of learning, and that stresses kids out for no good reason.",
+      "anchor_matched": 2,
+      "score": 5,
+      "rationale": "Literal rubric fit: mixed register, casual phrasing undercuts the academic voice -- level-2 anchor. Instructor score: full marks -- same deprioritization regardless of register quality.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1d1-3",
+      "criterion_id": "W1d-1",
+      "source_essay_id": "argfirst-plastics-strong",
+      "excerpt_text": "Opponents rightly note that a ban imposed without infrastructure in place simply shifts inconvenience onto students who cannot afford reusable alternatives, and that objection identifies the actual design requirement rather than a reason to abandon the policy.",
+      "anchor_matched": 5,
+      "score": 5,
+      "rationale": "Genuinely formal, precise diction -- level-5 anchor. Instructor score: full marks, same as the informal excerpts above -- shows the leniency is about not penalizing informality, not about inflating scores; formal writing earns the same top mark on its own merits.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1d2-1",
+      "criterion_id": "W1d-2",
+      "source_essay_id": "argfirst-valedictorian-weak",
+      "excerpt_text": "Ranking one kid above everyone else just makes school feel like a competition instead of learning, and that stresses kids out for no good reason.",
+      "anchor_matched": 2,
+      "score": 5,
+      "rationale": "Literal rubric fit: loaded framing ('stresses kids out for no good reason') substitutes for grounded reasoning in places -- level-2 anchor. Instructor score: full marks -- tone is deprioritized for this instructor.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1d2-2",
+      "criterion_id": "W1d-2",
+      "source_essay_id": "argfirst-four-day-week-mid",
+      "excerpt_text": "Opponents worry about working parents needing childcare on the fifth day, and that concern deserves a real answer, not a dismissal.",
+      "anchor_matched": 4,
+      "score": 5,
+      "rationale": "Objective, evidence-grounded framing of the opposing concern -- level-4 anchor. Instructor score: full marks, matching the anchor -- consistent regardless of where tone naturally lands.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1d2-3",
+      "criterion_id": "W1d-2",
+      "source_essay_id": "argfirst-dress-code-strong",
+      "excerpt_text": "Districts that have already narrowed their codes along these lines report fewer dress-code-related disciplinary referrals overall, with the remaining referrals concentrated on the safety-related provisions the narrower code retains.",
+      "anchor_matched": 5,
+      "score": 5,
+      "rationale": "Rigorously objective, evidence-grounded -- level-5 anchor. Instructor score: full marks, matching the anchor -- same top mark whether tone starts loaded or objective.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-l11-1",
+      "criterion_id": "L1-1",
+      "source_essay_id": "argfirst-testing-weak",
+      "excerpt_text": "I think schools should maybe get rid of standardized tests, or at least do less of them, because tests dont really show what a student can do.",
+      "anchor_matched": 2,
+      "score": 5,
+      "rationale": "Literal rubric fit: recurring missing-apostrophe errors ('dont') -- level-2 anchor. Instructor score: full marks -- grammar and spelling are not weighted for this instructor.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-l11-2",
+      "criterion_id": "L1-1",
+      "source_essay_id": "argfirst-valedictorian-weak",
+      "excerpt_text": "Schools should stop naming a valedictorian, or at least rethink it, because ranking students like that isnt really fair to everyone.",
+      "anchor_matched": 3,
+      "score": 5,
+      "rationale": "Literal rubric fit: an occasional apostrophe error ('isnt') that rarely impedes meaning -- level-3 anchor. Instructor score: full marks -- same deprioritization regardless of how minor or frequent the errors are.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-l11-3",
+      "criterion_id": "L1-1",
+      "source_essay_id": "argfirst-longer-day-strong",
+      "excerpt_text": "Extending the high school day by thirty minutes, with that time allocated specifically to unstructured academic support rather than additional class instruction, would address a gap that current schedules leave unfilled.",
+      "anchor_matched": 5,
+      "score": 5,
+      "rationale": "Essentially error-free -- level-5 anchor. Instructor score: full marks, matching the anchor -- confirms the criterion isn't actually differentiating for this instructor either way.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1b1-1",
+      "criterion_id": "W1b-1",
+      "source_essay_id": "argfirst-testing-weak",
+      "excerpt_text": "Kids just memorize stuff for the test and forget it right after, so it doesnt actually mean they learned anything.",
+      "anchor_matched": 2,
+      "score": 2,
+      "rationale": "A reason is asserted with minimal real evidence behind it -- level-2 anchor. Instructor score: matches the anchor -- no deviation on this criterion.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1b1-2",
+      "criterion_id": "W1b-1",
+      "source_essay_id": "argfirst-service-hours-mid",
+      "excerpt_text": "many students who are required to volunteer report afterward that they wouldn't have sought out the experience on their own, and the exposure itself has value even if the initial motivation was a requirement rather than a personal choice.",
+      "anchor_matched": 4,
+      "score": 4,
+      "rationale": "A specific, relevant reason with real support -- level-4 anchor. Instructor score: matches the anchor -- no deviation on this criterion.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1b1-3",
+      "criterion_id": "W1b-1",
+      "source_essay_id": "argfirst-longer-day-strong",
+      "excerpt_text": "Schools that have piloted similar flexible-time blocks report improved completion rates on major assignments, particularly among students balancing coursework with jobs or family responsibilities outside school.",
+      "anchor_matched": 5,
+      "score": 5,
+      "rationale": "Sufficient, specific, well-targeted evidence -- level-5 anchor. Instructor score: matches the anchor -- no deviation on this criterion.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1b2-1",
+      "criterion_id": "W1b-2",
+      "source_essay_id": "argfirst-valedictorian-weak",
+      "excerpt_text": "Some people think it motivates kids to work harder but that argument doesnt really hold up if you think about it.",
+      "anchor_matched": 1,
+      "score": 1,
+      "rationale": "The counterclaim is dismissed rather than developed fairly -- level-1 anchor. Instructor score: matches the anchor -- no deviation on this criterion.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1b2-2",
+      "criterion_id": "W1b-2",
+      "source_essay_id": "argfirst-four-day-week-mid",
+      "excerpt_text": "Opponents worry about working parents needing childcare on the fifth day, and that concern deserves a real answer, not a dismissal.",
+      "anchor_matched": 3,
+      "score": 3,
+      "rationale": "The counterclaim is stated fairly, though not fully developed with a direct answer -- level-3 anchor. Instructor score: matches the anchor -- no deviation on this criterion.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1b2-3",
+      "criterion_id": "W1b-2",
+      "source_essay_id": "argfirst-plastics-strong",
+      "excerpt_text": "Opponents rightly note that a ban imposed without infrastructure in place simply shifts inconvenience onto students who cannot afford reusable alternatives, and that objection identifies the actual design requirement rather than a reason to abandon the policy.",
+      "anchor_matched": 5,
+      "score": 5,
+      "rationale": "The counterclaim is developed thoroughly and its legitimate strength is acknowledged -- level-5 anchor. Instructor score: matches the anchor -- no deviation on this criterion.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1b3-1",
+      "criterion_id": "W1b-3",
+      "source_essay_id": "argfirst-energy-drinks-weak",
+      "excerpt_text": "Some people say its the students own choice what they drink but that kind of ignores that schools already regulate other food and drinks anyway.",
+      "anchor_matched": 2,
+      "score": 2,
+      "rationale": "A likely objection is named but addressed only briefly -- level-2 anchor. Instructor score: matches the anchor -- no deviation on this criterion.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1b3-2",
+      "criterion_id": "W1b-3",
+      "source_essay_id": "argfirst-financial-literacy-mid",
+      "excerpt_text": "Some argue that this content belongs at home rather than in school, but that assumes every student has a parent equipped to teach it, which isn't a safe assumption to make for an entire district.",
+      "anchor_matched": 4,
+      "score": 4,
+      "rationale": "Anticipates a specific audience concern and responds to its underlying assumption -- level-4 anchor. Instructor score: matches the anchor -- no deviation on this criterion.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1b3-3",
+      "criterion_id": "W1b-3",
+      "source_essay_id": "argfirst-longer-day-strong",
+      "excerpt_text": "Critics argue that students are already fatigued by the end of the day and that additional time would yield diminishing returns, and that concern is legitimate for any proposal that simply adds more direct instruction.",
+      "anchor_matched": 5,
+      "score": 5,
+      "rationale": "Anticipates the audience's strongest concern and concedes its legitimacy precisely where it applies -- level-5 anchor. Instructor score: matches the anchor -- no deviation on this criterion.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1c1-1",
+      "criterion_id": "W1c-1",
+      "source_essay_id": "argfirst-testing-weak",
+      "excerpt_text": "Some people like tests since they're easy to compare across schools but thats kind of missing the point.",
+      "anchor_matched": 2,
+      "score": 2,
+      "rationale": "A linking phrase is present but the relationship it signals is thin -- level-2 anchor. Instructor score: matches the anchor -- no deviation on this criterion.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1c1-2",
+      "criterion_id": "W1c-1",
+      "source_essay_id": "argfirst-service-hours-mid",
+      "excerpt_text": "However, many students who are required to volunteer report afterward that they wouldn't have sought out the experience on their own",
+      "anchor_matched": 4,
+      "score": 4,
+      "rationale": "A clear contrastive link clarifies the relationship between the counterclaim and the response -- level-4 anchor. Instructor score: matches the anchor -- no deviation on this criterion.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1c1-3",
+      "criterion_id": "W1c-1",
+      "source_essay_id": "argfirst-plastics-strong",
+      "excerpt_text": "The remaining question is one of upfront cost, not of principle: districts must weigh the capital expense of filling stations against the recurring cost of waste disposal and the environmental externality that recurring cost does not capture.",
+      "anchor_matched": 5,
+      "score": 5,
+      "rationale": "Precise linking language clarifies exactly what is and isn't in dispute -- level-5 anchor. Instructor score: matches the anchor -- no deviation on this criterion.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1c2-1",
+      "criterion_id": "W1c-2",
+      "source_essay_id": "argfirst-valedictorian-weak",
+      "excerpt_text": "Overall dropping the ranking system just seems like the better move for schools.",
+      "anchor_matched": 2,
+      "score": 2,
+      "rationale": "Jumps to a conclusion without the reasons building toward it in sequence -- level-2 anchor. Instructor score: matches the anchor -- no deviation on this criterion.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1c2-2",
+      "criterion_id": "W1c-2",
+      "source_essay_id": "argfirst-four-day-week-mid",
+      "excerpt_text": "Districts should pilot the schedule with willing schools before committing system-wide, so the tradeoffs can be measured rather than assumed.",
+      "anchor_matched": 4,
+      "score": 4,
+      "rationale": "Follows logically from the reasons and concerns raised earlier in the essay -- level-4 anchor. Instructor score: matches the anchor -- no deviation on this criterion.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1c2-3",
+      "criterion_id": "W1c-2",
+      "source_essay_id": "argfirst-dress-code-strong",
+      "excerpt_text": "Rewriting the code to match its actual justification, rather than repealing it outright, preserves the legitimate safety rationale while removing the provisions that were never really about safety at all.",
+      "anchor_matched": 5,
+      "score": 5,
+      "rationale": "The sequencing builds precisely on every reason and concession made earlier -- level-5 anchor. Instructor score: matches the anchor -- no deviation on this criterion.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1e1-1",
+      "criterion_id": "W1e-1",
+      "source_essay_id": "argfirst-testing-weak",
+      "excerpt_text": "Basically capstones seem like a better idea overall for actually showing what students can do.",
+      "anchor_matched": 2,
+      "score": 2,
+      "rationale": "A one-sentence restatement of the claim with no real synthesis -- level-2 anchor. Instructor score: matches the anchor -- no deviation on this criterion.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1e1-2",
+      "criterion_id": "W1e-1",
+      "source_essay_id": "argfirst-financial-literacy-mid",
+      "excerpt_text": "On balance, though, guaranteeing every graduate some financial competency seems worth that tradeoff.",
+      "anchor_matched": 4,
+      "score": 4,
+      "rationale": "Follows from the argument and addresses the significance of the tradeoff -- level-4 anchor. Instructor score: matches the anchor -- no deviation on this criterion.",
+      "source": "manual",
+      "added_by": "instructor"
+    },
+    {
+      "excerpt_id": "af-w1e1-3",
+      "criterion_id": "W1e-1",
+      "source_essay_id": "argfirst-plastics-strong",
+      "excerpt_text": "On balance, a phased ban paired with guaranteed alternatives addresses the legitimate equity concern while still achieving the environmental goal the policy is meant to serve.",
+      "anchor_matched": 5,
+      "score": 5,
+      "rationale": "Synthesizes the argument and the counterclaim's disposition together -- level-5 anchor. Instructor score: matches the anchor -- no deviation on this criterion.",
+      "source": "manual",
+      "added_by": "instructor"
+    }
   ]
 }

@@ -136,6 +136,15 @@ def _migrate_instructor_profile_llm_defaults(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE instructor_profile ADD COLUMN default_llm_model TEXT")
 
 
+def _migrate_instructor_profile_prioritized(conn: sqlite3.Connection) -> None:
+    # Symmetric counterpart to deprioritized_criteria_json: a criterion-ID-keyed
+    # "grade these harder than the anchors" list, so the strict side of a persona
+    # has the same first-class structured signal the lenient side already has
+    # (previously it rode only on free-text grading_philosophy prose).
+    if "prioritized_criteria_json" not in _table_columns(conn, "instructor_profile"):
+        conn.execute("ALTER TABLE instructor_profile ADD COLUMN prioritized_criteria_json TEXT")
+
+
 # Ordered, idempotent schema migrations for DBs created under an older
 # schema.sql. Each entry runs at most once per id (tracked in
 # schema_migrations) and also self-guards so re-running is always safe.
@@ -144,6 +153,7 @@ MIGRATIONS: list[tuple[str, Callable[[sqlite3.Connection], None]]] = [
     ("0002_users_is_active", _migrate_users_is_active),
     ("0003_assessments_cancelled_status", _migrate_assessments_cancelled_status),
     ("0004_instructor_profile_llm_defaults", _migrate_instructor_profile_llm_defaults),
+    ("0005_instructor_profile_prioritized", _migrate_instructor_profile_prioritized),
 ]
 
 
