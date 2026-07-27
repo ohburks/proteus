@@ -1,13 +1,8 @@
-"""Profile layers and cascading field resolution (design doc §6).
+"""Profile layers and cascading field resolution.
 
-§6.1: the field split that governs everything here — factual/contextual
-fields feed BOTH grading paths; stylistic/instructor-specific fields feed
-the Personalized path only and are structurally absent from the Exemplar
-path's prompt (not null/empty — omitted).
-
-§6.4 judgment call (resolved with the user): criterion_emphasis_notes is
-treated as assignment pedagogy, fed to BOTH paths, alongside prompt_text /
-format_expectations.
+Assignment context and instructor guidance both feed the live
+professor-calibrated prompt. The legacy class and function names are retained
+because historical dual-path assessments still use this serialized contract.
 """
 import json
 import sqlite3
@@ -16,7 +11,7 @@ from dataclasses import dataclass
 
 @dataclass
 class BothPathsContext:
-    """§6.6 [ASSIGNMENT CONTEXT] — factual, resolved via §6.5, both paths."""
+    """Resolved assignment and course context."""
     prompt_text: str | None
     format_expectations: str | None
     criterion_emphasis_notes: str | None
@@ -26,7 +21,7 @@ class BothPathsContext:
 
 @dataclass
 class PersonalizedOnlyContext:
-    """§6.6 [INSTRUCTOR GUIDANCE] — personalized path only."""
+    """Resolved professor-specific grading guidance."""
     grading_philosophy: str | None
     deprioritized_criteria: list[str] | None
     prioritized_criteria: list[str] | None

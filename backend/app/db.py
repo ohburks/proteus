@@ -145,6 +145,11 @@ def _migrate_instructor_profile_prioritized(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE instructor_profile ADD COLUMN prioritized_criteria_json TEXT")
 
 
+def _migrate_rubric_ownership(conn: sqlite3.Connection) -> None:
+    if "owner_instructor_id" not in _table_columns(conn, "rubrics"):
+        conn.execute("ALTER TABLE rubrics ADD COLUMN owner_instructor_id TEXT")
+
+
 # Ordered, idempotent schema migrations for DBs created under an older
 # schema.sql. Each entry runs at most once per id (tracked in
 # schema_migrations) and also self-guards so re-running is always safe.
@@ -154,6 +159,7 @@ MIGRATIONS: list[tuple[str, Callable[[sqlite3.Connection], None]]] = [
     ("0003_assessments_cancelled_status", _migrate_assessments_cancelled_status),
     ("0004_instructor_profile_llm_defaults", _migrate_instructor_profile_llm_defaults),
     ("0005_instructor_profile_prioritized", _migrate_instructor_profile_prioritized),
+    ("0006_rubric_ownership", _migrate_rubric_ownership),
 ]
 
 

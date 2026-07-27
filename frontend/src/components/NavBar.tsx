@@ -25,7 +25,7 @@ export function NavBar() {
     <nav className="flex items-center justify-between px-6 py-3 bg-surface-light dark:bg-app-dark border-b border-zinc-200 dark:border-transparent">
       <div className="flex items-center gap-2">
         <Link to="/" className="font-semibold text-zinc-900 dark:text-zinc-100 mr-4">
-          Proteus <span className="text-blue-600 dark:text-blue-400">(Dual RAG Grading)</span>
+          Proteus <span className="text-blue-600 dark:text-blue-400">(Professor-Calibrated Grading)</span>
         </Link>
         <Link to="/" className={navLinkClass(coursesActive)}>
           Courses

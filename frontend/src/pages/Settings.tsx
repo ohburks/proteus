@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
-import { api, ApiError } from "../lib/api";
-import type { PersonalizedExcerpt, Rubric } from "../lib/types";
+import { api } from "../lib/api";
+import type { Rubric } from "../lib/types";
 import {
-  Chip,
-  OverflowMenu,
   PageHeader,
   Tabs,
   cardClass,
@@ -40,7 +38,6 @@ export function SettingsPage() {
   const [rubricKey, setRubricKey] = useState("");
   const [rubric, setRubric] = useState<Rubric | null>(null);
   const [criterionId, setCriterionId] = useState("");
-  const [divergenceThreshold, setDivergenceThreshold] = useState(2);
   const [spreadThreshold, setSpreadThreshold] = useState(1);
   const [poolSize, setPoolSize] = useState(5);
   const [gradingPhilosophy, setGradingPhilosophy] = useState("");
@@ -52,16 +49,8 @@ export function SettingsPage() {
   const [deprioritizedCriteria, setDeprioritizedCriteria] = useState<string[] | null>(null);
   const [prioritizedCriteria, setPrioritizedCriteria] = useState<string[] | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
-  const [excerpts, setExcerpts] = useState<PersonalizedExcerpt[]>([]);
-  const [excerptText, setExcerptText] = useState("");
-  const [sourceEssayText, setSourceEssayText] = useState("");
-  const [score, setScore] = useState(0);
-  const [anchorMatched, setAnchorMatched] = useState(0);
-  const [rationale, setRationale] = useState("");
-  const [excerptError, setExcerptError] = useState<string | null>(null);
   const [overrideRates, setOverrideRates] = useState<OverrideRateEntry[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("profile");
-  const [showAddExcerpt, setShowAddExcerpt] = useState(false);
 
   useEffect(() => {
     api.get<{ criteria: OverrideRateEntry[] }>("/api/settings/override-rate").then((r) => {
@@ -101,11 +90,10 @@ export function SettingsPage() {
     if (!rubricKey || !criterionId) return;
     const [rubric_id] = rubricKey.split("::");
     api
-      .get<{ divergence_threshold: number; spread_threshold: number; min_scoped_pool_size: number }>(
+      .get<{ spread_threshold: number; min_scoped_pool_size: number }>(
         `/api/settings/thresholds?rubric_id=${rubric_id}&criterion_id=${criterionId}`,
       )
       .then((t) => {
-        setDivergenceThreshold(t.divergence_threshold);
         setSpreadThreshold(t.spread_threshold);
         setPoolSize(t.min_scoped_pool_size);
       });
@@ -123,11 +111,6 @@ export function SettingsPage() {
   async function saveThresholds(e: React.FormEvent) {
     e.preventDefault();
     if (!rubric || !criterionId) return;
-    await api.put("/api/settings/divergence-threshold", {
-      rubric_id: rubric.rubricId,
-      criterion_id: criterionId,
-      threshold: divergenceThreshold,
-    });
     await api.put("/api/settings/spread-threshold", {
       rubric_id: rubric.rubricId,
       criterion_id: criterionId,
@@ -140,52 +123,6 @@ export function SettingsPage() {
     });
     setSaved("Thresholds saved.");
     setTimeout(() => setSaved(null), 2000);
-  }
-
-  function refreshExcerpts() {
-    if (!rubricKey || !criterionId) return;
-    const [rubric_id] = rubricKey.split("::");
-    api
-      .get<PersonalizedExcerpt[]>(`/api/personalized-excerpts?rubric_id=${rubric_id}&criterion_id=${criterionId}`)
-      .then(setExcerpts);
-  }
-  useEffect(refreshExcerpts, [rubricKey, criterionId]);
-
-  async function addExcerpt(e: React.FormEvent) {
-    e.preventDefault();
-    setExcerptError(null);
-    if (!rubricKey || !criterionId) return;
-    if (!excerptText.trim() || !sourceEssayText.trim() || !rationale.trim()) {
-      setExcerptError("Excerpt text, source essay text, and rationale are all required.");
-      return;
-    }
-    const [rubric_id] = rubricKey.split("::");
-    try {
-      await api.post("/api/personalized-excerpts", {
-        rubric_id, criterion_id: criterionId,
-        excerpt_text: excerptText, score, anchor_matched: anchorMatched,
-        rationale, source_essay_text: sourceEssayText,
-      });
-      setExcerptText("");
-      setSourceEssayText("");
-      setRationale("");
-      setScore(0);
-      setAnchorMatched(0);
-      setShowAddExcerpt(false);
-      refreshExcerpts();
-    } catch (err) {
-      setExcerptError(err instanceof ApiError ? err.message : "Failed to add excerpt");
-    }
-  }
-
-  async function deleteExcerpt(id: string) {
-    if (!confirm("Delete this excerpt? It will no longer be used as grading precedent.")) return;
-    try {
-      await api.del(`/api/personalized-excerpts/${id}`);
-      refreshExcerpts();
-    } catch (err) {
-      setExcerptError(err instanceof ApiError ? err.message : "Failed to delete excerpt");
-    }
   }
 
   async function saveProfile(e: React.FormEvent) {
@@ -226,7 +163,7 @@ export function SettingsPage() {
           <section className={cardClass}>
             <h2 className={titleClass}>Instructor profile</h2>
             <p className={`${helpClass} mt-1 mb-4`}>
-              Shapes the personalized grading path, and pre-fills the grading page's provider/model. Your API
+              Shapes professor-calibrated grading and pre-fills the grading page's provider/model. Your API
               key is never stored here — it's entered per session on the grading page (or comes from the server
               default).
             </p>
@@ -294,7 +231,7 @@ export function SettingsPage() {
           <div className="space-y-4">
             <div className="bg-blue-500/[0.06] dark:bg-blue-500/10 border border-blue-500/20 rounded-2xl p-4">
               <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-2">
-                Editing thresholds and excerpts for:
+                Editing calibrated grading settings for:
               </p>
               <div className="flex flex-wrap gap-2">
                 <select className={selectClass} value={rubricKey} onChange={(e) => setRubricKey(e.target.value)}>
@@ -315,24 +252,13 @@ export function SettingsPage() {
             </div>
 
             <section className={cardClass}>
-              <h2 className={titleClass}>Divergence &amp; spread thresholds</h2>
+              <h2 className={titleClass}>Stability &amp; retrieval settings</h2>
               <p className={`${helpClass} mt-1 mb-4`}>
-                When the two paths disagree by more than the divergence threshold, or a path is internally
-                inconsistent past the spread threshold, the essay is flagged for review. Sticky until changed.
+                Spread flags inconsistent repeated samples. Pool size controls how many professor-scored
+                examples are retrieved for this criterion.
               </p>
               <form onSubmit={saveThresholds} className="space-y-4">
                 <div className="flex flex-wrap gap-6">
-                  <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-                    Divergence
-                    <input
-                      type="number"
-                      min={0}
-                      max={5}
-                      value={divergenceThreshold}
-                      onChange={(e) => setDivergenceThreshold(Number(e.target.value))}
-                      className={numberClass}
-                    />
-                  </label>
                   <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
                     Spread
                     <input
@@ -346,10 +272,11 @@ export function SettingsPage() {
                     />
                   </label>
                   <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-                    Pool size ("enough")
+                    Professor examples per criterion
                     <input
                       type="number"
                       min={1}
+                      max={20}
                       value={poolSize}
                       onChange={(e) => setPoolSize(Number(e.target.value))}
                       className={numberClass}
@@ -360,92 +287,6 @@ export function SettingsPage() {
               </form>
             </section>
 
-            <section className={cardClass}>
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <h2 className={titleClass}>Personalized excerpts</h2>
-                <Chip active={showAddExcerpt} onClick={() => setShowAddExcerpt((v) => !v)}>
-                  <span className="text-base leading-none">＋</span> Add excerpt
-                </Chip>
-              </div>
-              <p className={`${helpClass} mb-4`}>
-                Curated precedent for {criterionId || "…"} ({rubricKey.split("::")[0] || "…"}) — retrieved by the
-                personalized grading path.
-              </p>
-
-              {showAddExcerpt && (
-                <form onSubmit={addExcerpt} className="space-y-2 mb-5 pb-5 border-b border-zinc-200 dark:border-white/10">
-                  <textarea
-                    className={inputClass}
-                    placeholder="Source essay text (the full essay this excerpt is quoted from)"
-                    value={sourceEssayText}
-                    onChange={(e) => setSourceEssayText(e.target.value)}
-                  />
-                  <textarea
-                    className={inputClass}
-                    placeholder="Excerpt text — must appear word-for-word in the source essay text above"
-                    value={excerptText}
-                    onChange={(e) => setExcerptText(e.target.value)}
-                  />
-                  <div className="flex flex-wrap gap-4">
-                    <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-                      Score
-                      <input
-                        type="number"
-                        min={0}
-                        max={5}
-                        value={score}
-                        onChange={(e) => setScore(Number(e.target.value))}
-                        className={numberClass}
-                      />
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-                      Anchor matched
-                      <input
-                        type="number"
-                        min={0}
-                        max={5}
-                        value={anchorMatched}
-                        onChange={(e) => setAnchorMatched(Number(e.target.value))}
-                        className={numberClass}
-                      />
-                    </label>
-                  </div>
-                  <textarea
-                    className={inputClass}
-                    placeholder="Rationale"
-                    value={rationale}
-                    onChange={(e) => setRationale(e.target.value)}
-                  />
-                  {excerptError && <p className="text-sm text-red-600 dark:text-red-400">{excerptError}</p>}
-                  <button className={primaryBtn}>Add excerpt</button>
-                </form>
-              )}
-
-              <ul className="divide-y divide-zinc-200 dark:divide-white/5">
-                {excerpts.map((ex) => (
-                  <li key={ex.id} className="py-2 flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm text-zinc-700 dark:text-zinc-300">&quot;{ex.excerpt_text}&quot;</p>
-                      <p className={helpClass}>
-                        score {ex.score} · anchor {ex.anchor_matched} · {ex.source} — {ex.rationale}
-                      </p>
-                    </div>
-                    <OverflowMenu
-                      items={[
-                        {
-                          label: "Delete excerpt",
-                          onClick: () => deleteExcerpt(ex.id),
-                          danger: true,
-                        },
-                      ]}
-                    />
-                  </li>
-                ))}
-                {excerpts.length === 0 && (
-                  <li className={`py-2 ${helpClass}`}>No excerpts yet for this criterion.</li>
-                )}
-              </ul>
-            </section>
           </div>
         )}
 
@@ -454,8 +295,8 @@ export function SettingsPage() {
           <section className={cardClass}>
             <h2 className={titleClass}>Override patterns</h2>
             <p className={`${helpClass} mt-1 mb-4`}>
-              How often you override the AI's personalized score, per criterion — a high rate or a consistent
-              direction is a signal to revisit your grading philosophy.
+              How often you override the calibrated score, per criterion — a high rate or a consistent direction
+              is a signal to add more professor examples or clarify your grading philosophy.
             </p>
             {overrideRates.length === 0 ? (
               <p className="text-sm text-zinc-500 dark:text-zinc-400">No graded criteria yet.</p>

@@ -1,12 +1,18 @@
-"""Review UI data contract + override / adopt-exemplar actions (design doc §9)."""
+"""Professor review contract, approval feedback, and score correction actions.
+
+Historical assessments can still expose their archived dual-path comparison
+and adopt-exemplar action, but new reviews operate on one calibrated result.
+"""
 import json
 import logging
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.audit import record_audit_event
 from app.auth import CurrentUser, get_current_user
 from app.db import get_connection
+from app.repositories.calibration import upsert_review_calibration_score
 from app.repositories.excerpts import insert_personalized_excerpt
 from app.schemas import OverrideRequest
 
@@ -90,6 +96,13 @@ def get_review(assessment_id: str, criterion_id: str, user: CurrentUser = Depend
             "SELECT statement, anchors_json FROM criteria WHERE rubric_id = ? AND rubric_version = ? AND criterion_id = ?",
             (assessment["rubric_id"], assessment["rubric_version"], criterion_id),
         ).fetchone()
+        feedback = conn.execute(
+            """SELECT action, model_score, professor_score, professor_rationale,
+                      updated_at
+               FROM grading_feedback
+               WHERE assessment_id = ? AND criterion_id = ?""",
+            (assessment_id, criterion_id),
+        ).fetchone()
     return {
         "criterion_id": criterion_id,
         "criterion": {
@@ -97,7 +110,9 @@ def get_review(assessment_id: str, criterion_id: str, user: CurrentUser = Depend
             "anchors": json.loads(criterion_row["anchors_json"]),
         } if criterion_row else None,
         "personalized": _aggregate_out(personalized, personalized_passes),
+        "calibrated": _aggregate_out(personalized, personalized_passes),
         "exemplar": _aggregate_out(exemplar, exemplar_passes),
+        "legacy_dual_path": exemplar is not None,
         "divergence": {
             "score_diff": divergence["score_diff"],
             "anchor_mismatch": bool(divergence["anchor_mismatch"]),
@@ -110,14 +125,15 @@ def get_review(assessment_id: str, criterion_id: str, user: CurrentUser = Depend
             "overridden_by": override["overridden_by"],
             "created_at": override["created_at"],
         } if override else None,
+        "professor_feedback": dict(feedback) if feedback else None,
     }
 
 
 def _write_override_and_precedent(
     conn, assessment, essay, instructor_id: str, criterion_id: str, new_score: int, new_rationale: str,
     overridden_by: str, from_evidence: list[dict] | None, original_anchor_matched: int | None = None,
+    model_score: float | None = None,
 ):
-    from datetime import UTC, datetime
     now = datetime.now(UTC).isoformat()
     conn.execute(
         """INSERT INTO score_overrides (assessment_id, criterion_id, new_score, new_rationale, overridden_by, created_at)
@@ -126,6 +142,38 @@ def _write_override_and_precedent(
            DO UPDATE SET new_score=excluded.new_score, new_rationale=excluded.new_rationale,
                          overridden_by=excluded.overridden_by, created_at=excluded.created_at""",
         (assessment["id"], criterion_id, new_score, new_rationale, overridden_by, now),
+    )
+    conn.execute(
+        """INSERT INTO grading_feedback
+           (assessment_id, criterion_id, action, model_score, professor_score,
+            professor_rationale, created_at, updated_at)
+           VALUES (?,?,?,?,?,?,?,?)
+           ON CONFLICT (assessment_id, criterion_id) DO UPDATE SET
+             action = excluded.action,
+             model_score = excluded.model_score,
+             professor_score = excluded.professor_score,
+             professor_rationale = excluded.professor_rationale,
+             updated_at = excluded.updated_at""",
+        (
+            assessment["id"],
+            criterion_id,
+            "overridden",
+            model_score,
+            new_score,
+            new_rationale,
+            now,
+            now,
+        ),
+    )
+    upsert_review_calibration_score(
+        conn,
+        assessment=assessment,
+        essay=essay,
+        instructor_id=instructor_id,
+        criterion_id=criterion_id,
+        score=new_score,
+        rationale=new_rationale,
+        source="review_override",
     )
 
     # Write-back into personalized corpus regardless of override direction (§9),
@@ -186,6 +234,7 @@ def override_score(
         _write_override_and_precedent(
             conn, assessment, essay, instructor_id, criterion_id, body.new_score, body.new_rationale,
             user.user_id, evidence, personalized["anchor_matched"] if personalized else None,
+            personalized["score"] if personalized and not personalized["is_no_evidence"] else None,
         )
         conn.commit()
     record_audit_event(
@@ -198,6 +247,78 @@ def override_score(
         metadata={"assessment_id": assessment_id, "criterion_id": criterion_id, "new_score": body.new_score},
     )
     return {"status": "ok"}
+
+
+@router.post("/approve")
+def approve_score(
+    assessment_id: str,
+    criterion_id: str,
+    request: Request,
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Confirm an unchanged calibrated score and teach it back to the system."""
+    instructor_id = user.scoped_instructor_id()
+    with get_connection() as conn:
+        assessment, calibrated, _, _, _, _, override, essay = _load_context(
+            conn,
+            assessment_id,
+            criterion_id,
+            instructor_id,
+        )
+        if override is not None:
+            raise HTTPException(409, "This grade was corrected and cannot be approved as unchanged")
+        if calibrated is None or calibrated["is_no_evidence"] or calibrated["score"] is None:
+            raise HTTPException(400, "No calibrated numeric score to approve")
+        approved_score = int(calibrated["score"] + 0.5)
+        now = datetime.now(UTC).isoformat()
+        conn.execute(
+            """INSERT INTO grading_feedback
+               (assessment_id, criterion_id, action, model_score, professor_score,
+                professor_rationale, created_at, updated_at)
+               VALUES (?,?,?,?,?,?,?,?)
+               ON CONFLICT (assessment_id, criterion_id) DO UPDATE SET
+                 action = excluded.action,
+                 model_score = excluded.model_score,
+                 professor_score = excluded.professor_score,
+                 professor_rationale = excluded.professor_rationale,
+                 updated_at = excluded.updated_at""",
+            (
+                assessment_id,
+                criterion_id,
+                "approved",
+                calibrated["score"],
+                approved_score,
+                calibrated["rationale"],
+                now,
+                now,
+            ),
+        )
+        example_id = upsert_review_calibration_score(
+            conn,
+            assessment=assessment,
+            essay=essay,
+            instructor_id=instructor_id,
+            criterion_id=criterion_id,
+            score=approved_score,
+            rationale=calibrated["rationale"],
+            source="review_approved",
+        )
+        conn.commit()
+    record_audit_event(
+        action="grade.approved",
+        outcome="success",
+        request=request,
+        actor=user,
+        target_type="assessment_criterion",
+        target_id=f"{assessment_id}:{criterion_id}",
+        metadata={
+            "assessment_id": assessment_id,
+            "criterion_id": criterion_id,
+            "score": approved_score,
+            "calibration_example_id": example_id,
+        },
+    )
+    return {"status": "ok", "calibration_example_id": example_id}
 
 
 @router.post("/adopt-exemplar")

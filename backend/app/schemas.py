@@ -1,10 +1,18 @@
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
 
 # A non-empty string after trimming surrounding whitespace — rejects "" and
 # "   " with a 422 rather than persisting a blank course/assignment/essay.
 NonBlankStr = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+ShortNonBlankStr = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=200),
+]
+RubricTextStr = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=4_000),
+]
 
 
 class LoginRequest(BaseModel):
@@ -147,7 +155,7 @@ class DivergenceThresholdUpdate(BaseModel):
 class PoolThresholdUpdate(BaseModel):
     rubric_id: str
     criterion_id: str | None = None
-    min_scoped_pool_size: int = Field(gt=0)
+    min_scoped_pool_size: int = Field(gt=0, le=20)
 
 
 class SpreadThresholdUpdate(BaseModel):
@@ -179,3 +187,71 @@ class PersonalizedExcerptCreate(BaseModel):
     anchor_matched: int = Field(ge=0, le=5)
     rationale: str
     source_essay_text: str
+
+
+class CalibrationCriterionScore(BaseModel):
+    criterion_id: ShortNonBlankStr
+    score: int = Field(ge=0, le=5)
+    rationale: RubricTextStr
+
+
+class CalibrationExampleCreate(BaseModel):
+    name: ShortNonBlankStr
+    essay_text: str = Field(min_length=1, max_length=50_000)
+    scores: list[CalibrationCriterionScore] = Field(min_length=1, max_length=100)
+
+    @field_validator("essay_text")
+    @classmethod
+    def essay_must_have_content(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("essay_text must contain non-whitespace text")
+        return value
+
+    @model_validator(mode="after")
+    def score_ids_must_be_unique(self):
+        ids = [item.criterion_id for item in self.scores]
+        if len(ids) != len(set(ids)):
+            raise ValueError("criterion_id values must be unique")
+        return self
+
+
+class RubricCriterionImport(BaseModel):
+    criterionId: ShortNonBlankStr
+    standard: str | None = Field(default=None, max_length=500)
+    dimension: ShortNonBlankStr
+    statement: RubricTextStr
+    scale: str = Field(default="0-5", max_length=20)
+    referenceability: Literal["strong", "weak"] = "strong"
+    source: str | None = Field(default=None, max_length=500)
+    anchors: dict[str, RubricTextStr]
+
+    @field_validator("anchors")
+    @classmethod
+    def anchors_cover_scale(cls, value: dict[str, str]) -> dict[str, str]:
+        expected = {str(score) for score in range(6)}
+        missing = sorted(expected - set(value))
+        if missing:
+            raise ValueError(f"anchors must include scores 0-5; missing {', '.join(missing)}")
+        unexpected = sorted(set(value) - expected)
+        if unexpected:
+            raise ValueError(
+                f"anchors may contain only scores 0-5; unexpected {', '.join(unexpected)}"
+            )
+        return value
+
+
+class RubricImport(BaseModel):
+    rubricId: ShortNonBlankStr
+    version: ShortNonBlankStr
+    genre: str | None = Field(default=None, max_length=200)
+    notes: str | None = Field(default=None, max_length=10_000)
+    assignmentGuidance: str | None = Field(default=None, max_length=10_000)
+    criteria: list[RubricCriterionImport] = Field(min_length=1, max_length=100)
+
+    @model_validator(mode="after")
+    def criterion_ids_must_be_unique(self):
+        ids = [item.criterionId for item in self.criteria]
+        if len(ids) != len(set(ids)):
+            raise ValueError("criterionId values must be unique")
+        return self

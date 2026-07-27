@@ -1,8 +1,9 @@
-"""Dual-path grading flow (design doc §7).
+"""Professor-calibrated grading plus read compatibility for historical runs.
 
-Both paths reuse the same per-criterion, multi-pass, evidence-provenance-
-guarded grading logic — only the retrieval source differs (§7). No prompt
-ever mixes exemplar and personalized precedent (§15).
+The live grading path retrieves only examples scored by the professor for the
+current assignment and asks one model path to predict that professor's score.
+Older dual-path functions remain in this module so existing assessments and
+their audit records can still be opened; new assessments do not call them.
 
 Grading-time evidence check (§3.5): every cited quote in a freshly produced
 score is verified against the essay currently being graded, every call,
@@ -13,15 +14,10 @@ fails to verify after MAX_EVIDENCE_CORRECTION_ATTEMPTS, the pass falls back to
 verification runs independently for every one of the N sampling passes below,
 not just once on an aggregate.
 
-Multi-pass sampling (design doc §7 extension): each path runs N independent,
-identically-prompted passes per criterion — same retrieved precedent, same
-prompt, only sampling varies — and the path's result is the median of those N
-scores (grading/aggregate.py), plus a spread/confidence summary. N is shared
-by both paths within a single run (GRADING_N_PASSES): letting the paths use
-different pass counts would make any difference in how "settled" one path's
-output looks an artifact of sample size, not a real stability difference —
-the same reason provider/model is a run-level, not per-path, setting
-(llm/key_resolution.py §14.3).
+Multi-pass sampling runs N independent, identically-prompted passes per
+criterion — same retrieved professor examples and prompt, only sampling
+varies — and stores the median score plus a spread/stability summary. The
+legacy compatibility functions use the same sampling implementation.
 """
 import json
 import os
@@ -43,9 +39,20 @@ from app.grading.profiles import (
     resolve_both_paths_context,
     resolve_personalized_only_context,
 )
-from app.grading.prompt import build_batch_system_prompt, build_system_prompt, build_user_prompt
+from app.grading.prompt import (
+    build_batch_system_prompt,
+    build_calibrated_batch_system_prompt,
+    build_system_prompt,
+    build_user_prompt,
+)
 from app.grading.response_schema import LLMBatchGradingResponse, LLMGradingResponse
-from app.grading.retrieval import Scope, assemble_personalized_pool, query_exemplar_pool
+from app.grading.retrieval import (
+    Scope,
+    assemble_calibration_pool,
+    assemble_personalized_pool,
+    limit_calibration_examples_for_batch,
+    query_exemplar_pool,
+)
 from app.llm.base import EmitFn, LLMClient
 from app.repositories.settings import (
     lookup_divergence_threshold,
@@ -381,6 +388,126 @@ def _persist_aggregate(
             aggregate.spread, aggregate.confidence, int(high_spread), aggregate.n_passes, _now(),
         ),
     )
+
+
+def run_calibrated_for_criteria_batch(
+    conn: sqlite3.Connection,
+    client: LLMClient,
+    *,
+    assessment_id: str,
+    criteria: list[dict],
+    rubric_id: str,
+    rubric_version: str,
+    essay_text: str,
+    assignment_id: str,
+    instructor_id: str,
+    course_id: str | None,
+    query_embedding: list[float] | None = None,
+    emit: EmitFn | None = None,
+) -> None:
+    """Grade a batch once against professor-labelled assignment examples.
+
+    The legacy DB path value ``personalized`` is retained so historical
+    consumers keep working, but only this calibrated result is produced. There
+    is no generic exemplar call and no between-path divergence computation.
+    """
+    if not criteria:
+        return
+    assignment_ctx = resolve_both_paths_context(conn, assignment_id)
+    instructor_ctx = resolve_personalized_only_context(conn, instructor_id)
+    rubric_row = conn.execute(
+        """SELECT assignment_guidance FROM rubrics
+           WHERE rubric_id = ? AND version = ?""",
+        (rubric_id, rubric_version),
+    ).fetchone()
+    rubric_guidance = rubric_row["assignment_guidance"] if rubric_row else None
+    scope = Scope(
+        instructor_id=instructor_id,
+        course_id=course_id,
+        assignment_id=assignment_id,
+    )
+    n_passes = _n_grading_passes()
+    if query_embedding is None:
+        query_embedding = chroma_store.embed_text(essay_text)
+
+    precedent_pools = {}
+    for criterion in criteria:
+        criterion_id = criterion["criterionId"]
+        k = lookup_pool_threshold(conn, instructor_id, rubric_id, criterion_id)
+        precedent_pools[criterion_id] = assemble_calibration_pool(
+            essay_text,
+            scope,
+            criterion_id,
+            rubric_id,
+            rubric_version,
+            k=k,
+            query_embedding=query_embedding,
+        )
+    precedent_pools = limit_calibration_examples_for_batch(precedent_pools)
+
+    ids = ", ".join(criterion["criterionId"] for criterion in criteria)
+    example_count = len(
+        {
+            item["metadata"].get("example_id", item["id"])
+            for pool in precedent_pools.values()
+            for item in pool
+        }
+    )
+    if emit:
+        emit(
+            f"Criteria {ids}: professor-calibrated grading with "
+            f"{example_count} example submission(s), {n_passes} pass(es)…"
+        )
+    system_prompt = build_calibrated_batch_system_prompt(
+        criteria=criteria,
+        rubric_id=rubric_id,
+        rubric_guidance=rubric_guidance,
+        both_paths_ctx=assignment_ctx,
+        instructor_ctx=instructor_ctx,
+        precedent_pools=precedent_pools,
+    )
+    passes_by_criterion = _run_batch_multi_pass(
+        client,
+        system_prompt,
+        essay_text,
+        precedent_pools,
+        n_passes,
+        emit=emit,
+    )
+    results = {
+        criterion_id: aggregate_passes(passes)
+        for criterion_id, passes in passes_by_criterion.items()
+    }
+
+    def _persist_batch() -> None:
+        for criterion in criteria:
+            criterion_id = criterion["criterionId"]
+            result = results[criterion_id]
+            spread_threshold = lookup_spread_threshold(
+                conn,
+                instructor_id,
+                rubric_id,
+                criterion_id,
+            )
+            _persist_passes(
+                conn,
+                assessment_id,
+                criterion_id,
+                "personalized",
+                result.passes,
+            )
+            _persist_aggregate(
+                conn,
+                assessment_id,
+                criterion_id,
+                "personalized",
+                result,
+                spread_threshold,
+            )
+
+    write_with_retry(conn, _persist_batch)
+    if emit:
+        emit(f"Criteria {ids}: calibrated batch checkpoint complete.")
 
 
 def run_dual_path_for_criteria_batch(

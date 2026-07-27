@@ -16,6 +16,10 @@ from app.db import get_connection
 from app.document_import import DocumentImportError, MAX_UPLOAD_BYTES, extract_document_text
 from app.llm.key_resolution import KeyResolutionError, resolve_provider_config
 from app.llm.providers import build_client
+from app.repositories.calibration import (
+    delete_assignment_calibration_examples,
+    delete_calibration_example,
+)
 from app.repositories.excerpts import delete_personalized_excerpt
 from app.routers.assessments import _grading_error_detail, _launch_assessment
 from app.schemas import AssignmentCreate, BulkGradeRequest, CourseCreate, EssayCreate, StudentCreate, StudentUpdate
@@ -115,9 +119,16 @@ def _delete_essay_cascade(conn, essay_id: str) -> None:
         "SELECT id FROM assessments WHERE essay_id = ?", (essay_id,)
     ).fetchall()]
     for aid in assessment_ids:
+        calibration_rows = conn.execute(
+            "SELECT id FROM calibration_examples WHERE source_assessment_id = ?",
+            (aid,),
+        ).fetchall()
+        for row in calibration_rows:
+            delete_calibration_example(conn, row["id"])
         conn.execute("DELETE FROM relevance_checks WHERE assessment_id = ?", (aid,))
         conn.execute("DELETE FROM divergence_records WHERE assessment_id = ?", (aid,))
         conn.execute("DELETE FROM score_overrides WHERE assessment_id = ?", (aid,))
+        conn.execute("DELETE FROM grading_feedback WHERE assessment_id = ?", (aid,))
         conn.execute("DELETE FROM score_aggregates WHERE assessment_id = ?", (aid,))
         conn.execute("DELETE FROM score_records_v2 WHERE assessment_id = ?", (aid,))
     conn.execute("DELETE FROM assessments WHERE essay_id = ?", (essay_id,))
@@ -165,6 +176,7 @@ def _delete_assignment_cascade(conn, assignment_id: str) -> None:
     for eid in _assignment_essay_ids(conn, assignment_id):
         _delete_essay_cascade(conn, eid)
     conn.execute("DELETE FROM assignment_profile WHERE assignment_id = ?", (assignment_id,))
+    delete_assignment_calibration_examples(conn, assignment_id)
     _delete_personalized_excerpts_for_assignment(conn, assignment_id)
     conn.execute("DELETE FROM assignments WHERE id = ?", (assignment_id,))
 
@@ -175,7 +187,10 @@ def create_assignment(body: AssignmentCreate, user: CurrentUser = Depends(get_cu
         instructor_id = user.scoped_instructor_id()
         _assert_course_owned(conn, body.course_id, instructor_id)
         rubric = conn.execute(
-            "SELECT 1 FROM rubrics WHERE rubric_id = ? AND version = ?", (body.rubric_id, body.rubric_version)
+            """SELECT 1 FROM rubrics
+               WHERE rubric_id = ? AND version = ?
+                 AND (owner_instructor_id IS NULL OR owner_instructor_id = ?)""",
+            (body.rubric_id, body.rubric_version, instructor_id),
         ).fetchone()
         if rubric is None:
             raise HTTPException(400, "Unknown rubric_id/version")
@@ -335,7 +350,9 @@ def _latest_criterion_rows(conn, essay_ids: list[str]):
              rc.decision AS relevance_decision,
              p.criterion_id,
              COALESCE(o.new_score, p.score) AS output_score,
-             CASE WHEN o.assessment_id IS NOT NULL THEN 'override' ELSE 'personalized' END AS output_source,
+             CASE WHEN o.assessment_id IS NOT NULL THEN 'override'
+                  WHEN x.assessment_id IS NOT NULL THEN 'personalized'
+                  ELSE 'calibrated' END AS output_source,
              COALESCE(d.exceeds_threshold, 0) AS exceeds_threshold,
              CASE WHEN COALESCE(p.high_spread, 0) = 1 OR COALESCE(x.high_spread, 0) = 1
                   THEN 1 ELSE 0 END AS high_spread,

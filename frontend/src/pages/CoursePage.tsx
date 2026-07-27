@@ -22,6 +22,7 @@ interface RubricSummary {
   version: string;
   genre: string;
   notes: string;
+  is_custom: boolean;
 }
 
 type Tab = "assignments" | "students" | "profile";
@@ -254,19 +255,19 @@ export function CoursePage() {
                 />
                 <textarea
                   className={inputClass}
-                  placeholder="Assignment prompt text (fed to both grading paths)"
+                  placeholder="Assignment prompt text"
                   value={promptText}
                   onChange={(e) => setPromptText(e.target.value)}
                 />
                 <textarea
                   className={inputClass}
-                  placeholder="Format expectations (e.g. cite at least two sources) — fed to both grading paths"
+                  placeholder="Format expectations (e.g. cite at least two sources)"
                   value={formatExpectations}
                   onChange={(e) => setFormatExpectations(e.target.value)}
                 />
                 <textarea
                   className={inputClass}
-                  placeholder="Criterion emphasis notes — fed to both grading paths"
+                  placeholder="Criterion emphasis notes for professor-calibrated grading"
                   value={criterionEmphasisNotes}
                   onChange={(e) => setCriterionEmphasisNotes(e.target.value)}
                 />
@@ -416,7 +417,7 @@ export function CoursePage() {
           <section className={cardClass}>
             <h2 className={titleClass}>Course profile</h2>
             <p className={`${helpClass} mt-1 mb-4`}>
-              Course-level context fed to the personalized grading path for every assignment in this course.
+              Course-level context used by professor-calibrated grading for every assignment in this course.
             </p>
             <form onSubmit={saveCourseProfile} className="space-y-4">
               <div>

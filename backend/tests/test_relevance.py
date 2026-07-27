@@ -221,7 +221,7 @@ def test_rejection_still_runs_retrieval_and_rubric_grading(
         pipeline_calls.append(("grading", kwargs["query_embedding"]))
 
     monkeypatch.setattr(assessments.chroma_store, "embed_text", fake_embed)
-    monkeypatch.setattr(assessments, "run_dual_path_for_criteria_batch", fake_grade)
+    monkeypatch.setattr(assessments, "run_calibrated_for_criteria_batch", fake_grade)
     progress.start("assessment-1")
 
     assessments._run_assessment(
@@ -268,7 +268,7 @@ def test_passing_relevance_then_enters_rubric_pipeline(
         pipeline_calls.append(("grading", kwargs["query_embedding"]))
 
     monkeypatch.setattr(assessments.chroma_store, "embed_text", fake_embed)
-    monkeypatch.setattr(assessments, "run_dual_path_for_criteria_batch", fake_grade)
+    monkeypatch.setattr(assessments, "run_calibrated_for_criteria_batch", fake_grade)
     progress.start("assessment-1")
 
     assessments._run_assessment(

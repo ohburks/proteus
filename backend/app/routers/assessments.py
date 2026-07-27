@@ -15,7 +15,7 @@ from app.auth import CurrentUser, get_current_user
 from app.db import get_connection, write_with_retry
 from app.pdf_report import build_assessment_pdf
 from app.grading import cancellation, progress
-from app.grading.engine import criteria_batch_size, run_dual_path_for_criteria_batch
+from app.grading.engine import criteria_batch_size, run_calibrated_for_criteria_batch
 from app.grading.relevance import run_relevance_check
 from app.llm.key_resolution import KeyResolutionError, resolve_provider_config
 from app.llm.providers import build_client, check_api_key
@@ -99,7 +99,7 @@ def _run_assessment(assessment_id: str, client, criteria_rows_dicts, assignment_
                 if cancellation.is_cancelled(assessment_id):
                     _mark_cancelled(conn, assessment_id)
                     return
-                run_dual_path_for_criteria_batch(
+                run_calibrated_for_criteria_batch(
                     conn, client,
                     assessment_id=assessment_id,
                     criteria=prepared_criteria[start:start + batch_size],
@@ -338,6 +338,7 @@ def _criterion_outputs(conn, assessment) -> list[dict]:
              p.is_no_evidence AS personalized_no_evidence,
              p.evidence_json AS personalized_evidence_json,
              p.high_spread AS personalized_high_spread,
+             x.assessment_id AS exemplar_assessment_id,
              x.high_spread AS exemplar_high_spread,
              o.new_score AS override_score,
              d.exceeds_threshold,
@@ -371,7 +372,10 @@ def _criterion_outputs(conn, assessment) -> list[dict]:
         if row["override_score"] is not None:
             output_score, output_source = row["override_score"], "override"
         elif row["personalized_score"] is not None or row["personalized_no_evidence"]:
-            output_score, output_source = row["personalized_score"], "personalized"
+            output_score = row["personalized_score"]
+            output_source = (
+                "personalized" if row["exemplar_assessment_id"] is not None else "calibrated"
+            )
         else:
             output_score, output_source = None, "incomplete"
         exceeds_threshold = bool(row["exceeds_threshold"])
@@ -496,6 +500,7 @@ def download_assessment_report(assessment_id: str, user: CurrentUser = Depends(g
                 (assessment_id, cid),
             ).fetchone()
             detail[cid] = {
+                "legacy_dual_path": x is not None,
                 "personalized_score": None if (p is None or p["is_no_evidence"]) else p["score"],
                 "exemplar_score": None if (x is None or x["is_no_evidence"]) else x["score"],
                 "score_diff": d["score_diff"] if d else None,

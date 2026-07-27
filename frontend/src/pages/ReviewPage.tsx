@@ -6,23 +6,24 @@ import { PageHeader, cardClass, helpClass, inputClass, numberClass, primaryBtn, 
 
 const pill = "px-2.5 py-0.5 text-xs font-medium rounded-full";
 
-// One grading path (personalized output vs. exemplar reference). Both variants
-// share the same surface so the two are directly comparable side by side; the
-// output path is marked with a blue ring + tag rather than an inverted card.
+// New assessments render one calibrated output. This shared card also keeps
+// historical personalized/exemplar results readable without changing them.
 function PathCard({
-  variant,
+  title,
+  tag,
   result,
   anchorText,
 }: {
-  variant: "output" | "reference";
+  title: string;
+  tag: "OUTPUT" | "LEGACY REFERENCE";
   result: PathResult | null;
   anchorText?: string;
 }) {
-  const isOutput = variant === "output";
+  const isOutput = tag === "OUTPUT";
   return (
     <div className={`flex-1 min-w-0 ${cardClass} ${isOutput ? "ring-1 ring-blue-500/40" : ""}`}>
       <div className="flex items-center justify-between gap-2 mb-3">
-        <h3 className={titleClass}>{isOutput ? "Personalized" : "Exemplar"}</h3>
+        <h3 className={titleClass}>{title}</h3>
         <span
           className={`${pill} ${
             isOutput
@@ -30,7 +31,7 @@ function PathCard({
               : "bg-zinc-500/15 text-zinc-600 dark:text-zinc-400"
           }`}
         >
-          {isOutput ? "OUTPUT" : "REFERENCE"}
+          {tag}
         </span>
       </div>
 
@@ -119,10 +120,10 @@ export function ReviewPage() {
       .get<ReviewContract>(`/api/assessments/${assessmentId}/criteria/${criterionId}/review`)
       .then((d) => {
         setData(d);
-        // The personalized score is a multi-pass median and can be fractional
+        // The calibrated score is a multi-pass median and can be fractional
         // (e.g. 3.5); the override field is an integer 0-5, so round before
         // seeding it — sending 3.5 would be rejected by the backend (422).
-        if (typeof d.personalized?.score === "number") setNewScore(Math.round(d.personalized.score));
+        if (typeof d.calibrated?.score === "number") setNewScore(Math.round(d.calibrated.score));
       });
   }
 
@@ -162,6 +163,19 @@ export function ReviewPage() {
     }
   }
 
+  async function approveGrade() {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.post(`/api/assessments/${assessmentId}/criteria/${criterionId}/approve`, {});
+      refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Approval failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!data) {
     return (
       <div className="min-h-[calc(100vh-3.5rem)] bg-app-light dark:bg-app-dark">
@@ -175,7 +189,8 @@ export function ReviewPage() {
     );
   }
 
-  const divergent = data.divergence?.exceeds_threshold;
+  const divergent = data.legacy_dual_path && data.divergence?.exceeds_threshold;
+  const calibrated = data.calibrated ?? data.personalized;
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)] bg-app-light dark:bg-app-dark">
@@ -184,7 +199,7 @@ export function ReviewPage() {
         backTo={`/assessments/${assessmentId}`}
         backLabel="Back to assessment results"
         right={
-          data.divergence ? (
+          data.legacy_dual_path && data.divergence ? (
             <span
               className={`${pill} ${
                 divergent
@@ -203,7 +218,7 @@ export function ReviewPage() {
           <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-3">{data.criterion.statement}</p>
         )}
 
-        {data.divergence && (
+        {data.legacy_dual_path && data.divergence && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-6">
             <span className="text-xs text-zinc-500 dark:text-zinc-400">
               Score diff: {data.divergence.score_diff ?? "n/a"}
@@ -219,16 +234,28 @@ export function ReviewPage() {
 
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <PathCard
-            variant="output"
-            result={data.personalized}
-            anchorText={anchorTextFor(data.personalized, data.criterion?.anchors)}
+            title={data.legacy_dual_path ? "Historical personalized grade" : "Professor-calibrated grade"}
+            tag="OUTPUT"
+            result={calibrated}
+            anchorText={anchorTextFor(calibrated, data.criterion?.anchors)}
           />
-          <PathCard
-            variant="reference"
-            result={data.exemplar}
-            anchorText={anchorTextFor(data.exemplar, data.criterion?.anchors)}
-          />
+          {data.legacy_dual_path && (
+            <PathCard
+              title="Historical generic exemplar"
+              tag="LEGACY REFERENCE"
+              result={data.exemplar}
+              anchorText={anchorTextFor(data.exemplar, data.criterion?.anchors)}
+            />
+          )}
         </div>
+
+        {data.professor_feedback?.action === "approved" && (
+          <div className="mb-6 rounded-2xl border border-green-500/20 bg-green-500/10 p-4">
+            <p className="text-sm font-medium text-green-700 dark:text-green-300">
+              Approved as matching your grading. This submission now calibrates future results.
+            </p>
+          </div>
+        )}
 
         {data.current_override && (
           <div className="mb-6 bg-blue-500/10 border border-blue-500/20 rounded-2xl p-4">
@@ -241,7 +268,33 @@ export function ReviewPage() {
         {error && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{error}</p>}
 
         <form onSubmit={submitOverride} className={`${cardClass} space-y-3`}>
-          <h3 className={titleClass}>Override</h3>
+          <h3 className={titleClass}>Professor feedback</h3>
+          <p className={helpClass}>
+            Approve an unchanged score or save a correction. Either action adds this complete submission to
+            the assignment’s professor calibration set.
+          </p>
+          <button
+            type="button"
+            disabled={
+              busy ||
+              typeof calibrated?.score !== "number" ||
+              Boolean(data.current_override) ||
+              data.professor_feedback?.action === "approved"
+            }
+            onClick={approveGrade}
+            className="px-4 py-2 border border-green-300 dark:border-green-500/30 text-green-700 dark:text-green-400 rounded-lg text-sm font-medium hover:bg-green-500/10 disabled:opacity-50"
+          >
+            {data.current_override
+              ? "Corrected grade saved"
+              : data.professor_feedback?.action === "approved"
+                ? "Grade approved"
+                : `Approve as ${
+                    typeof calibrated?.score === "number" ? Math.round(calibrated.score) : "mine"
+                  }`}
+          </button>
+          <div className="border-t border-zinc-200 pt-3 dark:border-white/10">
+            <h4 className="mb-3 text-sm font-semibold text-zinc-800 dark:text-zinc-200">Or correct it</h4>
+          </div>
           <div className="flex items-center gap-2">
             <label className="text-sm text-zinc-700 dark:text-zinc-300">Score</label>
             <input
@@ -255,7 +308,7 @@ export function ReviewPage() {
           </div>
           <textarea
             className={inputClass}
-            placeholder="Rationale (required — becomes retrievable precedent)"
+            placeholder="Why you would assign this score (required — teaches future grading)"
             value={newRationale}
             onChange={(e) => setNewRationale(e.target.value)}
           />
@@ -263,14 +316,16 @@ export function ReviewPage() {
             <button type="submit" disabled={busy} className={`${primaryBtn} disabled:opacity-50`}>
               Save override
             </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={adoptExemplar}
-              className="px-4 py-2 border border-zinc-300 dark:border-white/10 text-zinc-700 dark:text-zinc-300 rounded-lg text-sm font-medium hover:bg-black/[0.03] dark:hover:bg-white/5 disabled:opacity-50"
-            >
-              Adopt exemplar
-            </button>
+            {data.legacy_dual_path && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={adoptExemplar}
+                className="px-4 py-2 border border-zinc-300 dark:border-white/10 text-zinc-700 dark:text-zinc-300 rounded-lg text-sm font-medium hover:bg-black/[0.03] dark:hover:bg-white/5 disabled:opacity-50"
+              >
+                Adopt historical exemplar
+              </button>
+            )}
           </div>
         </form>
       </div>

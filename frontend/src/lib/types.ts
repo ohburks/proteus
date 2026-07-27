@@ -149,6 +149,7 @@ export interface Rubric {
   version: string;
   genre: string;
   notes: string;
+  assignmentGuidance?: string | null;
   criteria: RubricCriterion[];
 }
 
@@ -169,16 +170,55 @@ export interface PersonalizedExcerpt {
   updated_at: string;
 }
 
+export interface CalibrationExampleScore {
+  criterion_id: string;
+  score: number;
+  rationale: string;
+}
+
+export interface CalibrationExample {
+  id: string;
+  name: string;
+  source: "uploaded" | "review_approved" | "review_override";
+  source_assessment_id: string | null;
+  character_count: number;
+  text_preview: string;
+  created_at: string;
+  updated_at: string;
+  scores: CalibrationExampleScore[];
+}
+
+export interface CalibrationCoverage {
+  criterion_id: string;
+  n_examples: number;
+  scores_present: number[];
+  ready: boolean;
+}
+
+export interface CalibrationSummary {
+  examples: CalibrationExample[];
+  n_examples: number;
+  criteria: CalibrationCoverage[];
+  ready: boolean;
+  minimum_recommended_examples: number;
+  feedback: {
+    n_reviewed: number;
+    n_approved: number;
+    n_overridden: number;
+    acceptance_rate: number | null;
+    mean_abs_adjustment: number | null;
+  };
+}
+
 export interface AssessmentCriterionSummary {
   criterion_id: string;
   output_score: number | null;
-  // "incomplete": the criterion has no personalized aggregate (grading failed
+  // "incomplete": the criterion has no calibrated aggregate (grading failed
   // partway through it) — no output grade exists for it.
-  output_source: "override" | "personalized" | "incomplete";
+  output_source: "override" | "calibrated" | "personalized" | "incomplete";
   exceeds_threshold: boolean;
-  // High spread: this path's own N sampling passes disagreed with each other.
-  // Distinct from exceeds_threshold (divergence BETWEEN the two paths) —
-  // never merge these two signals.
+  // High spread: this calibrated run's N sampling passes disagreed.
+  // exceeds_threshold is retained for historical dual-path results only.
   high_spread: boolean;
   // Soft flag (B3) — output_score above is unaffected by this; it's purely
   // "an instructor should look at this," never a block on grading.
@@ -254,8 +294,17 @@ export interface Override {
 export interface ReviewContract {
   criterion_id: string;
   criterion: { statement: string; anchors: Record<string, string> } | null;
+  calibrated: PathResult | null;
   personalized: PathResult | null;
   exemplar: PathResult | null;
+  legacy_dual_path: boolean;
   divergence: Divergence | null;
   current_override: Override | null;
+  professor_feedback: {
+    action: "approved" | "overridden";
+    model_score: number | null;
+    professor_score: number;
+    professor_rationale: string;
+    updated_at: string;
+  } | null;
 }

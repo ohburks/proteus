@@ -1,7 +1,7 @@
 """In-memory live-grading progress log — TESTING ONLY.
 
 Backs the dev "live grading terminal" panel so an instructor can watch an
-assessment's dual-path grading run as it happens. Single-process, in-memory,
+assessment's professor-calibrated grading run as it happens. Single-process, in-memory,
 unbounded for the lifetime of the process: it does not survive a restart and
 does not work across multiple uvicorn workers, so this is not a durable audit
 log or a mechanism to rely on in production — score_records_v2 remains the

@@ -116,10 +116,8 @@ function CriterionRow({ assessmentId, c }: { assessmentId: string; c: Assessment
               divergent
             </span>
           )}
-          {/* High spread (a path's own multi-pass results disagreed with
-              each other) is an additive signal alongside divergence
-              (the two paths disagreeing with each other) — kept as its
-              own badge, never merged into "divergent". */}
+          {/* High spread is a calibrated run's own multi-pass instability.
+              Divergence is retained only for historical dual-path results. */}
           {c.high_spread && (
             <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-400">
               high spread

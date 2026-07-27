@@ -17,6 +17,7 @@ CHROMA_DIR.mkdir(parents=True, exist_ok=True)
 
 EXEMPLAR_COLLECTION = "exemplar_excerpts"
 PERSONALIZED_COLLECTION = "personalized_excerpts"
+CALIBRATION_COLLECTION = "professor_calibration_examples"
 
 _client = None
 _embedding_function = DefaultEmbeddingFunction()

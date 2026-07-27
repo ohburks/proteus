@@ -8,6 +8,7 @@ interface RubricSummary {
   version: string;
   genre: string;
   notes: string;
+  is_custom: boolean;
 }
 
 function CriterionRow({
@@ -87,6 +88,7 @@ export function LibraryPage() {
   const [activeDimension, setActiveDimension] = useState("");
   const [expandedCriterion, setExpandedCriterion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [importingRubric, setImportingRubric] = useState(false);
 
   useEffect(() => {
     api
@@ -113,6 +115,61 @@ export function LibraryPage() {
       .catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load rubric"));
   }, [rubricKey]);
 
+  async function importRubric(file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    setImportingRubric(true);
+    try {
+      if (file.size > 1024 * 1024) throw new Error("Rubric JSON files are limited to 1 MB.");
+      const raw = JSON.parse(await file.text());
+      const created = await api.post<RubricSummary>("/api/rubrics", raw);
+      const next = await api.get<RubricSummary[]>("/api/rubrics");
+      setRubrics(next);
+      setRubricKey(`${created.rubric_id}::${created.version}`);
+    } catch (err) {
+      if (err instanceof ApiError) setError(err.message);
+      else if (err instanceof SyntaxError) setError("The selected file is not valid JSON.");
+      else setError(err instanceof Error ? err.message : "Failed to import rubric");
+    } finally {
+      setImportingRubric(false);
+    }
+  }
+
+  function downloadRubricTemplate() {
+    const template = {
+      rubricId: "my-rubric",
+      version: "1.0",
+      genre: "essay",
+      notes: "What this rubric is designed to assess.",
+      assignmentGuidance: "Professor guidance that should accompany every grading prompt.",
+      criteria: [
+        {
+          criterionId: "C1",
+          standard: "Optional standard reference",
+          dimension: "Claims",
+          statement: "States a precise, defensible central claim.",
+          scale: "0-5",
+          referenceability: "strong",
+          source: "Professor rubric",
+          anchors: Object.fromEntries(
+            Array.from({ length: 6 }, (_, score) => [
+              String(score),
+              `Describe what a score of ${score} looks like.`,
+            ]),
+          ),
+        },
+      ],
+    };
+    const url = URL.createObjectURL(
+      new Blob([JSON.stringify(template, null, 2)], { type: "application/json" }),
+    );
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "proteus-rubric-template.json";
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
   const dimensionOrder = rubric ? [...new Set(rubric.criteria.map((c) => c.dimension))] : [];
   const selectedSummary = rubrics.find((item) => `${item.rubric_id}::${item.version}` === rubricKey);
   const visibleCriteria = rubric?.criteria.filter((criterion) => criterion.dimension === activeDimension) ?? [];
@@ -122,8 +179,40 @@ export function LibraryPage() {
       <PageHeader
         title="Rubric library"
         subtitle={`${rubrics.length} rubric${rubrics.length === 1 ? "" : "s"} available`}
+        right={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={downloadRubricTemplate}
+              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+            >
+              Download JSON template
+            </button>
+            <label
+              className={`cursor-pointer rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5 ${
+                importingRubric ? "pointer-events-none opacity-50" : ""
+              }`}
+            >
+              <input
+                className="sr-only"
+                type="file"
+                accept=".json,application/json"
+                disabled={importingRubric}
+                onChange={(event) => {
+                  void importRubric(event.target.files?.[0]);
+                  event.target.value = "";
+                }}
+              />
+              {importingRubric ? "Importing…" : "Import rubric JSON"}
+            </label>
+          </div>
+        }
       />
       <div className="max-w-3xl mx-auto px-6 py-6">
+        <p className={`${helpClass} mb-4`}>
+          Import a structured rubric once, then select it while creating assignments. The template includes
+          criterion anchors for every score from 0–5 and professor guidance sent to the grading model.
+        </p>
         {rubrics.length > 0 && (
           <section className="bg-blue-500/[0.06] dark:bg-blue-500/10 border border-blue-500/20 rounded-2xl p-4 mb-6">
             <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-2">Viewing rubric</p>
@@ -148,6 +237,11 @@ export function LibraryPage() {
                   <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-blue-500/15 text-blue-700 dark:text-blue-300">
                     {rubric.genre}
                   </span>
+                  {selectedSummary?.is_custom && (
+                    <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-green-500/15 text-green-700 dark:text-green-300">
+                      your rubric
+                    </span>
+                  )}
                   <span className="text-xs text-zinc-500 dark:text-zinc-400">
                     {rubric.criteria.length} criteria · {dimensionOrder.length} dimensions
                   </span>
@@ -156,6 +250,14 @@ export function LibraryPage() {
             </div>
             {selectedSummary?.notes && (
               <p className={`${helpClass} mt-3 max-w-2xl`}>{selectedSummary.notes}</p>
+            )}
+            {rubric?.assignmentGuidance && (
+              <div className="mt-3 rounded-xl border border-blue-500/15 bg-white/50 p-3 dark:bg-white/[0.025]">
+                <p className="mb-1 text-xs font-medium text-blue-700 dark:text-blue-300">
+                  Grading guidance sent to the model
+                </p>
+                <p className={helpClass}>{rubric.assignmentGuidance}</p>
+              </div>
             )}
           </section>
         )}

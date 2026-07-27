@@ -78,9 +78,11 @@ def _criterion_flowables(c: dict, s: dict) -> list:
     out = [Paragraph(f"<b>{escape(c['criterion_id'])}</b> — {escape(c.get('statement') or '')}", s["criterion"])]
 
     parts = [f"Output score: <b>{_fmt_score(c['output_score'])}</b> ({escape(c['output_source'])})"]
-    if c.get("personalized_score") is not None or c.get("exemplar_score") is not None:
+    if c.get("legacy_dual_path"):
         parts.append(f"personalized {_fmt_score(c.get('personalized_score'))}")
         parts.append(f"exemplar {_fmt_score(c.get('exemplar_score'))}")
+    elif c.get("personalized_score") is not None:
+        parts.append(f"professor-calibrated {_fmt_score(c.get('personalized_score'))}")
     if c.get("score_diff") is not None:
         verdict = "exceeds threshold" if c.get("exceeds_threshold") else "within threshold"
         parts.append(f"divergence Δ{_fmt_score(c['score_diff'])} ({verdict})")

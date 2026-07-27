@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, ApiError, downloadFile, streamLines, uploadFile } from "../lib/api";
-import type { Assignment, Essay, QueueEntry, Student } from "../lib/types";
+import type {
+  Assignment,
+  CalibrationSummary,
+  Essay,
+  QueueEntry,
+  Rubric,
+  Student,
+} from "../lib/types";
 import {
   Chip,
   OverflowMenu,
@@ -23,6 +30,7 @@ export function AssignmentPage() {
   const navigate = useNavigate();
   const [essays, setEssays] = useState<Essay[]>([]);
   const [assignment, setAssignment] = useState<Assignment | null>(null);
+  const [rubric, setRubric] = useState<Rubric | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
   const [studentId, setStudentId] = useState("");
   const [queue, setQueue] = useState<QueueEntry[]>([]);
@@ -41,6 +49,14 @@ export function AssignmentPage() {
   const [text, setText] = useState("");
   const [importingDocument, setImportingDocument] = useState(false);
   const [importedDocument, setImportedDocument] = useState<string | null>(null);
+  const [calibration, setCalibration] = useState<CalibrationSummary | null>(null);
+  const [calibrationName, setCalibrationName] = useState("");
+  const [calibrationText, setCalibrationText] = useState("");
+  const [calibrationImportedDocument, setCalibrationImportedDocument] = useState<string | null>(null);
+  const [calibrationScores, setCalibrationScores] = useState<Record<string, string>>({});
+  const [calibrationRationales, setCalibrationRationales] = useState<Record<string, string>>({});
+  const [importingCalibrationDocument, setImportingCalibrationDocument] = useState(false);
+  const [savingCalibration, setSavingCalibration] = useState(false);
   const [provider, setProvider] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("");
@@ -57,7 +73,7 @@ export function AssignmentPage() {
   const [terminalMinimized, setTerminalMinimized] = useState(false);
   // Which control-bar panel is expanded (all collapsed by default so the page
   // opens on the work — the essay queues — not on setup forms).
-  const [openPanel, setOpenPanel] = useState<"add" | "grading" | "details" | null>(null);
+  const [openPanel, setOpenPanel] = useState<"add" | "grading" | "details" | "calibration" | null>(null);
   const [activeTab, setActiveTab] = useState<"ungraded" | "graded">("ungraded");
   const [detailsPromptText, setDetailsPromptText] = useState("");
   const [detailsFormatExpectations, setDetailsFormatExpectations] = useState("");
@@ -128,6 +144,24 @@ export function AssignmentPage() {
     if (!assignmentId) return;
     api.get<Assignment>(`/api/assignments/${assignmentId}`).then(setAssignment);
   }, [assignmentId]);
+
+  useEffect(() => {
+    if (!assignment) return;
+    api
+      .get<Rubric>(`/api/rubrics/${assignment.rubric_id}/${assignment.rubric_version}`)
+      .then(setRubric);
+  }, [assignment]);
+
+  const refreshCalibration = useCallback(() => {
+    if (!assignmentId) return;
+    api
+      .get<CalibrationSummary>(`/api/assignments/${assignmentId}/calibration-examples`)
+      .then(setCalibration);
+  }, [assignmentId]);
+
+  useEffect(() => {
+    refreshCalibration();
+  }, [refreshCalibration]);
 
   useEffect(() => {
     if (!assignment) return;
@@ -235,6 +269,86 @@ export function AssignmentPage() {
       setError(err instanceof ApiError ? err.message : "Failed to import document");
     } finally {
       setImportingDocument(false);
+    }
+  }
+
+  async function importCalibrationDocument(file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    if (file.size > 15 * 1024 * 1024) {
+      setError("Documents are limited to 15 MB.");
+      return;
+    }
+    setImportingCalibrationDocument(true);
+    try {
+      const result = await uploadFile<{
+        text: string;
+        filename: string;
+      }>("/api/essays/import-text", file);
+      setCalibrationText(result.text);
+      setCalibrationImportedDocument(result.filename);
+      setCalibrationName((current) => current || result.filename.replace(/\.[^.]+$/, ""));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to import professor example");
+    } finally {
+      setImportingCalibrationDocument(false);
+    }
+  }
+
+  async function createCalibrationExample(e: React.FormEvent) {
+    e.preventDefault();
+    if (!assignmentId || !rubric) return;
+    setError(null);
+    if (!calibrationName.trim() || !calibrationText.trim()) {
+      setError("Example name and submission text are required.");
+      return;
+    }
+    const missing = rubric.criteria.filter(
+      (criterion) =>
+        calibrationScores[criterion.criterionId] === undefined ||
+        calibrationScores[criterion.criterionId] === "" ||
+        !calibrationRationales[criterion.criterionId]?.trim(),
+    );
+    if (missing.length > 0) {
+      setError(`Add a score and professor rationale for: ${missing.map((item) => item.criterionId).join(", ")}`);
+      return;
+    }
+    setSavingCalibration(true);
+    try {
+      const result = await api.post<CalibrationSummary & { id: string }>(
+        `/api/assignments/${assignmentId}/calibration-examples`,
+        {
+          name: calibrationName,
+          essay_text: calibrationText,
+          scores: rubric.criteria.map((criterion) => ({
+            criterion_id: criterion.criterionId,
+            score: Number(calibrationScores[criterion.criterionId]),
+            rationale: calibrationRationales[criterion.criterionId],
+          })),
+        },
+      );
+      setCalibration(result);
+      setCalibrationName("");
+      setCalibrationText("");
+      setCalibrationImportedDocument(null);
+      setCalibrationScores({});
+      setCalibrationRationales({});
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to add professor example");
+    } finally {
+      setSavingCalibration(false);
+    }
+  }
+
+  async function deleteCalibrationExample(exampleId: string) {
+    if (!assignmentId || !confirm("Delete this professor example from future grading?")) return;
+    try {
+      const result = await api.del<CalibrationSummary>(
+        `/api/assignments/${assignmentId}/calibration-examples/${exampleId}`,
+      );
+      setCalibration(result);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to delete professor example");
     }
   }
 
@@ -396,7 +510,7 @@ export function AssignmentPage() {
     }
   }
 
-  function togglePanel(panel: "add" | "grading" | "details") {
+  function togglePanel(panel: "add" | "grading" | "details" | "calibration") {
     setOpenPanel((cur) => (cur === panel ? null : panel));
   }
 
@@ -454,6 +568,10 @@ export function AssignmentPage() {
           </Chip>
           <Chip active={openPanel === "details"} onClick={() => togglePanel("details")}>
             Assignment details
+          </Chip>
+          <Chip active={openPanel === "calibration"} onClick={() => togglePanel("calibration")}>
+            Professor examples: {calibration?.n_examples ?? 0}
+            {calibration?.ready && <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500" />}
           </Chip>
         </div>
 
@@ -569,7 +687,7 @@ export function AssignmentPage() {
           >
             <h2 className={titleClass}>Assignment details</h2>
             <p className={`${helpClass} mt-1 mb-4`}>
-              Shared assignment context used by both grading paths.
+              Assignment context used by the relevance check and professor-calibrated grader.
             </p>
             <div className="space-y-4">
               <div>
@@ -628,6 +746,180 @@ export function AssignmentPage() {
               <button className={primaryBtn}>Save details</button>
             </div>
           </form>
+        )}
+
+        {/* Professor calibration examples */}
+        {openPanel === "calibration" && (
+          <section className="mb-4 space-y-5 rounded-2xl border border-zinc-200 bg-surface-light p-5 dark:border-transparent dark:bg-surface-dark">
+            <div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className={titleClass}>Professor calibration</h2>
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                    calibration?.ready
+                      ? "bg-green-500/15 text-green-700 dark:text-green-400"
+                      : "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                  }`}
+                >
+                  {calibration?.ready ? "calibrated" : "building calibration"}
+                </span>
+              </div>
+              <p className={`${helpClass} mt-1`}>
+                Upload submissions you already graded and record your criterion scores. These are the only
+                retrieved examples used to teach the model how you apply this assignment’s rubric.
+              </p>
+              {calibration && (
+                <div className="mt-3 flex flex-wrap gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+                  <span className="rounded-lg bg-black/[0.035] px-2.5 py-1.5 dark:bg-white/5">
+                    {calibration.n_examples} example{calibration.n_examples === 1 ? "" : "s"}
+                  </span>
+                  <span className="rounded-lg bg-black/[0.035] px-2.5 py-1.5 dark:bg-white/5">
+                    {calibration.criteria.filter((item) => item.ready).length}/{calibration.criteria.length} criteria ready
+                  </span>
+                  {calibration.feedback.acceptance_rate !== null && (
+                    <span className="rounded-lg bg-black/[0.035] px-2.5 py-1.5 dark:bg-white/5">
+                      {(calibration.feedback.acceptance_rate * 100).toFixed(0)}% accepted unchanged
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {calibration && calibration.examples.length > 0 && (
+              <ul className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 dark:divide-white/5 dark:border-white/10">
+                {calibration.examples.map((example) => (
+                  <li key={example.id} className="flex items-start justify-between gap-3 px-3 py-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{example.name}</p>
+                        <span className="rounded-full bg-blue-500/15 px-2 py-0.5 text-xs text-blue-700 dark:text-blue-400">
+                          {example.source.replaceAll("_", " ")}
+                        </span>
+                      </div>
+                      <p className="mt-1 line-clamp-2 text-xs text-zinc-500 dark:text-zinc-400">
+                        {example.text_preview}
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
+                        {example.scores.length} criterion labels ·{" "}
+                        {example.scores.map((score) => `${score.criterion_id} ${score.score}`).join(" · ")}
+                      </p>
+                    </div>
+                    <OverflowMenu
+                      items={[
+                        {
+                          label: "Delete example",
+                          onClick: () => deleteCalibrationExample(example.id),
+                          danger: true,
+                        },
+                      ]}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <form onSubmit={createCalibrationExample} className="space-y-4 border-t border-zinc-200 pt-5 dark:border-white/10">
+              <div>
+                <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Add a graded example</h3>
+                <p className={`${helpClass} mt-1`}>
+                  A balanced range of strong, average, and weak examples produces the best calibration.
+                </p>
+              </div>
+              <input
+                className={inputClass}
+                placeholder="Example name"
+                value={calibrationName}
+                onChange={(event) => setCalibrationName(event.target.value)}
+              />
+              <textarea
+                aria-label="Professor example text"
+                className={`${inputClass} h-36`}
+                placeholder="Paste the previously graded submission or import a document"
+                value={calibrationText}
+                onChange={(event) => {
+                  setCalibrationText(event.target.value);
+                  setCalibrationImportedDocument(null);
+                }}
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <label
+                  className={`cursor-pointer rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-black/[0.03] dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5 ${
+                    importingCalibrationDocument ? "pointer-events-none opacity-50" : ""
+                  }`}
+                >
+                  <input
+                    className="sr-only"
+                    type="file"
+                    accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    disabled={importingCalibrationDocument}
+                    onChange={(event) => {
+                      void importCalibrationDocument(event.target.files?.[0]);
+                      event.target.value = "";
+                    }}
+                  />
+                  {importingCalibrationDocument ? "Importing…" : "Import PDF or Word file"}
+                </label>
+                {calibrationImportedDocument && (
+                  <span className="max-w-56 truncate text-xs text-green-700 dark:text-green-400">
+                    Imported {calibrationImportedDocument}
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                {rubric?.criteria.map((criterion) => (
+                  <div
+                    key={criterion.criterionId}
+                    className="rounded-xl border border-zinc-200 p-3 dark:border-white/10"
+                  >
+                    <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                          {criterion.criterionId} · {criterion.dimension}
+                        </p>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">{criterion.statement}</p>
+                      </div>
+                      <select
+                        aria-label={`${criterion.criterionId} professor score`}
+                        className={selectClass}
+                        value={calibrationScores[criterion.criterionId] ?? ""}
+                        onChange={(event) =>
+                          setCalibrationScores((current) => ({
+                            ...current,
+                            [criterion.criterionId]: event.target.value,
+                          }))
+                        }
+                      >
+                        <option value="">Score…</option>
+                        {[0, 1, 2, 3, 4, 5].map((score) => (
+                          <option key={score} value={score}>
+                            {score}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <input
+                      className={inputClass}
+                      placeholder="Why you assigned this score"
+                      value={calibrationRationales[criterion.criterionId] ?? ""}
+                      onChange={(event) =>
+                        setCalibrationRationales((current) => ({
+                          ...current,
+                          [criterion.criterionId]: event.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+              <button
+                disabled={savingCalibration || importingCalibrationDocument || !rubric}
+                className={`${primaryBtn} disabled:opacity-50`}
+              >
+                {savingCalibration ? "Saving example…" : "Add professor example"}
+              </button>
+            </form>
+          </section>
         )}
 
         {error && (

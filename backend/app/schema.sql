@@ -41,6 +41,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_events_actor
 CREATE TABLE IF NOT EXISTS rubrics (
   rubric_id TEXT NOT NULL,
   version TEXT NOT NULL,
+  owner_instructor_id TEXT,
   genre TEXT,
   notes TEXT,
   assignment_guidance TEXT,
@@ -162,6 +163,39 @@ CREATE TABLE IF NOT EXISTS assignments (
 );
 CREATE INDEX IF NOT EXISTS idx_assignments_course
   ON assignments (course_id, created_at DESC);
+
+-- Full professor-graded submissions used to calibrate one assignment. Unlike
+-- the legacy excerpt corpora, these preserve the complete example and its
+-- criterion-by-criterion labels so the grading prompt can reproduce the
+-- professor's actual scoring behavior.
+CREATE TABLE IF NOT EXISTS calibration_examples (
+  id TEXT PRIMARY KEY,
+  assignment_id TEXT NOT NULL REFERENCES assignments(id),
+  instructor_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  essay_text TEXT NOT NULL,
+  source TEXT NOT NULL CHECK (
+    source IN ('uploaded','review_approved','review_override')
+  ),
+  source_assessment_id TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE (assignment_id, source_assessment_id)
+);
+CREATE INDEX IF NOT EXISTS idx_calibration_examples_assignment
+  ON calibration_examples (assignment_id, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS calibration_example_scores (
+  example_id TEXT NOT NULL REFERENCES calibration_examples(id),
+  criterion_id TEXT NOT NULL,
+  score INTEGER NOT NULL CHECK (score BETWEEN 0 AND 5),
+  rationale TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (example_id, criterion_id)
+);
+CREATE INDEX IF NOT EXISTS idx_calibration_scores_criterion
+  ON calibration_example_scores (criterion_id, score);
 
 CREATE TABLE IF NOT EXISTS students (
   id TEXT PRIMARY KEY,
@@ -290,6 +324,20 @@ CREATE TABLE IF NOT EXISTS score_overrides (
   new_rationale TEXT NOT NULL,
   overridden_by TEXT NOT NULL,
   created_at TEXT NOT NULL,
+  PRIMARY KEY (assessment_id, criterion_id)
+);
+
+-- Explicit professor feedback is the product-quality signal: an approval means
+-- the calibrated score matched unchanged; an override records the correction.
+CREATE TABLE IF NOT EXISTS grading_feedback (
+  assessment_id TEXT NOT NULL REFERENCES assessments(id),
+  criterion_id TEXT NOT NULL,
+  action TEXT NOT NULL CHECK (action IN ('approved','overridden')),
+  model_score REAL,
+  professor_score INTEGER NOT NULL CHECK (professor_score BETWEEN 0 AND 5),
+  professor_rationale TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
   PRIMARY KEY (assessment_id, criterion_id)
 );
 
